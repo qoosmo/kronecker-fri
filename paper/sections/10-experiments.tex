@@ -1,0 +1,177 @@
+\section{Experiments}\label{sec:exp}
+
+This section measures the implementation of \cref{sec:impl}.
+The goals are specific: to compare Kronecker-FRI with the kernel-basis scheme of~\cite{Mkh26} and with a coefficient-form baseline at identical engineering, to locate where the prover's time goes, and to quantify salting, the post-quantum parameters and the number of folding rounds.
+We do not claim competitive absolute performance: the code is single-threaded and uses no SIMD, no Merkle multiproofs and no hash-specific batching, and neither do the codes it is compared with.
+
+\subsection{Setup}\label{sec:exp:setup}
+
+\paragraph{Machine.}
+All runs use one core of an Intel Xeon processor at $2.80$\,GHz (cloud virtual machine, $2$ vCPUs, $7$\,GB RAM), Rust $1.95.0$, release profile with fat LTO and one codegen unit, and no \texttt{target-cpu} flag.
+All numbers of this section come from one session on one machine; they are not comparable with the absolute timings reported in~\cite{Mkh26}, which were measured on another machine.
+Times are medians over $11$ runs for $n \le 18$, $5$ for $n = 20$ and $3$ for $n = 22$ and for \cref{tab:exp-stop,tab:exp-settings}; verification times are medians over $21$ runs.
+The machine is a shared virtual machine, and timings of identical work vary by up to about $10$--$20\%$ between runs.
+
+\paragraph{Parameters.}
+Unless stated otherwise: $\rho = 1/4$ ($R = 2$), $\ell = n - 4$ (final polynomial of $16$ coefficients), $\kappa = 148$, the quadratic extension $\F = \mathbb{F}_{q^2}$, and unsalted Merkle trees.
+By \cref{thm:sound} with $\delta = \delta^* = 3/8$, the query term is $(5/8)^{148} < 2^{-100}$, and the field term is below $2^{-100}$ for all sizes tested ($M \le 2^{24}$; \cref{tab:field}).
+Polynomials have uniformly random coefficients in $\Fq$, and $z$ is uniformly random in $\F^n$.
+
+\paragraph{Schemes compared.}
+We compare three schemes that share the field arithmetic, the NTT, the BLAKE3 Merkle trees with fibre leaves and the transcript, and differ only in how an evaluation is proved.
+\begin{itemize}
+  \item \emph{Kronecker-FRI}: $\Pi_{\mathrm{KF}}$ as implemented in \cref{sec:impl}.
+  \item \emph{KBFold}: the evaluation protocol of~\cite{Mkh26}, from its reference implementation: the table $f$ is encoded in the Boolean-kernel basis, and a sumcheck of $\ell$ rounds runs alongside the kernel folds.
+  \item \emph{Coefficient-form baseline}: the second mode of the same implementation~\cite[\S8]{Mkh26}, which encodes the coefficient form of $f$ and folds with the classical FRI fold, alongside the same sumcheck. This is the coefficient-form folding of Reed--Solomon instantiations of BaseFold~\cite{ZCF24}; it is \emph{not} the BaseFold code base.
+\end{itemize}
+The implementation of~\cite{Mkh26} uses unsalted trees, so the comparison uses unsalted trees for Kronecker-FRI too; salting is measured separately in \cref{sec:exp:settings}.
+All three schemes are run with the same $\rho$, $\ell$ and $\kappa$, which give the same query term; for the two sumcheck-based schemes the field term is $\sum_j (M_j + 2)/|\F|$~\cite{Mkh26}, and for Kronecker-FRI it is $\varepsilon_{\mathrm{KF}} - (1-\delta)^\kappa < 3M/|\F|$, both below $2^{-100}$ here.
+
+\subsection{Comparison}\label{sec:exp:scaling}
+
+\begin{table}[t]
+\centering
+\small
+\setlength{\tabcolsep}{4pt}
+\begin{tabular}{r rrr rrr rrr rr}
+\toprule
+ & \multicolumn{3}{c}{Commit (ms)} & \multicolumn{3}{c}{Open (ms)} & \multicolumn{3}{c}{Verify (ms)} & \multicolumn{2}{c}{Proof (KiB)} \\
+\cmidrule(lr){2-4}\cmidrule(lr){5-7}\cmidrule(lr){8-10}\cmidrule(lr){11-12}
+$n$ & KF & KB & coeff. & KF & KB & coeff. & KF & KB & coeff. & KF & KB, coeff. \\
+\midrule
+12 & 3.0 & 4.5 & 3.9 & 9.2 & 3.1 & 3.1 & 2.7 & 2.5 & 2.5 & 451 & 387 \\
+14 & 12.8 & 12.3 & 11.8 & 37.5 & 12.7 & 12.7 & 3.5 & 3.4 & 3.4 & 604 & 531 \\
+16 & 47.4 & 53.3 & 50.5 & 158.5 & 49.6 & 49.6 & 4.4 & 4.3 & 4.4 & 775 & 693 \\
+18 & 210.7 & 224.1 & 203.0 & 701.2 & 205.3 & 199.5 & 5.5 & 5.7 & 5.5 & 965 & 873 \\
+20 & 983.9 & 1012.9 & 979.2 & 3027.9 & 830.0 & 853.6 & 6.6 & 6.5 & 6.5 & 1173 & 1072 \\
+22 & 3973.7 & 4262.7 & 4240.7 & 13417.6 & 3928.3 & 3885.5 & 8.1 & 7.7 & 8.1 & 1400 & 1290 \\
+\bottomrule
+\end{tabular}
+\caption{Kronecker-FRI (KF), KBFold (KB)~\cite{Mkh26} and the coefficient-form baseline, single-threaded, $\rho = 1/4$, $\ell = n-4$, $\kappa = 148$, $\F = \mathbb{F}_{q^2}$, unsalted trees. KBFold and the baseline have proofs of identical shape.}
+\label{tab:exp-scaling}
+\end{table}
+
+\Cref{tab:exp-scaling} reports commit, open and verify times and proof sizes for $n = 12, \dots, 22$.
+
+\paragraph{Commit.}
+The three schemes perform the same work up to the transform that precedes the NTT: the Boolean-kernel transform for KBFold, the M\"obius transform for the baseline, and nothing for Kronecker-FRI, which we run from the coefficient form. From a table, Kronecker-FRI would also perform the M\"obius transform, which the baseline's timings include and which takes $13.8$\,ms at $n = 20$ and $102$\,ms at $n = 22$ in the same session, $1$--$3\%$ of the commitment. For $n \ge 14$ the commitment times of the three schemes agree within $11\%$, Kronecker-FRI being slightly faster at most sizes; at $n = 12$ the timings, of $3$ to $5$\,ms, are dominated by noise.
+
+\paragraph{Verify.}
+Verification times agree within the variability of the machine, between $2.5$ and $8.1$\,ms: all three verifiers are dominated by the $\kappa(\ell+1)$ authentication paths. Kronecker-FRI replaces the sumcheck checks by the computation of $K_z(\pm\xi)$ and $h(\pm\xi)$ at each query point, which costs $O(n)$ field operations per point (\cref{prop:costs}(3)) and is not visible at this resolution.
+
+\paragraph{Proof size.}
+Kronecker-FRI proofs are larger by $64$--$110$\,KiB, that is by $8$--$17\%$: each query opens one more leaf (in the tree of $w_A$), with its authentication path of $\log_2 M - 1$ digests, while the $\ell$ sumcheck messages of the other schemes are negligible. The difference is $\kappa\,(32(\log_2 M - 1) + 32)$ bytes (a path and a leaf of two elements of $\mathbb{F}_{q^2}$ per query) minus the sumcheck messages, $101.0$\,KiB at $n = 20$; it grows like $\log M$ while the rest of the proof grows like $\ell \log M$, so it becomes relatively smaller as $n$ grows.
+
+\paragraph{Open.}
+Opening is where the schemes differ: Kronecker-FRI is $3.0$--$3.7$ times slower than KBFold at every size. The reason is structural, and \cref{tab:exp-breakdown} shows it.
+
+\begin{table}[t]
+\centering
+\small
+\begin{tabular}{r rrrrr r}
+\toprule
+$n$ & $U_f K_z$ & NTT of $w_A$ & tree of $w_A$ & $h$, $w_0$ & folds, trees & total open \\
+\midrule
+16 & 18.1 & 23.3 & 38.4 & 24.5 & 44.2 & 158.5 \\
+18 & 104.6 & 127.3 & 155.2 & 102.6 & 181.1 & 701.2 \\
+20 & 501.7 & 600.3 & 645.7 & 432.8 & 784.4 & 3027.9 \\
+22 & 2775.6 & 2470.9 & 2572.8 & 1892.3 & 3270.7 & 13417.6 \\
+\bottomrule
+\end{tabular}
+\caption{Components of the Kronecker-FRI opening (ms), measured separately with the same code as the prover, and the total opening time of \cref{tab:exp-scaling}.}
+\label{tab:exp-breakdown}
+\end{table}
+
+\subsection{Where the prover's time goes}\label{sec:exp:breakdown}
+
+\Cref{tab:exp-breakdown} splits the Kronecker-FRI opening into its steps; the remainder (transcript, final polynomial, openings) is below $7\%$ of the total.
+The last column, the folds $w_1,\dots,w_{\ell-1}$ and their Merkle trees, is the work that all three schemes share: it is close to the whole opening time of KBFold ($784$ against $830$\,ms at $n = 20$), whose remaining cost is the sumcheck, of $O(N)$ operations.
+The other four columns are specific to Kronecker-FRI, and each costs between about $0.4$ and $0.8$ of a commitment:
+\begin{itemize}
+  \item the product $U_f K_z$, with $2nN$ multiplications in $\F$ (\cref{lem:cost}(3));
+  \item the NTT of $A$ over $\F$, which costs $e = 2$ base-field NTTs of size $M$ (\cref{fact:ntt});
+  \item the Merkle tree of $w_A$, with $M/2$ leaves of two elements of $\F$;
+  \item the words $\ev_L(K_z)$, $h$ and $w_0$, with $O(M)$ operations in $\F$ (\cref{prop:costs}(2)).
+\end{itemize}
+Together they cost $2.2$ to $2.5$ commitments. In exchange, the verifier runs no sumcheck and the soundness argument has a single algebraic step (\cref{lem:batching}).
+The asymptotic cost of the opening is $O(M\log M)$ for both schemes; the constant is larger for Kronecker-FRI because it commits to one more word of length $M$ over $\F$.
+
+\subsection{Salting and the post-quantum parameters}\label{sec:exp:settings}
+
+\begin{table}[t]
+\centering
+\small
+\begin{tabular}{l c r r rrrr}
+\toprule
+setting & $\F$ & $\kappa$ & salt & commit (ms) & open (ms) & verify (ms) & proof (KiB) \\
+\midrule
+classical & $\mathbb{F}_{q^2}$ & 148 & -- & 963 & 2993 & 6.8 & 1173 \\
+classical, salted & $\mathbb{F}_{q^2}$ & 148 & 32\,B & 1236 & 3680 & 8.2 & 1252 \\
+post-quantum & $\mathbb{F}_{q^4}$ & 248 & 32\,B & 1218 & 6432 & 12.3 & 2222 \\
+\bottomrule
+\end{tabular}
+\caption{Kronecker-FRI at $n = 20$, $\rho = 1/4$, $\ell = 16$, in three settings. The post-quantum row uses the parameters of \cref{rem:pq-params}.}
+\label{tab:exp-settings}
+\end{table}
+
+\Cref{tab:exp-settings} measures the settings of \cref{sec:pq} at $n = 20$, and \cref{tab:exp-salt} the cost of salting at every size.
+Over the sizes of \cref{tab:exp-scaling}, salting every leaf with $32$ bytes costs $20$--$42\%$ in commit time and $22$--$34\%$ in open time (in our implementation the salts are derived by one keyed BLAKE3 call per leaf), and adds $32\kappa(\ell+1)$ bytes to the proof, $6$--$9\%$.
+The post-quantum parameters ($\mathbb{F}_{q^4}$, $\kappa = 248$, salted trees) roughly double the opening time, since the words $w_A, w_0, w_1, \dots$ live in a field twice as large, and give proofs of $2.2$\,MiB at $n = 20$: the $248$ queries each open $\ell + 1 = 17$ leaves with their salts and paths.
+The commitment itself is unaffected by the choice of $\F$, since $\Enc(f)$ is computed over $\Fq$.
+
+
+\begin{table}[t]
+\centering
+\small
+\begin{tabular}{r rr rr rr}
+\toprule
+ & \multicolumn{2}{c}{Commit (ms)} & \multicolumn{2}{c}{Open (ms)} & \multicolumn{2}{c}{Proof (KiB)} \\
+\cmidrule(lr){2-3}\cmidrule(lr){4-5}\cmidrule(lr){6-7}
+$n$ & unsalted & salted & unsalted & salted & unsalted & salted \\
+\midrule
+12 & 3.0 & 3.7 & 9.2 & 12.4 & 451 & 493 \\
+14 & 12.8 & 15.7 & 37.5 & 50.1 & 604 & 655 \\
+16 & 47.4 & 67.5 & 158.5 & 202.4 & 775 & 836 \\
+18 & 210.7 & 277.2 & 701.2 & 879.1 & 965 & 1035 \\
+20 & 983.9 & 1190.3 & 3027.9 & 3734.2 & 1173 & 1252 \\
+22 & 3973.7 & 5487.5 & 13417.6 & 16351.8 & 1400 & 1488 \\
+\bottomrule
+\end{tabular}
+\caption{Cost of salting ($32$-byte salts on every leaf and every round), Kronecker-FRI with the parameters of \cref{tab:exp-scaling}, measured in the same runs.}
+\label{tab:exp-salt}
+\end{table}
+
+\subsection{The number of folding rounds}\label{sec:exp:stop}
+
+\begin{table}[t]
+\centering
+\small
+\begin{tabular}{r r rrr}
+\toprule
+$\ell$ & $N_\ell$ & open (ms) & verify (ms) & proof (KiB) \\
+\midrule
+8 & 4096 & 2918 & 10.7 & 848 \\
+10 & 1024 & 2961 & 7.0 & 925 \\
+12 & 256 & 2979 & 6.1 & 1020 \\
+14 & 64 & 2844 & 6.1 & 1105 \\
+16 & 16 & 2836 & 6.5 & 1173 \\
+18 & 4 & 2904 & 7.0 & 1224 \\
+20 & 1 & 2922 & 7.1 & 1256 \\
+\bottomrule
+\end{tabular}
+\caption{Effect of the number of folding rounds $\ell$ (\cref{rem:ell}), $n = 20$, $\rho = 1/4$, $\kappa = 148$, $\F = \mathbb{F}_{q^2}$, unsalted.}
+\label{tab:exp-stop}
+\end{table}
+
+\Cref{tab:exp-stop} varies $\ell$ at $n = 20$.
+Each folding round adds $\kappa$ authentication paths to the proof, while stopping earlier adds $16 N_\ell$ bytes for $P$; in this range the paths dominate, and proofs shrink from $1256$\,KiB at $\ell = n$ to $848$\,KiB at $\ell = n - 12$.
+Verification is fastest around $\ell = 12$ to $14$: for smaller $\ell$ the $\kappa$ evaluations of $P$, of $O(N_\ell)$ operations each, take over.
+Opening time does not depend on $\ell$ beyond the variability of the machine, since the first folds dominate it.
+The same trade-off holds for KBFold~\cite[\S8.4]{Mkh26}.
+
+\subsection{Summary}\label{sec:exp:summary}
+
+At identical engineering, Kronecker-FRI commits and verifies as fast as KBFold and as the coefficient-form baseline, has proofs $8$--$17\%$ larger, and opens $3.0$--$3.7$ times more slowly.
+The extra opening cost is the price of committing to the opening polynomial $A$: one product $U_f K_z$, one NTT and one Merkle tree over $\F$, and one pass to compute the virtual word.
+What it buys is a protocol without sumcheck, whose verifier is a plain FRI verifier with one extra local computation per query, and whose soundness reduces to the folding test and one application of correlated agreement for curves of degree $2$.
+Which trade-off is preferable depends on the application; \cref{sec:apps} discusses this.

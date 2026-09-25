@@ -1,0 +1,191 @@
+\section{The Kernel Polynomial and the Extraction Identity}\label{sec:kernel}
+
+This section introduces the two univariate polynomials of the scheme, the Kronecker encoding $U_f$ of a multilinear polynomial and the kernel polynomial $K_z$ of a point, and proves the identity $f(z) = \coef{N-1}{U_f K_z}$ on which the commitment scheme rests.
+It then gives the algorithms used by the prover and the verifier, the algebraic form of an opening (\cref{sec:kernel:split}), and the relation with other forms of the same identity (\cref{sec:kernel:related}).
+Throughout, $n \ge 1$, $N = 2^n$, and $\F$ is a field; the results of this section hold over any field (and, except where a division is performed, over any commutative ring).
+
+\subsection{The Kronecker encoding and the kernel polynomial}\label{sec:kernel:def}
+
+\begin{definition}[Kronecker encoding]\label{def:kron-enc}
+For $f = \sum_{a=0}^{N-1} \alpha_a x^a \in \Ll_n(\F)$ (\cref{def:forms}), the \emph{Kronecker encoding} of $f$ is
+\[
+  U_f(X) \;=\; \sum_{a=0}^{N-1} \alpha_a X^a \;\in\; \F[X]_{<N}.
+\]
+\end{definition}
+
+\begin{lemma}[Kronecker substitution]\label{lem:kron-sub}
+\begin{enumerate}
+  \item $U_f(X) = f\bigl(X, X^2, X^4, \dots, X^{2^{n-1}}\bigr)$, that is, $U_f$ is obtained from $f$ by the substitution $x_k \mapsto X^{2^{k-1}}$.
+  \item The map $f \mapsto U_f$ is an $\F$-linear bijection from $\Ll_n(\F)$ onto $\F[X]_{<N}$.
+\end{enumerate}
+\end{lemma}
+
+\begin{proof}
+(1) Under the substitution, $x^a = \prod_{k : a_k = 1} x_k$ becomes $\prod_{k : a_k = 1} X^{2^{k-1}} = X^{\sum_k a_k 2^{k-1}} = X^a$.
+(2) The map sends the coefficient vector $(\alpha_a)_a$ in the basis $(x^a)_a$ to the same vector in the basis $(X^a)_{a < N}$ of $\F[X]_{<N}$.
+\end{proof}
+
+\begin{definition}[Kernel polynomial]\label{def:kernel}
+For $z = (z_1,\dots,z_n) \in \F^n$, the \emph{kernel polynomial} of $z$ is
+\[
+  K_z(X) \;=\; \prod_{k=1}^{n} \bigl(X^{2^{k-1}} + z_k\bigr) \;\in\; \F[X].
+\]
+\end{definition}
+
+For $z \in B_n$, $K_z$ is the Boolean kernel polynomial of~\cite[Def.~4.1]{Mkh26}, whose family $(K_b)_{b \in B_n}$ is a basis of $\F[X]_{<N}$; here $z$ is an arbitrary point.
+
+\begin{lemma}[Basic properties]\label{lem:kernel-basic}
+Let $z \in \F^n$.
+\begin{enumerate}
+  \item $K_z$ is monic of degree $\sum_{k=1}^n 2^{k-1} = N - 1$.
+  \item (Recursion.) Writing $z = (z_1, z')$ with $z' = (z_2,\dots,z_n)$, $K_z(X) = (X + z_1)\, K_{z'}(X^2)$, where $K_{z'}$ has $n-1$ variables.
+  \item (Coefficient rule; {\cite[Lemma~4.3]{Mkh26}}.) For $j \in \iv{0}{N-1}$,
+  \[
+    \coef{j}{K_z} \;=\; \prod_{k \,:\, j_k = 0} z_k \;=\; z^{\cmp{j}} .
+  \]
+\end{enumerate}
+\end{lemma}
+
+\begin{proof}
+(1) Each factor $X^{2^{k-1}} + z_k$ is monic of degree $2^{k-1}$.
+(2) $\prod_{k=2}^{n} (X^{2^{k-1}} + z_k) = \prod_{k'=1}^{n-1} \bigl((X^2)^{2^{k'-1}} + z_{k'+1}\bigr) = K_{z'}(X^2)$.
+(3) Expanding the product, each term chooses, for each $k$, either $X^{2^{k-1}}$ or $z_k$. The term that chooses $X^{2^{k-1}}$ exactly for $k$ in a set $T \subseteq \iv{1}{n}$ is $X^{\sum_{k \in T} 2^{k-1}} \prod_{k \notin T} z_k$. By uniqueness of the binary decomposition, the exponent $j$ arises from exactly one set, $T = \{k : j_k = 1\}$, so $\coef{j}{K_z} = \prod_{k : j_k = 0} z_k$. By \cref{lem:complement}, $j_k = 0$ if and only if $\cmp{j}_k = 1$, so this product is $z^{\cmp{j}}$.
+\end{proof}
+
+\subsection{The extraction identity}\label{sec:kernel:extraction}
+
+\begin{theorem}[Extraction identity]\label{thm:extraction}
+For every $f \in \Ll_n(\F)$ and every $z \in \F^n$,
+\[
+  f(z) \;=\; \coef{N-1}{\,U_f(X)\, K_z(X)\,}.
+\]
+\end{theorem}
+
+\begin{proof}
+Since $U_f = \sum_a \alpha_a X^a$ and $\deg K_z = N-1$,
+\[
+  \coef{N-1}{U_f K_z} \;=\; \sum_{a=0}^{N-1} \alpha_a\, \coef{N-1-a}{K_z} \;=\; \sum_{a=0}^{N-1} \alpha_a\, z^{\cmp{\cmp{a}}} \;=\; \sum_{a} \alpha_a z^a \;=\; f(z),
+\]
+by \cref{lem:kernel-basic}(3) with $j = N-1-a = \cmp{a}$, and $\cmp{\cmp{a}} = a$.
+\end{proof}
+
+\begin{corollary}[Linear combinations of points]\label{cor:several-points}
+For $z^{(1)}, \dots, z^{(s)} \in \F^n$ and $\gamma_1, \dots, \gamma_s \in \F$,
+\[
+  \sum_{i=1}^{s} \gamma_i\, f(z^{(i)}) \;=\; \coef{N-1}{\,U_f \cdot \textstyle\sum_{i} \gamma_i K_{z^{(i)}}\,}.
+\]
+\end{corollary}
+
+\begin{proof}
+The map $K \mapsto \coef{N-1}{U_f K}$ is linear; apply \cref{thm:extraction} to each point.
+\end{proof}
+
+\Cref{cor:several-points} is not used in this paper; it is the starting point for openings at several points, which we leave to future work.
+
+\begin{corollary}[Sums over the hypercube]\label{cor:cube-sum}
+For every $f \in \Ll_n(\F)$,
+\[
+  \sum_{b \in B_n} f(b) \;=\; \coef{N-1}{\,U_f(X) \prod_{k=1}^{n} \bigl(1 + 2X^{2^{k-1}}\bigr)}.
+\]
+If the characteristic of $\F$ is not $2$, both sides equal $2^n f(\tfrac12, \dots, \tfrac12)$.
+\end{corollary}
+
+\begin{proof}
+$\sum_{b \in B_n} b^a = \prod_{k : a_k = 0} 2 \cdot \prod_{k : a_k = 1} 1 = 2^{\,n - \wt(a)}$, since the factor $b_k$ ranges over $\{0,1\}$ for $a_k = 1$ and each $k$ with $a_k = 0$ doubles the count. Hence $\sum_b f(b) = \sum_a \alpha_a 2^{n - \wt(a)}$.
+Expanding $\prod_k (1 + 2X^{2^{k-1}})$ as in \cref{lem:kernel-basic}(3), $\coef{j}{\,\prod_k (1 + 2X^{2^{k-1}})} = 2^{\wt(j)}$, and $\coef{N-1-a}{\cdot} = 2^{\wt(\cmp{a})} = 2^{n - \wt(a)}$; summing against $\alpha_a$ gives the identity.
+Finally $\prod_k (1 + 2X^{2^{k-1}}) = 2^n K_{(1/2,\dots,1/2)}(X)$, so by \cref{thm:extraction} the right-hand side is $2^n f(\tfrac12,\dots,\tfrac12)$.
+\end{proof}
+
+\subsection{Further identities}\label{sec:kernel:further}
+
+The following identities are not used by the scheme; they record the structure of the family $(K_z)_{z \in \F^n}$.
+
+\begin{proposition}[Bilinear and squaring identities]\label{prop:bilinear}
+For $y, z \in \F^n$:
+\begin{enumerate}
+  \item $\coef{N-1}{K_y K_z} = \prod_{k=1}^{n} (y_k + z_k)$;
+  \item $K_y(X)\, K_{-y}(X) = \prod_{k=1}^{n} \bigl(X^{2^k} - y_k^2\bigr)$.
+\end{enumerate}
+\end{proposition}
+
+\begin{proof}
+(1) By \cref{lem:kernel-basic}(3), $K_y = U_g$ for the multilinear $g = \sum_a y^{\cmp{a}} x^a$, which equals $\prod_{k=1}^n (y_k + x_k)$ (expand the product: the term choosing $x_k$ exactly for $k$ with $a_k = 1$ is $y^{\cmp{a}} x^a$). By \cref{thm:extraction}, $\coef{N-1}{K_y K_z} = g(z) = \prod_k (y_k + z_k)$.
+(2) Multiply the factors pairwise: $(X^{2^{k-1}} + y_k)(X^{2^{k-1}} - y_k) = X^{2^k} - y_k^2$.
+\end{proof}
+
+\subsection{Algorithms}\label{sec:kernel:algo}
+
+We count operations in $\F$.
+
+\begin{lemma}[Costs]\label{lem:cost}
+Let $z \in \F^n$, $U \in \F[X]_{<N}$ and $\xi \in \F$.
+\begin{enumerate}
+  \item $K_z(\xi)$ is computed with $n-1$ squarings, $n-1$ multiplications and $n$ additions, and $\xi^N$ with one further squaring.
+  \item The vector $(z^a)_{a \in \iv{0}{N-1}}$ is computed with $N - n - 1$ multiplications, and $\coef{N-1}{U K_z}$ with $N$ further multiplications and $N-1$ additions.
+  \item The product $U K_z$ is computed with at most $2nN$ multiplications and $2nN$ additions.
+\end{enumerate}
+\end{lemma}
+
+\begin{proof}
+(1) Compute $\xi^{2^{k-1}}$ for $k \in \iv{1}{n}$ by $n-1$ successive squarings, add $z_k$ to each, and multiply the $n$ factors; one more squaring gives $\xi^{2^n} = \xi^N$.
+(2) The vector is built bit by bit: after processing bits $1, \dots, k$ it holds $(z^a)_{a < 2^k}$, and bit $k+1$ appends $z_{k+1} z^a$ for $a < 2^k$; this costs $\sum_{k=1}^{n} 2^{k-1} = N - 1$ multiplications, of which the $n$ multiplications of $z_{k}$ by $z^0 = 1$ are free. Then $\coef{N-1}{U K_z} = \sum_a \coef{a}{U} z^a$ by \cref{thm:extraction}.
+(3) Put $G_0 = U$ and $G_k = G_{k-1} \cdot (X^{2^{k-1}} + z_k)$ for $k \in \iv{1}{n}$, so that $G_n = U K_z$. Coefficientwise, $\coef{j}{G_k} = z_k \coef{j}{G_{k-1}} + \coef{j - 2^{k-1}}{G_{k-1}}$. The polynomial $G_{k-1}$ has at most $N + 2^{k-1} - 1 < 2N$ coefficients, so step $k$ costs fewer than $2N$ multiplications and $2N$ additions.
+\end{proof}
+
+\subsection{The opening polynomials}\label{sec:kernel:split}
+
+The scheme checks the extraction identity through a polynomial identity in which the coefficient to be checked is moved to the degree $N$ by a factor $X$.
+
+\begin{lemma}[Split]\label{lem:split}
+Let $U \in \F[X]_{<N}$, $z \in \F^n$ and $v \in \F$. There exist $A, H \in \F[X]_{<N}$ with
+\begin{equation}\label{eq:identity}
+  X\, U(X)\, K_z(X) \;=\; A(X) + v\, X^N + X^{N+1} H(X)
+\end{equation}
+if and only if $v = \coef{N-1}{U K_z}$. In that case $A$ and $H$ are unique, $A(0) = 0$, and $\deg H \le N-2$.
+\end{lemma}
+
+\begin{proof}
+Let $G = U K_z$; $\deg G \le (N-1) + (N-1) = 2N-2$, so $XG$ has no constant term and degree $\le 2N-1$.
+Put $A = \sum_{j=0}^{N-1} \coef{j}{XG}\, X^j$, $a_N = \coef{N}{XG} = \coef{N-1}{G}$ and $H = \sum_{j \ge 0} \coef{N+1+j}{XG}\, X^j$; then $XG = A + a_N X^N + X^{N+1} H$, with $\deg A < N$, $A(0) = \coef{0}{XG} = 0$ and $\deg H \le 2N-1-(N+1) = N-2$.
+If \eqref{eq:identity} holds with $A', H' \in \F[X]_{<N}$ and some $v$, then $A' + vX^N + X^{N+1}H'$ and $A + a_N X^N + X^{N+1} H$ are two expressions of $XG$ in which the three parts occupy the disjoint degree ranges $\iv{0}{N-1}$, $\{N\}$ and $\iv{N+1}{2N}$; comparing coefficients gives $A' = A$, $v = a_N$ and $H' = H$. Conversely, $v = a_N$ gives \eqref{eq:identity} with $(A, H)$.
+\end{proof}
+
+\begin{definition}[Opening polynomials]\label{def:opening-polys}
+For $U \in \F[X]_{<N}$ and $z \in \F^n$, the \emph{opening polynomials} $A_{U,z}, H_{U,z} \in \F[X]_{<N}$ are the polynomials $A, H$ of \cref{lem:split} for $v = \coef{N-1}{U K_z}$.
+\end{definition}
+
+By \cref{thm:extraction}, for $U = U_f$ the value is $v = f(z)$, and the opening polynomials are computed from $U_f K_z$ at the cost of \cref{lem:cost}(3).
+
+\begin{lemma}[Identity lemma]\label{lem:identity}
+Let $U, A, H \in \F[X]_{<N}$, $z \in \F^n$, $v \in \F$, and
+\[
+  \Phi(X) \;=\; X\,U(X)\,K_z(X) - A(X) - v\,X^N - X^{N+1} H(X).
+\]
+Then $\deg \Phi \le 2N$, and if $\Phi = 0$ then $v = \coef{N-1}{U K_z}$. In particular, if $U = U_f$ and $\Phi = 0$, then $v = f(z)$.
+\end{lemma}
+
+\begin{proof}
+The four terms have degrees at most $2N-1$, $N-1$, $N$ and $2N$. If $\Phi = 0$, compare the coefficients of $X^N$: on the left it is $\coef{N}{XUK_z} = \coef{N-1}{UK_z}$; on the right it is $v$, since $\deg A < N$ and $X^{N+1}H$ has no monomial of degree $N$. The last statement is \cref{thm:extraction}.
+\end{proof}
+
+\begin{remark}[Why the factor $X$]\label{rem:why-x}
+Without the factor $X$, the identity $U K_z = A_0 + vX^{N-1} + X^N H_0$ requires $\deg A_0 < N-1$: a polynomial $A_0$ of degree $N-1$ can absorb any error in $v$. The degree bound $N-1$ is not a power of two, so a folding proximity test for the bound $N$ does not enforce it, and a separate degree-correction argument would be needed. Multiplying by $X$ moves the checked coefficient to $X^N$, so that the natural bound $\deg A < N$ suffices (\cref{lem:identity}).
+\end{remark}
+
+\subsection{Related forms of the identity}\label{sec:kernel:related}
+
+\begin{lemma}[Reversal]\label{lem:reversal}
+For $z \in \F^n$, let $K^\ast_z(X) = X^{N-1} K_z(1/X)$ be the reversal of $K_z$. Then
+\[
+  K^\ast_z(X) \;=\; \prod_{k=1}^{n} \bigl(1 + z_k X^{2^{k-1}}\bigr) \;=\; \sum_{a=0}^{N-1} z^a X^a .
+\]
+\end{lemma}
+
+\begin{proof}
+$X^{N-1} = \prod_k X^{2^{k-1}}$, so $X^{N-1}K_z(1/X) = \prod_k X^{2^{k-1}}(X^{-2^{k-1}} + z_k) = \prod_k (1 + z_k X^{2^{k-1}})$. Expanding the product as in \cref{lem:kernel-basic}(3), the coefficient of $X^a$ is $\prod_{k : a_k = 1} z_k = z^a$.
+\end{proof}
+
+For vectors $u = (u_a)_{a<N}$ and $u' = (u'_a)_{a<N}$ over $\F$, the classical identity $\sum_a u_a u'_a = \coef{N-1}{(\sum_a u_a X^a)(\sum_a u'_a X^{N-1-a})}$ writes an inner product as one coefficient of a product.
+By \cref{lem:reversal}, \cref{thm:extraction} is this identity for the coefficient vector $(\alpha_a)_a$ of $f$ and the vector $(z^a)_a$ of monomial values, whose generating polynomial is $K^\ast_z$ and whose reversed generating polynomial is $K_z$.
+The same tensor structure appears in the Lagrange basis in pairing-based schemes: Mercury~\cite{EG25} writes $f(u) = \langle \hat P_u, \hat g \rangle$, with $\hat P_u(X) = \prod_{k=0}^{n-1}\bigl((1-u_k) + u_k X^{2^k}\bigr)$ and $\hat g$ the table form of $f$, and proves the inner product with KZG commitments.
+The contribution of this paper is not the identity itself but its use in a transparent, hash-based scheme over Reed--Solomon codes, through \eqref{eq:identity} and one folding proximity test (\cref{sec:scheme}), together with the analysis of \cref{sec:sound,sec:pq}.

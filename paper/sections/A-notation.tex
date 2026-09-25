@@ -1,0 +1,75 @@
+\section{Notation}\label{app:notation}
+
+\begin{center}
+\small
+\begin{longtable}{@{}p{0.27\textwidth} p{0.49\textwidth} >{\raggedright\arraybackslash}p{0.17\textwidth}@{}}
+\toprule
+Symbol & Meaning & Where \\
+\midrule
+\endhead
+\multicolumn{3}{l}{\emph{Integers and bits}} \\
+$\N$, $\iv{a}{c}$ & non-negative integers; integers $i$ with $a \le i \le c$ & \S\ref{sec:prelim:bits} \\
+$n$, $N = 2^n$ & number of variables; number of coefficients & \S\ref{sec:prelim:bits} \\
+$a_k$, $B_n$ & bit $k$ of an index $a$ (least significant first); Boolean hypercube, identified with $\iv{0}{N-1}$ & \S\ref{sec:prelim:bits} \\
+$\wt(a)$, $\cmp{a}$, $b \sub a$ & Hamming weight; complement $N-1-a$; submask & \S\ref{sec:prelim:bits} \\
+\midrule
+\multicolumn{3}{l}{\emph{Fields and polynomials}} \\
+$\Fq$, $\F$ & base field of odd characteristic; challenge field $\F \supseteq \Fq$ & \S\ref{sec:prelim:fields}, \S\ref{sec:scheme:params} \\
+$e$ & degree of $\F$ over $\Fq$ (implementation) & \S\ref{sec:impl:fields} \\
+$\F[X]_{<d}$, $\coef{a}{P}$ & polynomials of degree $< d$; coefficient of $X^a$ & \S\ref{sec:prelim:fields} \\
+$P_e$, $P_o$ & even and odd parts, $P(X) = P_e(X^2) + X P_o(X^2)$ & \Cref{lem:split-poly} \\
+\midrule
+\multicolumn{3}{l}{\emph{Multilinear polynomials}} \\
+$\Ll_n(\mathbb{A})$ & multilinear polynomials in $n$ variables over a ring $\mathbb{A}$ & \S\ref{sec:prelim:ml} \\
+$x^a$, $z^a$ & monomial $\prod_{k : a_k = 1} x_k$; its value at $z$ & \Cref{def:forms} \\
+$\alpha = (\alpha_a)_a$, $(f(b))_b$ & coefficient form; table form & \Cref{def:forms,lem:mobius} \\
+\midrule
+\multicolumn{3}{l}{\emph{Kernel polynomial and identities}} \\
+$U_f$ & Kronecker encoding $\sum_a \alpha_a X^a = f(X, X^2, \dots, X^{2^{n-1}})$ & \Cref{def:kron-enc} \\
+$K_z$ & kernel polynomial $\prod_{k=1}^n (X^{2^{k-1}} + z_k)$ & \Cref{def:kernel} \\
+$A_{U,z}$, $H_{U,z}$ & opening polynomials: $X U K_z = A + vX^N + X^{N+1} H$ & \Cref{lem:split,def:opening-polys} \\
+$\Phi$ & $X U K_z - A - vX^N - X^{N+1}H$, of degree $\le 2N$ & \Cref{lem:identity} \\
+\midrule
+\multicolumn{3}{l}{\emph{Domains and codes}} \\
+$L$, $M = 2^{\mu}$ & smooth domain and its order & \Cref{def:domain} \\
+$L_j = L^{2^j}$, $M_j$, $N_j$ & domain, order and degree bound at level $j$ & \S\ref{sec:fold} \\
+fibre $\{\xi, -\xi\}$ & the two square roots of $\eta = \xi^2$ & \Cref{def:fibre} \\
+$\ev_L$, $\RS_\F[L,d]$, $\rho$, $R$ & evaluation map; Reed--Solomon code; rate $d/M = 2^{-R}$ & \Cref{def:rs}, \S\ref{sec:scheme:params} \\
+$\Cc_j$, $P_c$ & code $\RS_\F[L_j, N_j]$; polynomial of a codeword & \S\ref{sec:fold}, \Cref{lem:rs-params} \\
+$\Delta$, $\Delta^{\mathrm{fib}}_j$ & relative Hamming distance; fibre distance & \Cref{def:rs,def:fibre-dist} \\
+$w_e$, $w_o$ & even and odd parts of a word & \eqref{eq:even-odd} \\
+$\delta$, $\delta^*$ & proximity parameter; $(1-\rho)/2$ & \S\ref{sec:fold}, \S\ref{sec:sound} \\
+$\dec_j(w)$ & decoded codeword at fibre distance $\le \delta$ & \Cref{def:decoded} \\
+\midrule
+\multicolumn{3}{l}{\emph{Folding}} \\
+$\fold_r$, $\pfold_r$ & kernel fold of a word and of a polynomial & \Cref{def:fold} \\
+$\pfold^{(j)}_r$, $\chi_t(r)$ & iterated fold; its coefficients & \Cref{lem:iterated} \\
+$\cfold_\theta$ & classical FRI fold & \Cref{rem:cfold} \\
+$\Pi_{\mathrm{FT}}[\ell,\kappa]$ & folding proximity test & \Cref{def:fpt} \\
+$\hat w_j$, $\Bb_j$ & folded word; points where the level-$j$ check fails & \S\ref{sec:fold:witness} \\
+$\Ww_j(c)$, $\dens_j(c)$ & witness set of a codeword; its density & \Cref{def:witness} \\
+$\varepsilon_{\mathrm{fold}}$ & $\sum_{j=1}^{\ell} M_j/|\F|$ & \S\ref{sec:fold:sound} \\
+\midrule
+\multicolumn{3}{l}{\emph{The scheme}} \\
+$\Enc(f)$ & commitment $\ev_L(U_f)$ & \Cref{def:enc} \\
+$\ell$, $\kappa$ & number of folding rounds; number of queries & \S\ref{sec:scheme:params} \\
+$h[w, w_A; z, v]$ & virtual word & \Cref{def:virtual} \\
+$w_A$, $w_0 = w_\beta$ & opening oracle; batched word $w + \beta w_A + \beta^2 h$ & \Cref{def:pikf}, \S\ref{sec:sound:batching} \\
+$\beta$, $r_j$, $\xi^{(i)}$ & batching challenge; folding challenges; query points & \Cref{def:pikf} \\
+$P$ & final polynomial, $N_\ell$ coefficients & \Cref{def:pikf} \\
+$\Pi_{\mathrm{KF}}$, $\Pi^m_{\mathrm{KF}}$ & evaluation protocol; batched protocol & \Cref{def:pikf,def:batch} \\
+$\mathcal{R}^\delta_{\mathrm{KF}}$, $\mathcal{R}^{\delta,m}_{\mathrm{KF}}$ & evaluation relations & \Cref{def:relation}, \S\ref{sec:apps:batch} \\
+$\varepsilon_{\mathrm{KF}}$ & soundness error $(2M + M(1-2^{-\ell}))/|\F| + (1-\delta)^\kappa$ & \S\ref{sec:sound:direct} \\
+$\mathcal{G}$ & challenges $\beta$ admitting a fibre-closed agreement set & \Cref{lem:batching} \\
+$\Dd$, $\mathsf{Ext}$ & doomed transcripts; extractor & \Cref{def:doomed} \\
+\midrule
+\multicolumn{3}{l}{\emph{Non-interactive scheme}} \\
+$\Sigma = \F^2$, $\mathrm{fib}_j$ & alphabet of fibre symbols; fibre string of a word & \S\ref{sec:pq:ior} \\
+$\bot$, $\bar s$, $\mathrm{Dom}(s)$ & undefined entry; filling; defined positions & \S\ref{sec:proofs:bcs}, \S\ref{sec:pq:ior} \\
+$\phi$, $\mathrm{pos}$, $\lambda_{\mathrm{ch}}$ & challenge maps; challenge length & \S\ref{sec:pq:ior} \\
+$\mathcal{Z}_j$, $\Ww^\bot_j(c)$ & points reading no $\bot$; witness sets with erasures & \S\ref{sec:pq:kstate} \\
+$\mathsf{KState}$, $\mathsf{E}$ & knowledge state function; its extractor & \Cref{def:kstate} \\
+$\lambda_{\mathsf{H}}$, $Q$ & hash output length; number of oracle queries & \S\ref{sec:proofs:bcs} \\
+\bottomrule
+\end{longtable}
+\end{center}

@@ -1,0 +1,331 @@
+\section{The Folding Proximity Test}\label{sec:fold}
+
+The scheme of \cref{sec:scheme} reduces an evaluation claim to a single proximity claim: a word $w_0$ on $L$, available as an oracle, must be close to a Reed--Solomon codeword of degree bound $N$.
+This section gives the test used for that claim, a FRI-style folding test~\cite{BBHR18} with the kernel fold of~\cite{Mkh26}, and proves its soundness for an \emph{arbitrary} word $w_0$.
+It is self-contained: the only external result it uses is the correlated-agreement theorem for lines (\cref{thm:curves} with $t = 1$).
+The results of \cref{sec:fold:words,sec:fold:decode,sec:fold:good} are those of~\cite[\S5.2 and \S7.1--7.3]{Mkh26}, reproduced with their proofs, except \cref{lem:iterated}, which is new; \cref{sec:fold:test,sec:fold:witness} adapt~\cite[\S7.4 and \S7.6]{Mkh26} to a test without sumcheck and with a final polynomial instead of a final table.
+
+\paragraph{Setting.}
+Throughout this section, $\F \supseteq \Fq$ is the challenge field, $n \ge 1$ and $N = 2^n$, and $L \subseteq \Fq^\times$ is a smooth domain of order $M = 2^{\mu} = 2^R N$ with $R \ge 1$, so that the rate $\rho = N/M = 2^{-R}$ satisfies $\rho \le 1/2$.
+We fix a number of folding rounds $\ell \in \iv{1}{n}$ and put, for $j \in \iv{0}{\ell}$,
+\[
+  L_j = L^{2^j}, \qquad M_j = |L_j| = M/2^j, \qquad N_j = N/2^j, \qquad \Cc_j = \RS_\F[L_j, N_j].
+\]
+By \cref{lem:power}, $L_j$ is the smooth domain of order $M_j$ and $L_{j+1} = (L_j)^2$; every $\Cc_j$ has rate $N_j/M_j = \rho$, and $M_j \ge M_\ell = 2^R N_\ell \ge 2$, so fibres (\cref{def:fibre}) exist at every level $j \le \ell - 1$.
+We fix a proximity parameter $0 < \delta \le (1-\rho)/2$.
+
+\subsection{The kernel fold}\label{sec:fold:words}
+
+Let $L'$ be any smooth domain of order at least $2$; the definitions below apply to every $L_j$ with $j \le \ell-1$.
+For a word $w \in \F^{L'}$, let $w_e, w_o \in \F^{L'^2}$ be its even and odd parts \eqref{eq:even-odd}.
+
+\begin{definition}[Kernel fold]\label{def:fold}
+For $r \in \F$, the \emph{kernel fold} of a word $w \in \F^{L'}$ is the word $\fold_r(w) \in \F^{L'^2}$,
+\[
+  \fold_r(w) \;=\; (2r-1)\,w_e + (1-r)\,w_o,
+\]
+and the kernel fold of a polynomial $P \in \F[X]$, written $P(X) = P_e(X^2) + X P_o(X^2)$, is $\pfold_r(P) = (2r-1)\,P_e + (1-r)\,P_o$.
+\end{definition}
+
+For $P \in \F[X]_{<2d}$ we have $\pfold_r(P) \in \F[X]_{<d}$ (\cref{lem:split-poly}).
+The name comes from~\cite{Mkh26}, where $\pfold_r$ acts on the coordinates of $P$ in a basis of kernel polynomials as a partial evaluation at $r$; we do not need that interpretation here.
+
+\begin{lemma}[Properties of the word fold]\label{lem:fold-word}
+Let $w \in \F^{L'}$ and $r \in \F$.
+\begin{enumerate}
+  \item (Explicit formula.) For every $\xi \in L'$,
+  \begin{equation}\label{eq:fold-explicit}
+    \fold_r(w)(\xi^2) \;=\; \frac{\bigl((2r-1)\xi + (1-r)\bigr)\, w(\xi) \;+\; \bigl((2r-1)\xi - (1-r)\bigr)\, w(-\xi)}{2\xi}.
+  \end{equation}
+  \item (Linearity.) $w \mapsto \fold_r(w)$ is $\F$-linear.
+  \item (Locality.) For $\eta \in L'^2$, $\fold_r(w)(\eta)$ depends only on the values of $w$ on the fibre over $\eta$; it is computed from these two values with $O(1)$ operations in $\F$, given $(2\xi)^{-1}$.
+\end{enumerate}
+\end{lemma}
+
+\begin{proof}
+(1) By \eqref{eq:even-odd}, $(2r-1)\,w_e(\xi^2) = \frac{(2r-1)\xi\,(w(\xi)+w(-\xi))}{2\xi}$ and $(1-r)\,w_o(\xi^2) = \frac{(1-r)(w(\xi)-w(-\xi))}{2\xi}$; add and collect the coefficients of $w(\xi)$ and $w(-\xi)$.
+(2) and (3) follow from \cref{lem:split-words}(1,2) and from (1).
+\end{proof}
+
+\begin{lemma}[Line form]\label{lem:line}
+For $w \in \F^{L'}$, put $u^0 = w_o - w_e$ and $u^1 = 2w_e - w_o$, both in $\F^{L'^2}$. Then $\fold_r(w) = u^0 + r\,u^1$ for every $r \in \F$.
+Conversely, $w_e = u^0 + u^1$ and $w_o = 2u^0 + u^1$.
+\end{lemma}
+
+\begin{proof}
+$(2r-1)w_e + (1-r)w_o = (w_o - w_e) + r\,(2w_e - w_o)$; and $u^0 + u^1 = w_e$, $2u^0 + u^1 = w_o$.
+\end{proof}
+
+\begin{proposition}[Consistency with the polynomial fold]\label{prop:fold-consistency}
+Let $|L'| = M'$, $1 \le d \le M'/2$, $r \in \F$ and $P \in \F[X]_{<2d}$. Then
+\[
+  \fold_r\bigl(\ev_{L'}(P)\bigr) \;=\; \ev_{L'^2}\bigl(\pfold_r(P)\bigr).
+\]
+In particular, $\fold_r$ maps $\RS_\F[L',2d]$ into $\RS_\F[L'^2,d]$, and $P_{\fold_r(c)} = \pfold_r(P_c)$ for every $c \in \RS_\F[L',2d]$.
+\end{proposition}
+
+\begin{proof}
+By \cref{lem:split-words}(4), $\ev_{L'}(P)_e = \ev_{L'^2}(P_e)$ and $\ev_{L'}(P)_o = \ev_{L'^2}(P_o)$; since $\ev_{L'^2}$ is linear, $\fold_r(\ev_{L'}(P)) = \ev_{L'^2}((2r-1)P_e + (1-r)P_o)$.
+Since $\pfold_r(P) \in \F[X]_{<d}$ and $d \le M'/2 = |L'^2|$, the last statement follows from \cref{lem:rs-params}(1).
+\end{proof}
+
+For $r \in \F^{\ell}$ and $j \in \iv{0}{\ell}$, write $\pfold^{(j)}_r = \pfold_{r_j} \circ \dots \circ \pfold_{r_1}$ (the identity for $j = 0$).
+For $t \in \iv{0}{2^j-1}$ with bits $t_1,\dots,t_j$ (\cref{sec:prelim:bits}), put $\chi_t(r) = \prod_{k=1}^{j} \chi_{t_k}(r_k)$, where $\chi_0(x) = 2x-1$ and $\chi_1(x) = 1-x$.
+
+\begin{lemma}[Iterated fold]\label{lem:iterated}
+Let $r \in \F^\ell$, $j \in \iv{0}{\ell}$ and $P \in \F[X]_{<N}$. Then $\pfold^{(j)}_r(P) \in \F[X]_{<N_j}$, and for $b \in \iv{0}{N_j - 1}$,
+\[
+  \coef{b}{\pfold^{(j)}_r(P)} \;=\; \sum_{t=0}^{2^j-1} \chi_t(r)\, \coef{2^j b + t}{P}.
+\]
+If $w_0 = \ev_L(P)$ and $w_j = \fold_{r_j}(w_{j-1})$ for $j \in \iv{1}{\ell}$, then $w_j = \ev_{L_j}(\pfold^{(j)}_r(P))$ for every $j \in \iv{0}{\ell}$.
+\end{lemma}
+
+\begin{proof}
+Induction on $j$; the case $j = 0$ is trivial. Let $Q = \pfold^{(j-1)}_r(P) \in \F[X]_{<N_{j-1}}$. By \cref{lem:split-poly}, $\coef{b}{\pfold_{r_j}(Q)} = \chi_0(r_j)\coef{2b}{Q} + \chi_1(r_j)\coef{2b+1}{Q}$, and $\pfold_{r_j}(Q) \in \F[X]_{<N_j}$.
+By the induction hypothesis, for $s \in \{0,1\}$, $\coef{2b+s}{Q} = \sum_{t' < 2^{j-1}} \chi_{t'}(r)\coef{2^{j-1}(2b+s) + t'}{P}$.
+Put $t = t' + 2^{j-1}s$: then $t$ ranges over $\iv{0}{2^j-1}$, its bits are those of $t'$ followed by $t_j = s$, so $\chi_{s}(r_j)\chi_{t'}(r) = \chi_t(r)$, and $2^{j-1}(2b+s) + t' = 2^j b + t$. This gives the formula.
+For the words, apply \cref{prop:fold-consistency} on $L_{j-1}$ with $2d = N_{j-1} \le M_{j-1}$, so $d = N_j \le M_{j-1}/2$, and use induction.
+\end{proof}
+
+\begin{remark}[Relation to the classical FRI fold]\label{rem:cfold}
+The classical fold of FRI~\cite{BBHR18} is $\cfold_\theta(w) = w_e + \theta w_o$. If $r \ne 1/2$, then $\fold_r = (2r-1)\,\cfold_\theta$ with $\theta = (1-r)/(2r-1)$, and conversely $\cfold_\theta = (1+2\theta)\fold_{r}$ with $r = (1+\theta)/(1+2\theta)$ when $\theta \ne -1/2$~\cite[Prop.~5.11]{Mkh26}.
+The proofs below use only three properties of the fold: linearity and locality (\cref{lem:fold-word}), consistency (\cref{prop:fold-consistency}), and the line form with an invertible change of coordinates (\cref{lem:line}).
+The classical fold has them too (with $u^0 = w_e$, $u^1 = w_o$), and all results of this section hold for it with the same error terms, except that the coefficients $\chi_t(r)$ of \cref{lem:iterated} change.
+We use the kernel fold so that the implementation (\cref{sec:impl}) shares its folding code with the one of~\cite{Mkh26}; the only requirement is that prover and verifier use the same fold~\cite[Rem.~5.12]{Mkh26}.
+\end{remark}
+
+\subsection{The test}\label{sec:fold:test}
+
+\begin{definition}[Folding proximity test]\label{def:fpt}
+The test $\Pi_{\mathrm{FT}}[\ell,\kappa]$, with $\kappa \ge 1$ queries, has as instance a word $w_0 \in \F^{L}$, given as an oracle. It has $\ell+1$ rounds, numbered as in \cref{def:iop}:
+\begin{enumerate}
+  \item Round $1$: the prover sends nothing; the verifier sends $r_1 \in \F$.
+  \item Round $j \in \iv{2}{\ell}$: the prover sends an oracle $w_{j-1} \in \F^{L_{j-1}}$; the verifier sends $r_j \in \F$.
+  \item Round $\ell+1$: the prover sends a polynomial $P \in \F[X]_{<N_\ell}$ in the clear, as its $N_\ell$ coefficients; the verifier sends $\kappa$ points $\xi^{(1)},\dots,\xi^{(\kappa)} \in L$, independent and uniform.
+\end{enumerate}
+Put $w_\ell = \ev_{L_\ell}(P) \in \Cc_\ell$ and $\hat w_j = \fold_{r_j}(w_{j-1}) \in \F^{L_j}$ for $j \in \iv{1}{\ell}$.
+The verifier accepts if and only if, for every $i \in \iv{1}{\kappa}$ and every $j \in \iv{1}{\ell}$, the \emph{fold check}
+\begin{equation}\label{eq:fold-check}
+  \hat w_j\bigl(\xi^{2^j}\bigr) \;=\; w_j\bigl(\xi^{2^j}\bigr), \qquad \xi = \xi^{(i)},
+\end{equation}
+holds. By locality, it computes the left-hand side from $w_{j-1}(\pm\xi^{2^{j-1}})$ with \eqref{eq:fold-explicit}; for $j < \ell$ the right-hand side is one of the two values of $w_j$ read for the check of level $j+1$, and for $j = \ell$ it is $P(\xi^{2^\ell})$.
+\end{definition}
+
+\begin{remark}[Challenge space]
+The challenge space is $\F^{\ell} \times L^{\times\kappa}$. All messages are determined by the challenges of the earlier rounds: $w_{j}$ ($j \in \iv{1}{\ell-1}$) by $r_{\le j}$, and $P$ by $r_{\le \ell}$.
+\end{remark}
+
+\begin{lemma}[Completeness and costs]\label{lem:fpt-complete}
+\begin{enumerate}
+  \item If $w_0 = \ev_L(U)$ with $U \in \F[X]_{<N}$, the honest prover, which sends $w_j = \ev_{L_j}(\pfold^{(j)}_r(U))$ for $j \in \iv{1}{\ell-1}$ and $P = \pfold^{(\ell)}_r(U)$, makes the verifier accept with probability $1$.
+  \item The honest prover computes all its messages with $O(M)$ operations in $\F$ from $w_0$ and the coefficients of $U$: each $w_j$ with at most $7M_j$ operations from $w_{j-1}$ given the inverses $(2\xi)^{-1}$, $\xi \in L_{j-1}$, and $P$ with $3N$ operations by \cref{lem:iterated}.
+  \item The verifier makes $2\kappa\ell$ queries (two per fibre and level) and $O(\kappa(\ell + N_\ell))$ operations in $\F$, besides computing the points $\xi^{2^j}$ and the inverses $(2\xi^{2^{j-1}})^{-1}$, which lie in $\Fq$. The non-oracle proof consists of the $N_\ell$ coefficients of $P$.
+\end{enumerate}
+\end{lemma}
+
+\begin{proof}
+(1) By \cref{lem:iterated}, $\fold_{r_j}(w_{j-1}) = w_j$ for $j \in \iv{1}{\ell}$, including $j = \ell$ where $w_\ell = \ev_{L_\ell}(P)$. So every fold check holds at every point.
+(2) By \eqref{eq:fold-explicit}, each value of $w_j$ costs a constant number of operations once $(2r_j - 1)$, $(1-r_j)$ and $(2\xi)^{-1}$ are known; there are $M_j$ values, and $\sum_{j \ge 1} M_j < M$. Each fold of coefficients costs $3$ operations per output coefficient, and $\sum_j N_j < N$.
+(3) For each point and level $j \in \iv{1}{\ell}$ the verifier reads $w_{j-1}$ at $\pm\xi^{2^{j-1}}$ and evaluates \eqref{eq:fold-explicit}; at level $\ell$ it evaluates $P$ by Horner's rule with $2N_\ell$ operations.
+\end{proof}
+
+\subsection{Fibre distance and decoding}\label{sec:fold:decode}
+
+\begin{definition}[Fibre distance]\label{def:fibre-dist}
+Let $j \in \iv{0}{\ell-1}$. For $w, c \in \F^{L_j}$,
+\[
+  \Delta^{\mathrm{fib}}_j(w,c) \;=\; \frac{\bigl|\{\, \eta \in L_{j+1} \;:\; w \text{ and } c \text{ differ somewhere on the fibre over } \eta \,\}\bigr|}{M_{j+1}},
+\]
+and $\Delta^{\mathrm{fib}}_j(w, \Cc_j) = \min_{c \in \Cc_j} \Delta^{\mathrm{fib}}_j(w,c)$.
+\end{definition}
+
+\begin{lemma}[Fibre distance]\label{lem:fibre-dist}
+Let $j \in \iv{0}{\ell-1}$ and $w, c \in \F^{L_j}$.
+\begin{enumerate}
+  \item $\Delta(w,c) \le \Delta^{\mathrm{fib}}_j(w,c)$; in particular $\Delta(w,\Cc_j) \le \Delta^{\mathrm{fib}}_j(w,\Cc_j)$.
+  \item $\Delta^{\mathrm{fib}}_j(w,c) \le \delta$ if and only if $w$ and $c$ agree on every fibre over some set of at least $(1-\delta)M_{j+1}$ points of $L_{j+1}$.
+\end{enumerate}
+\end{lemma}
+
+\begin{proof}
+(1) Each point of $L_j$ at which $w$ and $c$ differ lies in a fibre over which they differ; there are $\Delta^{\mathrm{fib}}_j(w,c)M_{j+1}$ such fibres, each with two points, so $\Delta(w,c)M_j \le 2\Delta^{\mathrm{fib}}_j(w,c)M_{j+1} = \Delta^{\mathrm{fib}}_j(w,c)M_j$. Minimise over $c$.
+(2) The set of points of $L_{j+1}$ over whose fibre $w$ and $c$ agree has $(1 - \Delta^{\mathrm{fib}}_j(w,c))M_{j+1}$ elements.
+\end{proof}
+
+\begin{lemma}[Unique fibre decoding]\label{lem:unique}
+Let $j \in \iv{0}{\ell-1}$. For every $w \in \F^{L_j}$ there is at most one $c \in \Cc_j$ with $\Delta^{\mathrm{fib}}_j(w,c) \le \delta$.
+\end{lemma}
+
+\begin{proof}
+Such a $c$ satisfies $\Delta(w,c) \le \delta \le (1-\rho)/2$ by \cref{lem:fibre-dist}(1); apply \cref{lem:rs-params}(3).
+\end{proof}
+
+\begin{definition}[Decoded codeword]\label{def:decoded}
+Let $j \in \iv{0}{\ell-1}$ and $w \in \F^{L_j}$ with $\Delta^{\mathrm{fib}}_j(w, \Cc_j) \le \delta$. The \emph{decoded codeword} $\dec_j(w)$ is the unique $c \in \Cc_j$ of \cref{lem:unique}.
+\end{definition}
+
+\begin{remark}[Computing the decoded codeword]\label{rem:decode}
+Since $\Delta(w, \dec_j(w)) \le \delta < \tfrac12(1 - (N_j-1)/M_j)$, the algorithm of \cref{fact:decode} outputs $\dec_j(w)$ in time polynomial in $M_j$, and checking $\Delta^{\mathrm{fib}}_j(w, \dec_j(w)) \le \delta$ costs $O(M_j)$ comparisons.
+Conversely, if the decoder fails or its output fails this check, no codeword is within fibre distance $\delta$ of $w$. So decoding followed by the check decides whether $\Delta^{\mathrm{fib}}_j(w,\Cc_j) \le \delta$, and computes $\dec_j(w)$ and $P_{\dec_j(w)}$ (by an inverse NTT) when it is.
+If $w \in \Fq^{L_j}$, then $P_{\dec_j(w)} \in \Fq[X]$ by \cref{lem:descent}.
+\end{remark}
+
+\subsection{Folding far words and good challenges}\label{sec:fold:good}
+
+\begin{lemma}[Folding far words]\label{lem:far}
+Let $j \in \iv{0}{\ell-1}$ and $w \in \F^{L_j}$ with $\Delta^{\mathrm{fib}}_j(w, \Cc_j) > \delta$. Then
+\[
+  \bigl|\{\, r \in \F \;:\; \Delta\bigl(\fold_r(w),\, \Cc_{j+1}\bigr) \le \delta \,\}\bigr| \;\le\; M_{j+1}.
+\]
+\end{lemma}
+
+\begin{proof}
+Suppose the set has more than $M_{j+1}$ elements. By \cref{lem:line}, $\fold_r(w) = u^0 + r u^1$ with $u^0 = w_o - w_e$ and $u^1 = 2w_e - w_o$.
+Apply \cref{thm:curves} with $t = 1$ to the code $\Cc_{j+1}$, of length $M_{j+1}$ and rate $\rho$, and to $\delta \le (1-\rho)/2$: there are $L' \subseteq L_{j+1}$ with $|L'| \ge (1-\delta)M_{j+1}$ and codewords $\hat c^0, \hat c^1 \in \Cc_{j+1}$ with $u^0 = \hat c^0$ and $u^1 = \hat c^1$ on $L'$.
+Let $T_e = P_{\hat c^0} + P_{\hat c^1}$ and $T_o = 2P_{\hat c^0} + P_{\hat c^1}$, both in $\F[X]_{<N_{j+1}}$, and $T(X) = T_e(X^2) + X T_o(X^2) \in \F[X]_{<N_j}$.
+By \cref{lem:line}, $w_e = T_e$ and $w_o = T_o$ on $L'$. So for every $\eta \in L'$ and $\xi \in L_j$ with $\xi^2 = \eta$, \eqref{eq:even-odd-inverse} gives $w(\pm \xi) = T_e(\eta) \pm \xi T_o(\eta) = T(\pm \xi)$.
+Thus $w$ agrees with the codeword $\ev_{L_j}(T) \in \Cc_j$ on every fibre over $L'$, and $\Delta^{\mathrm{fib}}_j(w, \Cc_j) \le \delta$ by \cref{lem:fibre-dist}(2), a contradiction.
+\end{proof}
+
+\begin{lemma}[Fibre errors survive folding]\label{lem:survive}
+Let $j \in \iv{0}{\ell-1}$, $w, c \in \F^{L_j}$, and $\eta \in L_{j+1}$ such that $w$ and $c$ differ somewhere on the fibre over $\eta$. Then there is at most one $r \in \F$ with $\fold_r(w)(\eta) = \fold_r(c)(\eta)$.
+\end{lemma}
+
+\begin{proof}
+Let $y = w - c$. By linearity and \cref{lem:line}, $\fold_r(w)(\eta) - \fold_r(c)(\eta) = \fold_r(y)(\eta) = (y_o(\eta) - y_e(\eta)) + r\,(2y_e(\eta) - y_o(\eta))$, a polynomial of degree at most $1$ in $r$.
+If it were identically zero, the inverse formulas of \cref{lem:line} would give $y_e(\eta) = y_o(\eta) = 0$, so $y$ would vanish on the fibre over $\eta$ (\cref{lem:split-words}(3)), a contradiction. Hence it has at most one root.
+\end{proof}
+
+\begin{definition}[Good challenge]\label{def:good}
+Let $j \in \iv{1}{\ell}$, $w \in \F^{L_{j-1}}$ and $r \in \F$. We say that $r$ is \emph{good for $w$ at level $j$} if:
+\begin{enumerate}
+  \item in case $\Delta^{\mathrm{fib}}_{j-1}(w, \Cc_{j-1}) > \delta$: $\Delta(\fold_r(w), \Cc_{j}) > \delta$;
+  \item in case $\Delta^{\mathrm{fib}}_{j-1}(w, \Cc_{j-1}) \le \delta$, with $c = \dec_{j-1}(w)$: $\fold_r(w)(\eta) \ne \fold_r(c)(\eta)$ for every $\eta \in L_j$ such that $w$ and $c$ differ somewhere on the fibre over $\eta$.
+\end{enumerate}
+\end{definition}
+
+\begin{lemma}[Few bad challenges]\label{lem:good}
+For every $j \in \iv{1}{\ell}$ and $w \in \F^{L_{j-1}}$, at most $M_j$ values $r \in \F$ are not good for $w$ at level $j$.
+\end{lemma}
+
+\begin{proof}
+In case 1 of \cref{def:good}, this is \cref{lem:far} (at level $j-1$). In case 2, by \cref{lem:survive}, each of the at most $M_j$ points $\eta$ over whose fibre $w$ and $c$ differ excludes at most one $r$.
+\end{proof}
+
+\begin{lemma}[One folding step]\label{lem:step}
+Let $j \in \iv{1}{\ell}$, $w \in \F^{L_{j-1}}$, and $r \in \F$ good for $w$ at level $j$.
+Let $c' \in \Cc_j$ and $Y = \{\eta \in L_j : \fold_r(w)(\eta) = c'(\eta)\}$, and suppose $|Y| \ge (1-\delta) M_j$.
+Then $\Delta^{\mathrm{fib}}_{j-1}(w, \Cc_{j-1}) \le \delta$, the codeword $c = \dec_{j-1}(w)$ satisfies $\fold_r(c) = c'$, and $w = c$ on the fibre over every $\eta \in Y$.
+\end{lemma}
+
+\begin{proof}
+We have $\Delta(\fold_r(w), c') \le \delta$, so case 1 of \cref{def:good} is excluded, and $\Delta^{\mathrm{fib}}_{j-1}(w, \Cc_{j-1}) \le \delta$.
+By \cref{prop:fold-consistency} (on $L_{j-1}$, with $2d = N_{j-1}$ and $d = N_j \le M_{j-1}/2$), $\fold_r(c) \in \Cc_j$.
+By locality (\cref{lem:fold-word}(3)), $\fold_r(c)$ agrees with $\fold_r(w)$ at every $\eta$ over whose fibre $w = c$, hence on at least $(1-\delta)M_j$ points (\cref{lem:fibre-dist}(2)); and $\fold_r(w)$ agrees with $c'$ on $Y$.
+By \cref{lem:metric}, $\fold_r(c)$ and $c'$ agree on at least $(1-2\delta)M_j \ge \rho M_j = N_j$ points, so they are equal (\cref{lem:rs-params}(2)).
+Finally, for $\eta \in Y$, $\fold_r(w)(\eta) = c'(\eta) = \fold_r(c)(\eta)$, so by case 2 of \cref{def:good}, $w = c$ on the fibre over $\eta$.
+\end{proof}
+
+\subsection{Witness sets and the codeword chain}\label{sec:fold:witness}
+
+Fix a deterministic prover and an instance $w_0$, and consider the words $w_j$, $\hat w_j$ and the polynomial $P$ of \cref{def:fpt} as functions of the challenges $r \in \F^\ell$.
+For $j \in \iv{1}{\ell}$, let
+\[
+  \Bb_j \;=\; \{\, \eta \in L_j \;:\; \hat w_j(\eta) \ne w_j(\eta) \,\},
+\]
+the set of points where the fold check of level $j$ fails.
+It is determined by $w_{j-1}$, $r_j$ and $w_j$, that is, by $r_{\le j}$ for $j < \ell$ and by $r_{\le \ell}$ for $j = \ell$.
+
+\begin{definition}[Witness sets]\label{def:witness}
+For $c \in \Cc_0$, let $\Ww_0(c) = \{\xi \in L : w_0(\xi) = c(\xi) \text{ and } w_0(-\xi) = c(-\xi)\}$.
+For $j \in \iv{1}{\ell}$ and $c \in \Cc_j$, let
+\[
+  \Ww_j(c) \;=\; \bigl\{\, \xi \in L \;:\; \xi^{2^i} \notin \Bb_i \text{ for all } i \in \iv{1}{j-1}, \text{ and } \hat w_j(\xi^{2^j}) = c(\xi^{2^j}) \,\bigr\}.
+\]
+Let $\dens_j(c) = |\Ww_j(c)|/M$.
+\end{definition}
+
+$\Ww_j(c)$ depends on $w_0,\dots,w_{j-1}$ and $r_1,\dots,r_j$ only; in particular, it is determined before the prover sends $w_j$ (or $P$, for $j = \ell$).
+It is the set of points $\xi$ for which the fold checks of levels $1,\dots,j-1$ pass, and the level-$j$ fold of the prover's words at $\xi^{2^j}$ is consistent with $c$.
+
+\begin{lemma}[Fold checks and witness sets]\label{lem:passing}
+Let $r \in \F^\ell$.
+\begin{enumerate}
+  \item A point $\xi \in L$ passes the fold checks \eqref{eq:fold-check} of all levels $j \in \iv{1}{\ell}$ if and only if $\xi \in \Ww_\ell(w_\ell)$.
+  \item The verifier accepts if and only if $\xi^{(1)},\dots,\xi^{(\kappa)} \in \Ww_\ell(w_\ell)$; for fixed $r$, this has probability $\dens_\ell(w_\ell)^\kappa$.
+\end{enumerate}
+\end{lemma}
+
+\begin{proof}
+(1) By definition, $\xi \in \Ww_\ell(w_\ell)$ if and only if $\xi^{2^i} \notin \Bb_i$ for $i \in \iv{1}{\ell-1}$ and $\hat w_\ell(\xi^{2^\ell}) = w_\ell(\xi^{2^\ell})$, that is, $\xi^{2^\ell} \notin \Bb_\ell$; and $\xi^{2^j} \notin \Bb_j$ is exactly the fold check of level $j$ at $\xi$.
+(2) follows from (1), since the points are independent and uniform in $L$ and $\Ww_\ell(w_\ell)$ is determined by $r$.
+\end{proof}
+
+\begin{lemma}[One round of the chain]\label{lem:rbr-step}
+Let $j \in \iv{1}{\ell}$, fix $r_{\le j}$ (hence $w_0, \dots, w_{j-1}$), and suppose $r_j$ is good for $w_{j-1}$ at level $j$.
+If $c' \in \Cc_j$ satisfies $\dens_{j}(c') \ge 1-\delta$, then $\Delta^{\mathrm{fib}}_{j-1}(w_{j-1}, \Cc_{j-1}) \le \delta$, the codeword $c = \dec_{j-1}(w_{j-1})$ satisfies $\fold_{r_j}(c) = c'$, and $\Ww_{j}(c') \subseteq \Ww_{j-1}(c)$; in particular $\dens_{j-1}(c) \ge 1-\delta$.
+\end{lemma}
+
+\begin{proof}
+Let $Y = \{\eta \in L_{j} : \hat w_j(\eta) = c'(\eta)\}$. Every $\xi \in \Ww_{j}(c')$ has $\xi^{2^j} \in Y$, and $\xi \mapsto \xi^{2^j}$ is $2^j$-to-$1$ from $L$ onto $L_j$ (\cref{lem:power}(2)); so $|Y| \ge |\Ww_j(c')|/2^j \ge (1-\delta)M_j$.
+\Cref{lem:step} gives the first two claims, and $w_{j-1} = c$ on the fibre over every $\eta \in Y$.
+Let $\xi \in \Ww_{j}(c')$ and $\eta = \xi^{2^j} \in Y$. The fibre over $\eta$ is $\{\pm \xi^{2^{j-1}}\}$ (\cref{lem:power}(4)), and $w_{j-1} = c$ on it.
+If $j = 1$, this says $\xi \in \Ww_0(c)$.
+If $j \ge 2$, the condition $\xi^{2^{j-1}} \notin \Bb_{j-1}$, part of the definition of $\Ww_{j}(c')$, gives $\hat w_{j-1}(\xi^{2^{j-1}}) = w_{j-1}(\xi^{2^{j-1}}) = c(\xi^{2^{j-1}})$; the conditions $\xi^{2^i} \notin \Bb_i$ for $i \le j-2$ are common to both sets. Hence $\xi \in \Ww_{j-1}(c)$.
+\end{proof}
+
+\begin{proposition}[The codeword chain]\label{prop:chain}
+Let $r \in \F^\ell$ be such that $r_j$ is good for $w_{j-1}$ at level $j$ for every $j \in \iv{1}{\ell}$, and suppose $\dens_\ell(w_\ell) \ge 1-\delta$.
+Put $c_\ell = w_\ell$. Then, for $j = \ell-1, \dots, 0$, $\Delta^{\mathrm{fib}}_j(w_j, \Cc_j) \le \delta$, and the codewords $c_j = \dec_j(w_j)$ satisfy
+\[
+  \fold_{r_{j+1}}(c_j) = c_{j+1}
+  \qquad\text{and}\qquad
+  \Ww_\ell(w_\ell) \subseteq \Ww_{j}(c_j).
+\]
+In particular:
+\begin{enumerate}
+  \item $w_0$ agrees with $c_0$ at every point of $\Ww_\ell(w_\ell)$, and $\Delta^{\mathrm{fib}}_0(w_0, \Cc_0) \le \delta$;
+  \item $P = \pfold^{(\ell)}_r(P_{c_0})$.
+\end{enumerate}
+\end{proposition}
+
+\begin{proof}
+Downward induction on $j$, applying \cref{lem:rbr-step} at level $j+1$ with $c' = c_{j+1}$: its hypothesis $\dens_{j+1}(c_{j+1}) \ge 1-\delta$ holds for $j+1 = \ell$ by assumption, and for $j+1 < \ell$ by the previous step, since $\Ww_\ell(w_\ell) \subseteq \Ww_{j+1}(c_{j+1})$.
+(1) $\xi \in \Ww_0(c_0)$ means $w_0 = c_0$ at $\pm\xi$.
+(2) By \cref{lem:iterated} applied to $P_{c_0} \in \F[X]_{<N}$, the words $c_j$ are $\ev_{L_j}(\pfold^{(j)}_r(P_{c_0}))$; so $\ev_{L_\ell}(P) = w_\ell = c_\ell = \ev_{L_\ell}(\pfold^{(\ell)}_r(P_{c_0}))$, and both polynomials lie in $\F[X]_{<N_\ell}$ with $N_\ell \le M_\ell$, so they are equal (\cref{lem:rs-params}(1)).
+\end{proof}
+
+\subsection{Soundness of the test}\label{sec:fold:sound}
+
+Put
+\[
+  \varepsilon_{\mathrm{fold}} \;=\; \sum_{j=1}^{\ell} \frac{M_j}{|\F|} \;=\; \frac{M\,(1 - 2^{-\ell})}{|\F|} \;<\; \frac{M}{|\F|}.
+\]
+
+\begin{theorem}[Soundness of the folding test]\label{thm:fpt}
+Fix a deterministic prover for $\Pi_{\mathrm{FT}}[\ell,\kappa]$ and an instance $w_0 \in \F^{L}$, and let $\mathsf{Good}$ be the event, over $r \in \F^\ell$, that $r_j$ is good for $w_{j-1}$ at level $j$ for every $j \in \iv{1}{\ell}$. Then:
+\begin{enumerate}
+  \item $\Pr[\neg\mathsf{Good}] \le \varepsilon_{\mathrm{fold}}$;
+  \item for every $r \in \mathsf{Good}$, either $\dens_\ell(w_\ell) < 1-\delta$, or the conclusions of \cref{prop:chain} hold;
+  \item if $\Delta^{\mathrm{fib}}_0(w_0, \Cc_0) > \delta$, the verifier accepts with probability at most $\varepsilon_{\mathrm{fold}} + (1-\delta)^\kappa$.
+\end{enumerate}
+By \cref{lem:randomised}, item 3 also holds for randomised provers.
+\end{theorem}
+
+\begin{proof}
+(1) The word $w_{j-1}$ is a function of $r_{\le j-1}$, and for each value of $r_{\le j-1}$ at most $M_j$ values of $r_j$ are not good for it (\cref{lem:good}). Apply \cref{lem:sequential}.
+(2) is \cref{prop:chain}.
+(3) If $r \in \mathsf{Good}$, then $\dens_\ell(w_\ell) < 1-\delta$, for otherwise \cref{prop:chain}(1) would give $\Delta^{\mathrm{fib}}_0(w_0, \Cc_0) \le \delta$.
+By \cref{lem:passing}(2) and \cref{lem:queries} (with $\Omega' = \F^\ell$, $\mathcal{A} = \mathsf{Good}$ and $\mathcal{S}(r) = \Ww_\ell(w_\ell)$), the verifier accepts and $r \in \mathsf{Good}$ with probability at most $(1-\delta)^\kappa$. Add item 1.
+\end{proof}
+
+\begin{remark}[Fibre distance versus distance]\label{rem:fib-vs-dist}
+Since $\Delta \le \Delta^{\mathrm{fib}}_0$ (\cref{lem:fibre-dist}(1)), item 3 applies in particular to every word with $\Delta(w_0, \Cc_0) > \delta$.
+The fibre distance is the natural quantity for the analysis because a single fold check reads a whole fibre, and it is at most twice the Hamming distance; \cref{sec:sound,sec:pq} measure the distance of the commitment in it.
+\end{remark}
+
+\begin{remark}[Use in the scheme]\label{rem:fpt-use}
+The scheme of \cref{sec:scheme} runs $\Pi_{\mathrm{FT}}[\ell,\kappa]$ on the batched word $w_0 = w + \beta w_A + \beta^2 h$, whose values the verifier computes from two oracles and the virtual word $h$ (\cref{def:virtual}), and adds no other check.
+Its analysis (\cref{sec:sound}) needs more than item 3 of \cref{thm:fpt}: it uses item 2, the witness sets of \cref{def:witness}, and \cref{lem:rbr-step} to define the round-by-round state.
+This is why these statements are given for an arbitrary prover and word, and not only for far words.
+\end{remark}

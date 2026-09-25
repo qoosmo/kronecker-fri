@@ -1,0 +1,249 @@
+\section{Preliminaries}\label{sec:prelim}
+
+This section fixes notation and collects the algebraic and coding-theoretic facts used in the paper.
+Every result specific to this paper is proved.
+Standard facts from algebra and coding theory are quoted with a reference and labelled \emph{Fact}.
+The only external result about codes used in the soundness analysis is the correlated-agreement theorem of \cref{sec:prelim:gaps}; \cref{fact:decode} is used only for the running time of the extractor.
+Several statements coincide with results of the companion paper~\cite{Mkh26}, whose proofs are formalised in Lean~4; we reproduce them with their proofs so that the present paper is self-contained, and we indicate the corresponding item of~\cite{Mkh26}.
+
+\subsection{Integers and bits}\label{sec:prelim:bits}
+
+\paragraph{Integers.}
+$\N = \{0,1,2,\dots\}$.
+For integers $a$ and $c$ we write $\iv{a}{c} = \{ i \in \mathbb{Z} : a \le i \le c \}$, which is empty if $a > c$.
+
+\paragraph{Number of variables.}
+The letter $n \in \N$ denotes a number of variables, and $N = 2^n$.
+Unless a hypothesis states otherwise, the statements of \cref{sec:prelim} hold for every $n \ge 0$.
+
+\paragraph{Binary decomposition.}
+Every $a \in \iv{0}{N-1}$ has a unique binary decomposition
+\[
+  a \;=\; \sum_{k=1}^{n} a_k\, 2^{k-1}, \qquad a_k \in \{0,1\},
+\]
+and $(a_1,\dots,a_n)$ is its \emph{bit vector}; $a_1$ is the least significant bit.
+The map $a \mapsto (a_1,\dots,a_n)$ is a bijection from $\iv{0}{N-1}$ onto $B_n = \{0,1\}^n$, the \emph{Boolean hypercube}, and we identify $a$ with its bit vector.
+When a letter is declared to denote an index, its subscripts denote its bits.
+For $a, b \in \iv{0}{N-1}$:
+\begin{itemize}
+  \item $\wt(a) = \sum_{k=1}^n a_k$ is the \emph{Hamming weight} of $a$;
+  \item $\cmp{a} = (N-1) - a$ is the \emph{complement} of $a$;
+  \item $b \sub a$ means $b_k \le a_k$ for all $k \in \iv{1}{n}$ ($b$ is a \emph{submask} of $a$).
+\end{itemize}
+
+\begin{lemma}[Complement]\label{lem:complement}
+For $a \in \iv{0}{N-1}$, the bits of $\cmp{a}$ are $\cmp{a}_k = 1 - a_k$ for $k \in \iv{1}{n}$.
+\end{lemma}
+
+\begin{proof}
+$\sum_k (1-a_k) 2^{k-1} = \sum_k 2^{k-1} - \sum_k a_k 2^{k-1} = (N-1) - a$, and $1 - a_k \in \{0,1\}$; conclude by uniqueness of the binary decomposition.
+\end{proof}
+
+\subsection{Fields and univariate polynomials}\label{sec:prelim:fields}
+
+Throughout the paper, $\Fq$ is a finite field with $q$ elements and \emph{odd characteristic}, so that $2$ is invertible in $\Fq$, and $\F \supseteq \Fq$ is a finite extension of $\Fq$, the \emph{challenge field} (possibly $\F = \Fq$).
+For a field $\F$, $\F[X]$ is the ring of univariate polynomials over $\F$; for $d \in \N$, $\F[X]_{<d}$ is the $\F$-vector space of polynomials of degree less than $d$, of dimension $d$ (with $\deg 0 = -\infty$).
+For $P \in \F[X]$ and $j \in \N$, $\coef{j}{P}$ is the coefficient of $X^j$ in $P$.
+
+\begin{lemma}[Root counting; {\cite[Lemma~2.1]{Mkh26}}]\label{lem:roots}
+Let $\F$ be a field. A nonzero polynomial $P \in \F[X]$ of degree $d$ has at most $d$ roots in $\F$.
+Consequently, two polynomials of $\F[X]_{<d}$ that agree on $d$ distinct points of $\F$ are equal.
+\end{lemma}
+
+\begin{proof}
+If $P(a) = 0$, Euclidean division by $X - a$ gives $P = (X-a)Q$ with $\deg Q = d-1$, and every root of $P$ other than $a$ is a root of $Q$, because $\F$ has no zero divisors. Induction on $d$ gives the first statement. For the second, apply it to the difference, which has degree $< d$.
+\end{proof}
+
+\begin{fact}[{\cite[Theorem~2.8]{LN97}}]\label{fact:cyclic}
+The multiplicative group $\F^{\times}$ of a finite field $\F$ is cyclic.
+\end{fact}
+
+\begin{lemma}[Even--odd split of polynomials; {\cite[Lemma~2.3(1)]{Mkh26}}]\label{lem:split-poly}
+Let $\F$ be a field and $d \ge 1$. Every $P \in \F[X]_{<2d}$ can be written uniquely as
+\[
+  P(X) \;=\; P_e(X^2) + X\,P_o(X^2), \qquad P_e, P_o \in \F[X]_{<d},
+\]
+namely with $\coef{i}{P_e} = \coef{2i}{P}$ and $\coef{i}{P_o} = \coef{2i+1}{P}$ for $i \in \iv{0}{d-1}$.
+The map $P \mapsto (P_e, P_o)$ is $\F$-linear.
+\end{lemma}
+
+\begin{proof}
+Each monomial $X^j$ with $j < 2d$ appears on the right-hand side exactly once: as $(X^2)^{i}$ in $P_e(X^2)$ if $j = 2i$, and as $X (X^2)^{i}$ in $X P_o(X^2)$ if $j = 2i+1$. Comparing coefficients gives existence and uniqueness; linearity is clear from the coefficient formulas.
+\end{proof}
+
+\subsection{Multilinear polynomials}\label{sec:prelim:ml}
+
+Let $\mathbb{A}$ be a commutative ring.
+A polynomial in $\mathbb{A}[x_1,\dots,x_n]$ is \emph{multilinear} if its degree in each variable is at most $1$.
+The multilinear polynomials form an $\mathbb{A}$-module $\Ll_n(\mathbb{A})$.
+For $a \in \iv{0}{N-1}$, the \emph{monomial} of index $a$ is
+\[
+  x^a \;=\; \prod_{k=1}^{n} x_k^{a_k} \;=\; \prod_{k \,:\, a_k = 1} x_k ,
+\]
+and the monomials $x^a$, $a \in \iv{0}{N-1}$, form a basis of $\Ll_n(\mathbb{A})$, since the monomials form a basis of $\mathbb{A}[x_1,\dots,x_n]$.
+
+\begin{definition}[Coefficient form and table form]\label{def:forms}
+Every $f \in \Ll_n(\mathbb{A})$ is written uniquely as
+\[
+  f \;=\; \sum_{a=0}^{N-1} \alpha_a\, x^a, \qquad \alpha_a \in \mathbb{A};
+\]
+the family $\alpha = (\alpha_a)_{a \in \iv{0}{N-1}}$ is the \emph{coefficient form} of $f$.
+The \emph{table form} of $f$ is the family $(f(b))_{b \in \iv{0}{N-1}}$ of its values on $B_n \subseteq \mathbb{A}^n$.
+A polynomial with coefficients in $\mathbb{A}$ is evaluated at points of $\mathbb{A}'^n$ for every commutative ring $\mathbb{A}' \supseteq \mathbb{A}$; for $z \in \mathbb{A}'^n$ we write $z^a = \prod_{k : a_k = 1} z_k$, so that $f(z) = \sum_a \alpha_a z^a$.
+\end{definition}
+
+\begin{lemma}[Table form $\leftrightarrow$ coefficient form; {\cite[Lemma~2.9]{Mkh26}}]\label{lem:mobius}
+With the notation of \cref{def:forms}, for all $a, b \in \iv{0}{N-1}$,
+\[
+  f(b) \;=\; \sum_{c \sub b} \alpha_c
+  \qquad\text{and}\qquad
+  \alpha_a \;=\; \sum_{c \sub a} (-1)^{\wt(a)-\wt(c)}\, f(c).
+\]
+In particular, a multilinear polynomial is determined by its table form, and the map from table form to coefficient form (the \emph{M\"obius transform}) is computed with $\tfrac{n}{2}N$ subtractions.
+\end{lemma}
+
+\begin{proof}
+For $b \in B_n$ we have $b^c = \prod_{k : c_k = 1} b_k$, which equals $1$ if $c \sub b$ and $0$ otherwise; evaluating $f = \sum_c \alpha_c x^c$ at $b$ gives the first identity.
+For the second, substitute the first into its right-hand side:
+\[
+  \sum_{b \sub a} (-1)^{\wt(a)-\wt(b)} \sum_{c \sub b} \alpha_c
+  \;=\; \sum_{c \sub a} \alpha_c \sum_{c \sub b \sub a} (-1)^{\wt(a)-\wt(b)} .
+\]
+The inner sum runs over the subsets of the $\wt(a) - \wt(c)$ positions where $a$ has a $1$ and $c$ a $0$; it equals $(1-1)^{\wt(a)-\wt(c)}$, which is $1$ if $c = a$ and $0$ otherwise.
+
+For the cost, the second identity factors over the bits: define $g^{(0)} = f|_{B_n}$ and, for $k \in \iv{1}{n}$, $g^{(k)}(a) = g^{(k-1)}(a)$ if $a_k = 0$ and $g^{(k)}(a) = g^{(k-1)}(a) - g^{(k-1)}(a - 2^{k-1})$ if $a_k = 1$. By induction on $k$, $g^{(k)}(a) = \sum (-1)^{\sum_{i \le k}(a_i - c_i)} f(c)$ over the $c$ with $c \sub a$ and $c_i = a_i$ for $i > k$; for $k = n$ this is $\alpha_a$. Each step performs $N/2$ subtractions.
+\end{proof}
+
+\subsection{Smooth domains}\label{sec:prelim:domains}
+
+\begin{definition}[Smooth domain; {\cite[Def.~2.14]{Mkh26}}]\label{def:domain}
+A \emph{smooth domain} is a subgroup $L \le \Fq^{\times}$ of order $M = 2^{\mu}$ with $\mu \in \N$.
+For $j \in \iv{0}{\mu}$, $L^{2^j} = \{\xi^{2^j} : \xi \in L\}$ is the image of the $2^j$-th power map (not a Cartesian power).
+\end{definition}
+
+\begin{lemma}[Power maps on smooth domains; {\cite[Lemma~2.15]{Mkh26}}]\label{lem:power}
+Let $\mu \in \N$.
+\begin{enumerate}
+  \item $\Fq^\times$ has a subgroup of order $2^\mu$ if and only if $2^\mu \mid q-1$; it is then unique and cyclic.
+  \item Let $L$ be a smooth domain of order $M = 2^\mu$ and $j \in \iv{0}{\mu}$. The map $\xi \mapsto \xi^{2^j}$ is a group homomorphism from $L$ onto $L^{2^j}$, which is the smooth domain of order $M/2^j$, and every element of $L^{2^j}$ has exactly $2^j$ preimages in $L$.
+  \item $(L^{2^j})^{2} = L^{2^{j+1}}$ for $j \in \iv{0}{\mu-1}$.
+  \item If $\mu \ge 1$, then $-1 \in L$, $-1 \ne 1$, and the preimages of $\eta = \xi^2 \in L^2$ under squaring are exactly $\xi$ and $-\xi$, which are distinct.
+\end{enumerate}
+\end{lemma}
+
+\begin{proof}
+(1) A subgroup of order $e$ of a group of order $q-1$ exists only if $e \mid q-1$ (Lagrange's theorem).
+Conversely, let $e \mid q-1$. By \cref{fact:cyclic}, $\Fq^\times$ is generated by some $\omega$ of order $q-1$, and $\omega^{(q-1)/e}$ generates a cyclic subgroup of order $e$.
+Every subgroup of order $e$ is contained in the set of roots of $X^e - 1$, which has at most $e$ elements by \cref{lem:roots}; so there is exactly one such subgroup.
+(2) The power map is a homomorphism because $L$ is commutative. If $\omega$ generates $L$, then $\omega^{2^j}$ generates the image and has order $2^{\mu-j}$; by (1) the image is the smooth domain of that order. The preimages of an element form a coset of the kernel, which has order $|L|/|L^{2^j}| = 2^j$.
+(3) $(\xi^{2^j})^2 = \xi^{2^{j+1}}$.
+(4) The kernel of squaring has order $2$ by (2) and consists of roots of $X^2 - 1 = (X-1)(X+1)$; since the characteristic is odd, $-1 \ne 1$, so the kernel is $\{1,-1\}$. The preimages of $\xi^2$ form the coset $\{\xi, -\xi\}$, and $\xi \ne -\xi$ because $2\xi \ne 0$.
+\end{proof}
+
+\begin{definition}[Fibres; {\cite[Def.~2.16]{Mkh26}}]\label{def:fibre}
+Let $L$ be a smooth domain of order $M \ge 2$. The \emph{fibre} over $\eta \in L^2$ is the set $\{\xi, -\xi\}$ of its two square roots in $L$ (\cref{lem:power}(4)).
+The $M/2$ fibres partition $L$.
+\end{definition}
+
+\subsection{Reed--Solomon codes}\label{sec:prelim:rs}
+
+\begin{definition}[Reed--Solomon code; {\cite[Def.~2.17]{Mkh26}}]\label{def:rs}
+Let $L$ be a smooth domain of order $M$ and $1 \le d \le M$.
+The \emph{evaluation map} is $\ev_L : \F[X] \to \F^{L}$, $P \mapsto (P(\xi))_{\xi \in L}$, and the \emph{Reed--Solomon code} of degree bound $d$ on $L$ over $\F$ is
+\[
+  \RS_{\F}[L,d] \;=\; \ev_L\bigl(\F[X]_{<d}\bigr) \;\subseteq\; \F^{L},
+\]
+of \emph{rate} $\rho = d/M$.
+Elements of $\F^L$ are \emph{words}, and elements of $\RS_\F[L,d]$ are \emph{codewords}.
+For $w, w' \in \F^L$, the \emph{relative Hamming distance} is $\Delta(w,w') = |\{\xi \in L : w(\xi) \ne w'(\xi)\}|/M$, and $\Delta(w, \Cc) = \min_{c \in \Cc} \Delta(w,c)$ for a nonempty $\Cc \subseteq \F^L$.
+Two words \emph{agree} on $S \subseteq L$ if they are equal at every point of $S$.
+\end{definition}
+
+\begin{lemma}[Hamming distance; {\cite[Lemma~2.18]{Mkh26}}]\label{lem:metric}
+$\Delta$ is a metric on $\F^L$. In particular, if $w$ agrees with $w'$ on at least $\alpha M$ points and $w'$ agrees with $w''$ on at least $\beta M$ points, then $w$ agrees with $w''$ on at least $(\alpha + \beta - 1)M$ points.
+\end{lemma}
+
+\begin{proof}
+Symmetry, and $\Delta(w,w') = 0$ if and only if $w = w'$, are clear. If $w(\xi) \ne w''(\xi)$, then $w(\xi) \ne w'(\xi)$ or $w'(\xi) \ne w''(\xi)$; counting gives the triangle inequality, and the second statement is the triangle inequality written with agreements.
+\end{proof}
+
+\begin{lemma}[Parameters of Reed--Solomon codes; {\cite[Lemma~2.19]{Mkh26}}]\label{lem:rs-params}
+Let $\Cc = \RS_\F[L,d]$ with $|L| = M$ and rate $\rho = d/M$.
+\begin{enumerate}
+  \item $\ev_L : \F[X]_{<d} \to \Cc$ is an $\F$-linear bijection; for $c \in \Cc$ we write $P_c$ for the unique polynomial of $\F[X]_{<d}$ with $\ev_L(P_c) = c$. Since $\ev_L$ is injective on $\F[X]_{<M}$, $P_c$ depends only on the word $c$.
+  \item Two distinct codewords agree on at most $d-1$ points of $L$.
+  \item If $2\delta < 1 - (d-1)/M$, in particular if $\delta \le (1-\rho)/2$, every word is within distance $\delta$ of at most one codeword.
+\end{enumerate}
+\end{lemma}
+
+\begin{proof}
+Items 1 and 2 follow from \cref{lem:roots}, as $d \le M$ and the points of $L$ are distinct. For item 3, two codewords within distance $\delta$ of $w$ would be within distance $2\delta < 1 - (d-1)/M$ of each other (\cref{lem:metric}), so they would agree on more than $d - 1$ points, contradicting item 2. Finally $(1-\rho)/2 < (1 - (d-1)/M)/2$.
+\end{proof}
+
+\begin{fact}[Efficient unique decoding~{\cite{WB86,Gao03}}]\label{fact:decode}
+There is an algorithm that, given $L$, $d$ and $w \in \F^L$, outputs the unique $c \in \RS_\F[L,d]$ with $\Delta(w,c) < \tfrac12(1 - (d-1)/M)$ whenever it exists, using a number of operations in $\F$ polynomial in $M$.
+Checking the distance of the output to $w$ decides whether such a codeword exists, with $O(M)$ further comparisons.
+\end{fact}
+
+\begin{lemma}[Decoding over an extension field; {\cite[Lemma~2.21]{Mkh26}}]\label{lem:descent}
+Let $L$ be a smooth domain of order $M$, $1 \le d \le M$, and $w \in \Fq^L$.
+If $c \in \RS_\F[L,d]$ satisfies $\Delta(w,c) < \tfrac12(1 - (d-1)/M)$, then $P_c \in \Fq[X]_{<d}$; in particular $c \in \Fq^L$.
+\end{lemma}
+
+\begin{proof}
+Let $\mathrm{Frob} : \F \to \F$, $x \mapsto x^q$; it is an injective ring homomorphism, since $q$ is a power of the characteristic $p$ and $(x+y)^p = x^p + y^p$.
+Its fixed points are roots of $X^q - X$, of which there are at most $q$ (\cref{lem:roots}), and every element of $\Fq$ is one; so they are exactly the elements of $\Fq$.
+Apply $\mathrm{Frob}$ entrywise to words and coefficientwise to polynomials.
+Since $L \subseteq \Fq$, $\mathrm{Frob}(P(\xi)) = \mathrm{Frob}(P)(\xi)$ for $\xi \in L$, so $\mathrm{Frob}(c) = \ev_L(\mathrm{Frob}(P_c)) \in \RS_\F[L,d]$.
+As $\mathrm{Frob}$ is injective and $\mathrm{Frob}(w) = w$, $\Delta(w, \mathrm{Frob}(c)) = \Delta(w, c)$; by \cref{lem:rs-params}(3), $\mathrm{Frob}(c) = c$.
+Then $\mathrm{Frob}(P_c)$ and $P_c$ lie in $\F[X]_{<d}$ and evaluate to $c$, so they are equal (\cref{lem:rs-params}(1)), and the coefficients of $P_c$ lie in $\Fq$.
+\end{proof}
+
+\subsection{Even--odd split of words}\label{sec:prelim:split}
+
+Let $L$ be a smooth domain of order $M \ge 2$.
+For a word $w \in \F^L$, define $w_e, w_o \in \F^{L^2}$ by
+\begin{equation}\label{eq:even-odd}
+  w_e(\xi^2) \;=\; \frac{w(\xi) + w(-\xi)}{2},
+  \qquad
+  w_o(\xi^2) \;=\; \frac{w(\xi) - w(-\xi)}{2\xi}
+  \qquad (\xi \in L).
+\end{equation}
+
+\begin{lemma}[Even--odd split of words; {\cite[Lemma~2.22]{Mkh26}}]\label{lem:split-words}
+Let $w \in \F^L$ with $|L| = M \ge 2$.
+\begin{enumerate}
+  \item $w_e$ and $w_o$ are well defined, and $w \mapsto (w_e, w_o)$ is $\F$-linear.
+  \item (Locality.) For $\eta \in L^2$, $w_e(\eta)$ and $w_o(\eta)$ depend only on the values of $w$ on the fibre over $\eta$.
+  \item For every $\xi \in L$,
+  \begin{equation}\label{eq:even-odd-inverse}
+    w(\xi) \;=\; w_e(\xi^2) + \xi\, w_o(\xi^2), \qquad w(-\xi) \;=\; w_e(\xi^2) - \xi\, w_o(\xi^2).
+  \end{equation}
+  Consequently, $w$ vanishes on the fibre over $\eta$ if and only if $w_e(\eta) = w_o(\eta) = 0$.
+  \item If $1 \le d \le M/2$, $P \in \F[X]_{<2d}$ and $w = \ev_L(P)$, then $w_e = \ev_{L^2}(P_e)$ and $w_o = \ev_{L^2}(P_o)$ (\cref{lem:split-poly}); in particular $w_e, w_o \in \RS_\F[L^2, d]$.
+\end{enumerate}
+\end{lemma}
+
+\begin{proof}
+(1) The denominators are nonzero because the characteristic is odd and $\xi \ne 0$. Replacing $\xi$ by $-\xi$ leaves both right-hand sides of \eqref{eq:even-odd} unchanged, and $\pm\xi$ are the only square roots of $\xi^2$ in $L$ (\cref{lem:power}(4)), so the words are well defined. Linearity is clear.
+(2) is visible in \eqref{eq:even-odd}.
+(3) Add and subtract the two formulas of \eqref{eq:even-odd}. If $w_e(\eta) = w_o(\eta) = 0$, \eqref{eq:even-odd-inverse} gives $w(\pm\xi) = 0$; the converse follows from \eqref{eq:even-odd}.
+(4) For $\xi \in L$, $P(\pm\xi) = P_e(\xi^2) \pm \xi P_o(\xi^2)$; substituting into \eqref{eq:even-odd} gives $w_e(\xi^2) = P_e(\xi^2)$ and $w_o(\xi^2) = P_o(\xi^2)$. Moreover $P_e, P_o \in \F[X]_{<d}$ and $d \le M/2 = |L^2|$ (\cref{lem:power}(2)).
+\end{proof}
+
+\subsection{Correlated agreement}\label{sec:prelim:gaps}
+
+The external result used in the soundness analysis is the correlated-agreement theorem of Ben-Sasson, Carmon, Ishai, Kopparty and Saraf~\cite{BCIKS23}, for parameterised curves, in the unique-decoding regime.
+For $t \ge 1$ and $u_0, \dots, u_t \in \F^L$, the \emph{curve} generated by $(u_0,\dots,u_t)$ is the family $(u_\beta)_{\beta \in \F}$ with $u_\beta = \sum_{i=0}^{t} \beta^i u_i$; for $t = 1$ it is the line $u_0 + \beta u_1$.
+
+\begin{theorem}[{\cite[Theorem~1.5 with Theorem~1.2]{BCIKS23}}]\label{thm:curves}
+Let $\Cc = \RS_\F[L,d]$ with $|L| = M$ and rate $\rho = d/M$, let $0 < \delta \le (1-\rho)/2$, and let $t \ge 1$ and $u_0,\dots,u_t \in \F^L$.
+Let $Z = \{\beta \in \F : \Delta(u_\beta, \Cc) \le \delta\}$.
+If $|Z| > t\,M$, then there are a set $L' \subseteq L$ with $|L'| \ge (1-\delta)M$ and codewords $\hat c_0, \dots, \hat c_t \in \Cc$ such that $u_i$ agrees with $\hat c_i$ on $L'$ for every $i \in \iv{0}{t}$.
+\end{theorem}
+
+We use the numbering of the full version (IACR ePrint 2020/654).
+There, $\RS[\F, D, k]$ is the code of polynomials of degree at most $k$ on a set $D \subseteq \F$, of blocklength $|D|$ and rate $(k+1)/|D|$; we apply it with $D = L$ and $k = d-1$.
+Theorem~1.2 of~\cite{BCIKS23} sets the error to $\epsilon = |D|/|\F|$ for $\delta \in (0, (1-\rho)/2]$, and Theorem~1.5 concludes correlated agreement when $\Pr_{\beta}[\Delta(u_\beta, \Cc) \le \delta] > t\,\epsilon$ for $\beta$ uniform in $\F$, that is, when $|Z| > t\,M$.
+The theorem is stated over any finite field; we apply it with $\F \supseteq \Fq$ and $L \subseteq \Fq^\times \subseteq \F$.
+For $t = 1$ it is the statement used in~\cite[Theorem~2.23]{Mkh26}.

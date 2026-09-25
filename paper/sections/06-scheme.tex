@@ -1,0 +1,183 @@
+\section{The Commitment Scheme}\label{sec:scheme}
+
+This section defines the scheme in the IOP model (\cref{def:pcs}): the encoding, the evaluation protocol $\Pi_{\mathrm{KF}}$, its completeness, and its costs.
+The protocol has three parts: the prover sends the opening polynomial $A$ of \cref{def:opening-polys} as an oracle; the verifier defines from the commitment and this oracle a third word, the \emph{virtual word} $h$, whose values it computes from \eqref{eq:identity} instead of querying them, and batches the three words into one by a random challenge $\beta$; and the folding proximity test of \cref{sec:fold} is run on the batched word.
+Soundness is proved in \cref{sec:sound}, and the compilation into a non-interactive argument is in \cref{sec:pq}.
+
+\subsection{Parameters}\label{sec:scheme:params}
+
+The parameters are:
+\begin{itemize}
+  \item the number of variables $n \ge 1$, and $N = 2^n$;
+  \item a base field $\Fq$ of odd characteristic and a challenge field $\F \supseteq \Fq$, both finite;
+  \item a rate $\rho = 2^{-R}$ with $R \ge 2$, and a smooth domain $L \le \Fq^\times$ of order $M = N/\rho = 2^{n+R}$, which exists if and only if $2^{n+R} \mid q-1$ (\cref{lem:power}(1));
+  \item a number of folding rounds $\ell \in \iv{1}{n}$ and a number of queries $\kappa \ge 1$.
+\end{itemize}
+The levels $L_j$, $M_j$, $N_j$ and codes $\Cc_j = \RS_\F[L_j,N_j]$, $j \in \iv{0}{\ell}$, are those of \cref{sec:fold}; in particular $\Cc_0 = \RS_\F[L,N]$.
+The setting of \cref{sec:fold} only requires $R \ge 1$; the stronger condition $R \ge 2$, that is $\rho \le 1/4$, is used by the batching lemma of \cref{sec:sound}, and explained in \cref{rem:rate}.
+The polynomials to be committed have coefficients in $\Fq$ or in $\F$, and evaluation points lie in $\F^n$.
+
+\begin{example}[Goldilocks]\label{ex:goldilocks}
+For the Goldilocks prime $q = 2^{64} - 2^{32} + 1$, $q - 1 = 2^{32}(2^{32}-1)$, so smooth domains of order up to $2^{32}$ exist, and $n + R \le 32$. With $R = 2$ this allows $n \le 30$. For $\F$ one takes an extension of degree $2$ to $4$ of $\Fq$ (\cref{sec:pq}).
+\end{example}
+
+\subsection{Encoding}\label{sec:scheme:enc}
+
+\begin{definition}[Encoding]\label{def:enc}
+For $f \in \Ll_n(\F)$, $\Enc(f) = \ev_L(U_f) \in \Cc_0$, where $U_f$ is the Kronecker encoding (\cref{def:kron-enc}).
+\end{definition}
+
+\begin{lemma}[Properties of the encoding]\label{lem:enc}
+\begin{enumerate}
+  \item $\Enc$ is an $\F$-linear bijection from $\Ll_n(\F)$ onto $\Cc_0$, and $P_{\Enc(f)} = U_f$.
+  \item For $0 < \delta \le (1-\rho)/2$, every word $w \in \F^L$ satisfies $\Delta^{\mathrm{fib}}_0(w, \Enc(f)) \le \delta$ for at most one $f \in \Ll_n(\F)$, and likewise with $\Delta$ in place of $\Delta^{\mathrm{fib}}_0$; that is, \eqref{eq:dist-unique} holds with $\mathrm{dist} = \Delta^{\mathrm{fib}}_0$ and with $\mathrm{dist} = \Delta$.
+  \item If $f \in \Ll_n(\Fq)$, then $\Enc(f) \in \Fq^L$. Conversely, if $w \in \Fq^L$ and $\Delta(w, \Enc(f)) \le (1-\rho)/2$ (in particular if $\Delta^{\mathrm{fib}}_0(w, \Enc(f)) \le (1-\rho)/2$), then $f \in \Ll_n(\Fq)$.
+\end{enumerate}
+\end{lemma}
+
+\begin{proof}
+(1) $f \mapsto U_f$ is a linear bijection onto $\F[X]_{<N}$ (\cref{lem:kron-sub}(2)), and $\ev_L$ is a linear bijection from $\F[X]_{<N}$ onto $\Cc_0$ (\cref{lem:rs-params}(1)).
+(2) Two such polynomials $f, f'$ would give codewords $\Enc(f), \Enc(f')$ within fibre distance (or distance) $\delta$ of $w$, hence equal by \cref{lem:unique} (or \cref{lem:rs-params}(3)), and $f = f'$ by (1).
+(3) The coefficients of $U_f$ are those of $f$, and $L \subseteq \Fq$. Conversely ($\Delta \le \Delta^{\mathrm{fib}}_0$ by \cref{lem:fibre-dist}(1)), $(1-\rho)/2 < \tfrac12(1-(N-1)/M)$, so \cref{lem:descent} gives $U_f = P_{\Enc(f)} \in \Fq[X]$.
+\end{proof}
+
+\begin{fact}[Fast evaluation on a smooth domain~\cite{CT65}]\label{fact:ntt}
+Let $L$ be a smooth domain of order $M = 2^\mu$ with a known generator. For $P \in \F[X]_{<M}$, the word $\ev_L(P)$ is computed with $\tfrac{M}{2}\mu$ multiplications and $M\mu$ additions in $\F$ (radix-$2$ number-theoretic transform, NTT), and $P$ is recovered from $\ev_L(P)$ at the same cost plus $M$ multiplications (inverse NTT).
+If $P$ has coefficients in $\Fq$, all operations are in $\Fq$; if $\F$ has degree $e$ over $\Fq$, an NTT over $\F$ costs $e$ NTTs over $\Fq$, since the multipliers lie in $\Fq$.
+\end{fact}
+
+\paragraph{Committing.}
+To commit to $f$, the prover computes $\Enc(f)$: from the coefficient form, one NTT of size $M$ on the coefficients of $U_f$ padded with zeros; from the table form, first the M\"obius transform (\cref{lem:mobius}, $\tfrac n2 N$ subtractions).
+In the IOP model the commitment is the oracle $w = \Enc(f)$; in the compiled scheme it is a Merkle root (\cref{sec:pq}).
+Unlike~\cite{Mkh26}, whose encoding $\sum_b f(b) K_b$ uses the table form directly, the Kronecker encoding needs the coefficient form; the difference is one M\"obius transform, of $\tfrac n2 N$ subtractions, against $\tfrac32 M\mu$ operations for the NTT that follows it, that is, at most a fraction $n/(3 \cdot 2^R \mu) < 1/(3 \cdot 2^R)$ of it.
+
+\subsection{The virtual word}\label{sec:scheme:virtual}
+
+The verifier needs the values of the second opening polynomial $H$ only through \eqref{eq:identity}, which determines them from those of $U_f$ and $A$. We therefore do not send $H$, and let the verifier compute the word it would be.
+Words computed by the verifier from other oracles are the \emph{virtual oracles} of~\cite{BCRSVW19}.
+
+\begin{definition}[Virtual word]\label{def:virtual}
+For words $w, w_A \in \F^L$, a point $z \in \F^n$ and a value $v \in \F$, the \emph{virtual word} $h = h[w, w_A; z, v] \in \F^L$ is
+\[
+  h(\xi) \;=\; \frac{\xi\, w(\xi)\, K_z(\xi) - w_A(\xi) - v\,\xi^N}{\xi^{N+1}} \qquad (\xi \in L).
+\]
+\end{definition}
+
+The denominator is nonzero because $0 \notin L$.
+
+\begin{lemma}[Properties of the virtual word]\label{lem:virtual}
+Let $w, w_A \in \F^L$, $z \in \F^n$, $v \in \F$ and $h = h[w,w_A;z,v]$.
+\begin{enumerate}
+  \item (Identity.) $\xi\, w(\xi)\, K_z(\xi) = w_A(\xi) + v\,\xi^N + \xi^{N+1} h(\xi)$ for every $\xi \in L$.
+  \item (Locality.) $h(\xi)$ depends only on $w(\xi)$ and $w_A(\xi)$, and is computed from them with $O(n)$ operations, given $\xi^{-1}$.
+  \item (Honest openings.) If $w = \ev_L(U)$ with $U \in \F[X]_{<N}$, $v = \coef{N-1}{U K_z}$ and $w_A = \ev_L(A_{U,z})$, then $h = \ev_L(H_{U,z})$.
+  \item (Linearity.) $h[w,w_A;z,v]$ is linear in $(w, w_A, v)$: $h[w + w', w_A + w_A'; z, v + v'] = h[w,w_A;z,v] + h[w',w_A';z,v']$.
+\end{enumerate}
+\end{lemma}
+
+\begin{proof}
+(1) Multiply the definition by $\xi^{N+1}$.
+(2) $K_z(\xi)$ costs $2n-1$ operations besides $n-1$ squarings, and one more squaring gives $\xi^N$ (\cref{lem:cost}(1)); $\xi^{-(N+1)} = (\xi^{-1})^{N+1}$ costs $n+1$ further multiplications.
+(3) By \cref{lem:split}, $X U K_z = A + vX^N + X^{N+1}H$ with $A = A_{U,z}$ and $H = H_{U,z}$. Evaluating at $\xi$ and dividing by $\xi^{N+1}$ gives $H(\xi) = h(\xi)$.
+(4) The numerator is linear in $(w, w_A, v)$, and the denominator does not depend on them.
+\end{proof}
+
+\begin{lemma}[The kernel polynomial on the domain]\label{lem:kernel-domain}
+Given $z \in \F^n$ and a generator of $L$, the word $\ev_L(K_z)$ is computed with fewer than $2M$ multiplications and $2M$ additions in $\F$, besides the powers of the generator, which lie in $\Fq$.
+\end{lemma}
+
+\begin{proof}
+For $k \in \iv{0}{n}$ let $z^{(k)} = (z_{k+1},\dots,z_n)$, so that $K_{z^{(n)}} = 1$ and $K_{z^{(k-1)}}(x) = (x + z_k)\, K_{z^{(k)}}(x^2)$ by \cref{lem:kernel-basic}(2).
+The domains $L_k = L^{2^k}$ satisfy $\{x^2 : x \in L_{k-1}\} = L_k$ (\cref{lem:power}).
+So $\ev_{L_{k-1}}(K_{z^{(k-1)}})$ is obtained from $\ev_{L_k}(K_{z^{(k)}})$ with one addition and one multiplication per point of $L_{k-1}$, for $k = n, \dots, 1$; and $\sum_{k=1}^{n} M/2^{k-1} < 2M$.
+Here $L_k$ is defined for $k \le n < \mu$, since $M = 2^{n+R}$.
+\end{proof}
+
+\subsection{The evaluation protocol}\label{sec:scheme:protocol}
+
+\begin{definition}[The evaluation protocol $\Pi_{\mathrm{KF}}$]\label{def:pikf}
+The instance is $(w; z, v)$, with an oracle $w \in \F^L$, a point $z \in \F^n$ and a value $v \in \F$; honestly, $w = \Enc(f)$ and $v = f(z)$, and the prover holds $f$.
+The protocol has $\ell + 2$ rounds, numbered as in \cref{def:iop}.
+\begin{enumerate}
+  \item \emph{Round $1$ (opening).} The prover sends an oracle $w_A \in \F^L$; honestly $w_A = \ev_L(A_{U_f,z})$ (\cref{def:opening-polys}). The verifier sends $\beta \in \F$. Put $h = h[w, w_A; z, v]$ (\cref{def:virtual}) and
+  \[
+    w_0 \;=\; w + \beta\, w_A + \beta^2\, h \;\in\; \F^L.
+  \]
+  \item \emph{Round $2$.} The prover sends nothing; the verifier sends $r_1 \in \F$.
+  \item \emph{Round $j+1$, $j \in \iv{2}{\ell}$.} The prover sends an oracle $w_{j-1} \in \F^{L_{j-1}}$; honestly $w_{j-1} = \fold_{r_{j-1}}(w_{j-2})$. The verifier sends $r_j \in \F$.
+  \item \emph{Round $\ell+2$ (final).} The prover sends $P \in \F[X]_{<N_\ell}$ by its $N_\ell$ coefficients; honestly $\ev_{L_\ell}(P) = \fold_{r_\ell}(w_{\ell-1})$. The verifier sends $\kappa$ independent uniform points $\xi^{(1)}, \dots, \xi^{(\kappa)} \in L$.
+\end{enumerate}
+Put $w_\ell = \ev_{L_\ell}(P)$ and $\hat w_j = \fold_{r_j}(w_{j-1})$ for $j \in \iv{1}{\ell}$. The verifier accepts if and only if the \emph{fold checks} $\hat w_j(\xi^{2^j}) = w_j(\xi^{2^j})$ hold for every $j \in \iv{1}{\ell}$ at every query point $\xi = \xi^{(i)}$, as in \eqref{eq:fold-check}.
+The values $w_0(\pm\xi)$ needed by the fold check of level $1$ are computed from the four queries $w(\pm\xi)$ and $w_A(\pm\xi)$, through $h(\pm\xi)$ (\cref{lem:virtual}(2)).
+The challenge sets are $\F$ for rounds $1$ to $\ell+1$ and $L^{\times\kappa}$ for round $\ell+2$.
+\end{definition}
+
+Rounds $2$ to $\ell+2$ of $\Pi_{\mathrm{KF}}$ are rounds $1$ to $\ell+1$ of the folding test $\Pi_{\mathrm{FT}}[\ell,\kappa]$ (\cref{def:fpt}) on the instance $w_0$, which is determined after round $1$; the checks of $\Pi_{\mathrm{KF}}$ are exactly those of that test.
+The words $w_j$, $\hat w_j$, the sets $\Bb_j$ and $\Ww_j(c)$ of \cref{sec:fold:witness}, and the good challenges of \cref{def:good} are therefore defined for $\Pi_{\mathrm{KF}}$, as functions of $\beta$ and $r$.
+
+\begin{remark}[Design]\label{rem:design}
+\begin{enumerate}
+  \item The evaluation claim enters only through the virtual word: by \cref{lem:virtual}(1), the identity \eqref{eq:identity} holds at every point \emph{by construction}, and a wrong value $v$ shows up as a word $h$ far from $\Cc_0$. For instance, if $w$ and $w_A$ are honest and the claim is $v' \ne v$, then $h[w,w_A;z,v'] = \ev_L(H) + (v - v')\,\ev_L(X^{-1})$ by \cref{lem:virtual}(3,4), where $X^{-1}$ is evaluated pointwise; since $\xi^{-1} = \xi^{M-1}$ and $1 - \xi\,T(\xi)$ has at most $N$ roots for $T \in \F[X]_{<N}$ (it is a nonzero polynomial of degree at most $N$), the word $\xi \mapsto \xi^{-1}$ agrees with every codeword of $\Cc_0$ on at most $N$ points.
+  \item The commitment $w$ is not tested on its own: it enters the proximity test through $w_0$, together with $w_A$ and $h$. The batching lemma (\cref{lem:batching}) shows that if the batched word agrees with a codeword on a large set of fibres for more than $2M$ values of $\beta$, then $w$, $w_A$ and $h$ are \emph{simultaneously} close to codewords of $\Cc_0$ on a common set of fibres.
+  \item All three words are tested for the degree bound $N$, the natural bound of $\Cc_0$; the factor $X$ in \eqref{eq:identity} is what makes this suffice (\cref{rem:why-x}). The properties $A(0) = 0$ and $\deg H \le N-2$ of honest openings are not checked and not needed.
+  \item The verifier never computes $v$ from $z$: it only evaluates $K_z$ at the $2\kappa$ points $\pm\xi^{(i)}$, with $O(n)$ operations each.
+  \item There is no sumcheck and no separate identity check: the evaluation claim is carried by the virtual word, and the folding test is a plain proximity test.
+\end{enumerate}
+\end{remark}
+
+\paragraph{The honest prover.}
+On input $f$ (in coefficient form, with $w = \Enc(f)$ already computed) and $z$:
+\begin{enumerate}
+  \item compute $G = U_f K_z$ (\cref{lem:cost}(3)); read off $v = \coef{N-1}{G}$ and the opening polynomials $A = A_{U_f,z}$ and $H = H_{U_f,z}$, whose coefficients are those of $XG$ in degrees $\iv{0}{N-1}$ and $\iv{N+1}{2N}$ (proof of \cref{lem:split});
+  \item compute $w_A = \ev_L(A)$ by one NTT of size $M$ over $\F$, and send it;
+  \item on receiving $\beta$, compute $\ev_L(K_z)$ (\cref{lem:kernel-domain}), the virtual word $h$, which equals $\ev_L(H)$ (\cref{lem:virtual}(3)), the word $w_0 = w + \beta w_A + \beta^2 h$, and $U_0 = U_f + \beta A + \beta^2 H \in \F[X]_{<N}$;
+  \item on receiving $r_j$ ($j \in \iv{1}{\ell-1}$), compute and send $w_j = \fold_{r_j}(w_{j-1})$ with \eqref{eq:fold-explicit};
+  \item on receiving $r_\ell$, send $P = \pfold^{(\ell)}_r(U_0)$, computed on coefficients (\cref{lem:iterated}).
+\end{enumerate}
+
+\subsection{Completeness}\label{sec:scheme:complete}
+
+\begin{theorem}[Completeness]\label{thm:complete}
+If $w = \Enc(f)$ and $v = f(z)$, the honest prover makes the verifier of $\Pi_{\mathrm{KF}}$ accept with probability $1$.
+\end{theorem}
+
+\begin{proof}
+Let $A = A_{U_f,z}$ and $H = H_{U_f,z}$. By \cref{thm:extraction}, $v = f(z) = \coef{N-1}{U_f K_z}$, so \cref{lem:virtual}(3) applies: $h = \ev_L(H)$.
+By linearity of $\ev_L$, $w_0 = \ev_L(U_0)$ with $U_0 = U_f + \beta A + \beta^2 H \in \F[X]_{<N}$.
+The honest messages of rounds $2$ to $\ell+2$ are those of the honest prover of $\Pi_{\mathrm{FT}}[\ell,\kappa]$ for $U_0$, so all fold checks hold at every point, by \cref{lem:fpt-complete}(1).
+\end{proof}
+
+\subsection{Costs}\label{sec:scheme:costs}
+
+We count operations in $\F$ (and note when they are in $\Fq$), with $\mu = n + R = \log_2 M$; hashing is counted in \cref{sec:pq}.
+
+\begin{proposition}[Costs of $\Pi_{\mathrm{KF}}$]\label{prop:costs}
+\begin{enumerate}
+  \item \emph{Commit.} One NTT of size $M$: $\tfrac{M}{2}\mu$ multiplications and $M\mu$ additions, in $\Fq$ if $f$ has coefficients in $\Fq$; plus $\tfrac n2 N$ subtractions if $f$ is given in table form.
+  \item \emph{Prover, opening.} At most $2nN$ multiplications and $2nN$ additions for $U_f K_z$; one NTT of size $M$ over $\F$; fewer than $4M$ operations for $\ev_L(K_z)$; $6M$ operations for $h$ and $4M$ for $w_0$, given the powers $\xi^{N}$ and $\xi^{-(N+1)}$, $\xi \in L$, which lie in $\Fq$; at most $7M$ operations for the words $w_1, \dots, w_{\ell-1}$ (given the inverses $(2\xi)^{-1}$, which lie in $\Fq$ and are precomputed once per domain); and at most $7N$ operations for $U_0$ and $P$. In total $O(M\mu)$, dominated by the NTT.
+  \item \emph{Verifier.} Per query point $\xi$: $n$ squarings, one multiplication and one inversion in $\Fq$ for $\xi^2, \dots, \xi^{2^n} = \xi^N$ and $\xi^{-(N+1)}$; $2n+1$ operations for $K_z(\xi)$ and $K_z(-\xi)$; $12$ operations for $h(\pm\xi)$ and $8$ for $w_0(\pm\xi)$; at most $7\ell$ operations for the fold checks, besides $\ell$ exponentiations in $\Fq$ for the inverses $(2\xi^{2^{j-1}})^{-1}$ or, alternatively, $\ell$ squarings of $\xi^{-1}$; and $2N_\ell$ operations for $P(\xi^{2^\ell})$. In total $O(\kappa(n + N_\ell))$.
+  \item \emph{Communication, IOP model.} Oracles: $w_A$ of length $M$, and $w_j$ of length $M_j$ for $j \in \iv{1}{\ell-1}$, of total length less than $2M$. Non-oracle messages: the $N_\ell$ coefficients of $P$. Queries: $4$ to $(w, w_A)$ and $2$ to each of $w_1, \dots, w_{\ell-1}$ per point, that is, $\kappa(2\ell + 2)$ in total.
+\end{enumerate}
+\end{proposition}
+
+\begin{proof}
+(1) \Cref{fact:ntt} and \cref{lem:mobius}.
+(2) The product is \cref{lem:cost}(3); the NTT is \cref{fact:ntt}, over $\F$ since the coefficients of $A$ lie in $\F$; $\ev_L(K_z)$ is \cref{lem:kernel-domain}. Each value $h(\xi) = ((w(\xi)K_z(\xi))\xi - w_A(\xi) - v\xi^N)\,\xi^{-(N+1)}$ costs four multiplications and two subtractions, and each entry of $w_0$ two multiplications and two additions, with $\beta^2$ computed once. For the folds, each value $\fold_r(w)(\xi^2) = (2r-1)w_e(\xi^2) + (1-r)w_o(\xi^2)$ costs one addition and one multiplication by $\tfrac12$ for $w_e$, one subtraction and one multiplication by $(2\xi)^{-1}$ for $w_o$, and two multiplications and one addition for the combination, so $7$ operations; there are $\sum_{j=1}^{\ell-1} M_j < M$ values. For $U_0$, $2N$ multiplications and $2N$ additions; for $P$, $3$ operations per output coefficient and $\sum_{j=1}^{\ell} N_j < N$ outputs.
+(3) The powers $\xi^{2^k}$ for $k \in \iv{1}{n}$ take $n$ squarings; $\xi^{-(N+1)} = (\xi^N \cdot \xi)^{-1}$ one multiplication and one inversion, and $(-\xi)^{N} = \xi^N$, $(-\xi)^{-(N+1)} = -\xi^{-(N+1)}$ since $N$ is even. By \cref{lem:kernel-basic}(2), $K_z(\pm\xi) = (z_1 \pm \xi)\,K_{z'}(\xi^2)$, where $K_{z'}(\xi^2)$ takes $n-1$ additions and $n-2$ multiplications given the powers (\cref{lem:cost}(1)); this gives both values with $2n+1$ operations. The values $h(\pm\xi)$ and $w_0(\pm\xi)$ are as in (2). The fold check of level $j$ needs $(2\xi_{j-1})^{-1}$ for the point $\xi_{j-1} = \pm\xi^{2^{j-1}}$ of its fibre, in $\Fq$; each check then costs $7$ operations as in (2) and one comparison. $P$ is evaluated by Horner's rule.
+(4) $M + \sum_{j=1}^{\ell-1} M_j < 2M$. At the query point $\xi$, the fold check of level $1$ reads $w$ and $w_A$ at $\pm\xi$, and the fold check of level $j \ge 2$ reads $w_{j-1}$ at $\pm\xi^{2^{j-1}}$; the right-hand sides $w_j(\xi^{2^j})$ for $j < \ell$ are among the values read at level $j+1$.
+\end{proof}
+
+\begin{remark}[Choice of $\ell$]\label{rem:ell}
+With $\ell = n$, $P$ is a constant and the verifier's work per point is $O(n)$; with $\ell < n$, the prover sends $N_\ell = 2^{n-\ell}$ coefficients instead of the last $n - \ell$ oracles, which in the compiled scheme removes $n-\ell$ Merkle roots and $\kappa(n-\ell)$ authentication paths at the cost of $2^{n-\ell}$ field elements and $O(\kappa 2^{n-\ell})$ verifier operations. The choice is made in \cref{sec:exp}.
+\end{remark}
+
+\begin{remark}[Comparison with the kernel-basis scheme]\label{rem:vs-kbfold}
+The evaluation protocol of~\cite{Mkh26} runs a sumcheck of $\ell$ rounds alongside the folds, and sends no oracle besides the folded words.
+$\Pi_{\mathrm{KF}}$ replaces the sumcheck by the virtual word, at the price of one oracle $w_A$ (one NTT over $\F$ and one Merkle tree for the prover, $2$ more queries per point) and of the product $U_f K_z$.
+A quantitative comparison is in \cref{sec:exp}.
+\end{remark}
+
+\begin{remark}[Why $R \ge 2$]\label{rem:rate}
+The batching lemma of \cref{sec:sound} shows, for a wrong value $v$, that the polynomial $\Phi$ of \cref{lem:identity}, of degree at most $2N$, would vanish on the agreement set produced by the proximity test, of size at least $(1-\delta)M$.
+This needs $2N < (1-\delta)M$, that is, $2\rho < 1-\delta$; with $\delta \le (1-\rho)/2$ it holds for every admissible $\delta$ when $\rho < 1/3$, so for $\rho = 2^{-R}$ with $R \ge 2$, and for $\rho = 1/2$ it fails for every $\delta > 0$ (\cref{rem:where-rate}).
+\end{remark}

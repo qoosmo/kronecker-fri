@@ -1,0 +1,105 @@
+\section{Introduction}\label{sec:intro}
+
+Many succinct arguments reduce the correctness of a computation to claims about multilinear polynomials evaluated at a random point.
+This is the case for sumcheck-based systems such as Spartan~\cite{Set20} and HyperPlonk~\cite{CBBZ23}.
+Such systems need a \emph{multilinear polynomial commitment scheme}: the prover commits to a multilinear polynomial $f$ in $n$ variables and later proves that $f(z) = v$ for a point $z$ chosen by the verifier.
+When the scheme is built from hash functions and error-correcting codes, the resulting arguments are transparent and rely on no number-theoretic assumption, which makes them candidates for post-quantum security.
+
+Hash-based multilinear commitments over Reed--Solomon codes follow, for the most part, the BaseFold paradigm~\cite{ZCF24}: the prover commits to a codeword, and proves an evaluation by running a sumcheck whose challenges also drive an FRI-like folding~\cite{BBHR18} of the codeword.
+The sumcheck is what connects the evaluation claim to the proximity test, and it shapes both the protocol and its soundness analysis, which must track the sumcheck claims and the folded codewords together~\cite{ZCF24,GLHQTZ25,Mkh26}.
+
+This paper takes a different route. It writes the evaluation $f(z)$ as a single coefficient of a product of two univariate polynomials, checks that coefficient through a polynomial identity of bounded degree, and tests the identity with plain FRI.
+The result is a multilinear commitment whose evaluation protocol has no sumcheck, and whose verifier is an FRI verifier with one extra local computation per query.
+
+\subsection{The idea}\label{sec:intro:idea}
+
+Let $N = 2^n$ and write $f = \sum_{a < N} \alpha_a x^a$ in coefficient form, with $x^a = \prod_{k : a_k = 1} x_k$.
+The \emph{Kronecker encoding} of $f$ is the univariate polynomial $U_f(X) = \sum_a \alpha_a X^a = f(X, X^2, X^4, \dots, X^{2^{n-1}})$, and the \emph{kernel polynomial} of a point $z \in \F^n$ is
+\[
+  K_z(X) \;=\; \prod_{k=1}^{n} \bigl(X^{2^{k-1}} + z_k\bigr).
+\]
+Its coefficient of $X^{N-1-a}$ is $z^a = \prod_{k : a_k = 1} z_k$, so that
+\[
+  f(z) \;=\; \coef{N-1}{\,U_f(X)\, K_z(X)\,}
+\]
+(\cref{thm:extraction}).
+To prove $v = f(z)$, the prover splits $X\,U_f K_z$ around the degree $N$:
+\[
+  X\,U_f(X)\,K_z(X) \;=\; A(X) + v\,X^N + X^{N+1} H(X), \qquad A, H \in \F[X]_{<N}
+\]
+(\cref{lem:split}). Conversely, if polynomials $U, A, H$ of degree less than $N$ satisfy this identity, then $v = \coef{N-1}{U K_z}$; the factor $X$ puts the checked coefficient at the degree $N$, so that the natural degree bound $N$ of the code is all that must be enforced (\cref{lem:identity,rem:why-x}).
+
+The scheme commits to $\Enc(f) = \ev_L(U_f)$ on a smooth multiplicative domain $L$ of order $M = N/\rho$.
+To open, the prover sends the word $w_A = \ev_L(A)$ only. The verifier does not need $H$ as an oracle: the identity determines $H(\xi)$ from $U_f(\xi)$ and $A(\xi)$ at every point, so the verifier computes a \emph{virtual word} $h$ from the commitment and $w_A$ (\cref{def:virtual}).
+It then batches $w + \beta w_A + \beta^2 h$ with a random $\beta$ and runs an FRI-style folding test on the result.
+A wrong value $v$ turns $h$ into a word far from the code, so the evaluation claim is enforced by the proximity test alone.
+
+\subsection{Contributions}\label{sec:intro:contrib}
+
+\paragraph{The extraction identity and the opening identity (\cref{sec:kernel}).}
+We prove the extraction identity, the split of $X\,U_f K_z$ into opening polynomials, and the identity lemma, together with algorithms and their exact costs: $K_z(\xi)$ with $n-1$ squarings, $n-1$ multiplications and $n$ additions, the product $U_f K_z$ with at most $2nN$ multiplications, and $K_z$ on all of $L$ with fewer than $2M$ (\cref{lem:cost,lem:kernel-domain}).
+The identity is the classical expression of an inner product as one coefficient of a product, applied to the coefficient vector of $f$ and the vector $(z^a)_a$, whose generating polynomial has the product form $K_z$ up to reversal (\cref{lem:reversal}). The same tensor structure is used, in the Lagrange basis and with KZG commitments, by Mercury~\cite{EG25}. Our contribution is its use in a transparent, hash-based scheme over Reed--Solomon codes, together with the analysis below.
+
+\paragraph{A folding proximity test for arbitrary words (\cref{sec:fold}).}
+We give a self-contained analysis of the FRI-style test with the kernel fold of~\cite{Mkh26}, for an arbitrary input word and without sumcheck: fibre distance, unique fibre decoding, good challenges, witness sets and the codeword chain, and a soundness theorem (\cref{thm:fpt}). The witness sets are stated for an arbitrary prover, so that they can serve directly as the round-by-round state of the scheme.
+
+\paragraph{The scheme and its soundness (\cref{sec:scheme,sec:sound}).}
+The evaluation protocol $\Pi_{\mathrm{KF}}$ (\cref{def:pikf}) has $\ell + 2$ rounds: one opening oracle, then the folding test on the batched word.
+We prove completeness, exact operation counts (\cref{prop:costs}), soundness with error $\varepsilon_{\mathrm{KF}} < 3M/|\F| + (1-\delta)^\kappa$ for every $\delta \le (1-\rho)/2$ (\cref{thm:sound}), round-by-round knowledge soundness with an explicit decoding extractor (\cref{thm:rbr}), and evaluation binding (\cref{cor:sound}).
+The only new algebraic step is a batching lemma (\cref{lem:batching}), which combines correlated agreement for curves of degree $2$~\cite{BCIKS23} with the identity lemma through the virtual word; from the second round on, the analysis is that of the folding test.
+The only external result about codes is the correlated-agreement theorem of Ben-Sasson, Carmon, Ishai, Kopparty and Saraf~\cite{BCIKS23} in the unique-decoding regime.
+
+\paragraph{The non-interactive scheme (\cref{sec:pq}).}
+We derive relaxed round-by-round knowledge soundness, with fibres as oracle symbols and partially defined strings (\cref{thm:rrbr}), and apply the BCS theorem for interactive oracle reductions of Chiesa, Di, Hu and Zheng~\cite{CDHZ25}. The compiled scheme is straightline knowledge sound, for one opening, against quantum adversaries in the quantum random oracle model (\cref{cor:pq}); with the parameters of \cref{rem:pq-params}, the extraction error against $2^{64}$ oracle queries is below $2^{-31.8}$.
+
+\paragraph{Implementation, experiments and practical use (\cref{sec:impl,sec:exp,sec:apps}).}
+We give a Rust implementation over the Goldilocks field, with quadratic and quartic extensions and salted Merkle trees, whose test suite checks the algebraic statements of \cref{sec:kernel,sec:fold,sec:scheme} listed in \cref{app:verification} against direct computations.
+At identical engineering, Kronecker-FRI commits and verifies as fast as the sumcheck-based scheme of~\cite{Mkh26} and a coefficient-form (BaseFold-style) baseline, has proofs $8$--$17\%$ larger, and opens $3.0$--$3.7$ times more slowly (\cref{tab:exp-scaling}); the extra cost is the commitment to the opening polynomial $A$, and we measure each of its parts.
+We extend the scheme to the opening of several polynomials at one point with a proved soundness bound (\cref{thm:batch}), recommend parameter sets, and compare the scheme with existing multilinear commitments (\cref{sec:apps}).
+
+\paragraph{What we do not claim.}
+The identity $f(z) = \coef{N-1}{U_f K_z}$ is not new as an inner-product identity (\cref{sec:kernel:related}); what is new is the hash-based scheme built on it and its analysis.
+Kronecker-FRI is not faster than sumcheck-based Reed--Solomon schemes: its opening is $3$ to $3.7$ times slower than that of~\cite{Mkh26} at the same engineering.
+Our analysis is restricted to the unique-decoding regime, which needs more queries than list-decoding analyses~\cite{Hab24,Zei26,GLHQTZ25}, and our proofs are an order of magnitude larger than those reported for WHIR~\cite{ACFY24}.
+Zero knowledge is out of scope. The post-quantum statement concerns one commitment opened at one point, uses the theorem of~\cite{CDHZ25}, which we quote and do not reprove, and applies to their compiler, which we have not checked our code against byte by byte (\cref{sec:impl:merkle}).
+
+\subsection{Related work}\label{sec:intro:related}
+
+\paragraph{Proximity tests for Reed--Solomon codes.}
+FRI~\cite{BBHR18} tests proximity to Reed--Solomon codes by repeated even--odd folding.
+Its soundness in the unique-decoding and list-decoding regimes rests on proximity gaps for Reed--Solomon codes~\cite{BCIKS23}.
+WHIR~\cite{ACFY24} tests proximity to constrained Reed--Solomon codes with very fast verification and supports multilinear evaluation claims.
+We use FRI with the kernel fold of~\cite{Mkh26}, which is the classical fold up to a scalar and a reparametrisation of the challenge (\cref{rem:cfold}), and only the unique-decoding correlated-agreement theorem of~\cite{BCIKS23}.
+
+\paragraph{Multilinear commitments from folding.}
+BaseFold~\cite{ZCF24} introduced foldable codes and the interleaving of sumcheck rounds with folding rounds under shared challenges.
+DeepFold~\cite{GLHQTZ25} instantiates the paradigm with Reed--Solomon codes in the list-decoding regime and improves proof size.
+Hab\"ock~\cite{Hab24} analyses BaseFold over Reed--Solomon codes up to the Johnson bound, and Zeilberger~\cite{Zei26} proves proximity gaps for multilinear evaluation for all linear codes.
+FRI-Binius~\cite{DP24} adapts BaseFold to binary towers using the novel polynomial basis of Lin, Chung and Han~\cite{LCH14}.
+Our companion paper~\cite{Mkh26} introduced the Boolean-kernel basis $\{K_b\}_{b \in \{0,1\}^n}$, in which the fold of a Reed--Solomon codeword acts as restriction of a table, and built a BaseFold-type scheme on it; the kernel polynomial $K_z$ of the present paper is the same product evaluated at an arbitrary point $z$ instead of a Boolean one.
+Kronecker-FRI keeps the Reed--Solomon commitment and the folding test of these schemes, and replaces the sumcheck by the extraction identity.
+
+\paragraph{Multilinear-to-univariate reductions.}
+A different line of work proves multilinear evaluations with a univariate polynomial commitment, typically KZG.
+Gemini~\cite{BCHO22} reduces a coefficient-form claim to univariate claims through recursive even--odd splitting.
+Zeromorph~\cite{KT24} works in table form and uses quotients and degree checks.
+Mercury~\cite{EG25} reaches constant proof size and expresses the evaluation as a coefficient of a product with a tensor-structured polynomial; Samaritan~\cite{GPS25} also reaches constant proof size with a linear-time prover.
+Mohamed~\cite{Moh25} relates univariate and multilinear sumchecks through the inverse Kronecker substitution.
+Our scheme shares the univariate viewpoint of these works, but commits through a Reed--Solomon code and a hash function, and checks the identity by a proximity test instead of a pairing.
+
+\paragraph{Virtual oracles.}
+Computing a word from other oracles instead of committing to it is standard in hash-based arguments; Aurora~\cite{BCRSVW19} calls such words virtual oracles. The virtual word $h$ of \cref{def:virtual} is of this kind.
+
+\paragraph{Other codes and domains.}
+Brakedown~\cite{GLSTW23} avoids FFTs by using linear-time encodable codes.
+Circle STARKs~\cite{HLP24} obtain smooth folding domains over the Mersenne prime $2^{31}-1$.
+Our scheme needs a smooth multiplicative subgroup in odd characteristic (\cref{sec:apps:fit}).
+
+\subsection{Organisation}\label{sec:intro:org}
+
+\Cref{sec:prelim} fixes notation and collects the facts on multilinear polynomials and Reed--Solomon codes that we use, including the correlated-agreement theorem.
+\Cref{sec:proofs} recalls interactive oracle proofs, round-by-round (knowledge) soundness, polynomial commitments, and the definitions and the theorem of~\cite{CDHZ25}.
+\Cref{sec:kernel} proves the extraction identity and the opening identity, and \cref{sec:fold} analyses the folding proximity test.
+\Cref{sec:scheme} defines the scheme, \cref{sec:sound} proves its soundness, and \cref{sec:pq} treats the non-interactive scheme.
+\Cref{sec:impl,sec:exp} describe the implementation and the measurements, \cref{sec:apps} discusses practical use, parameters and related schemes, and \cref{sec:concl} concludes.
+\Cref{app:notation} collects the notation, and \cref{app:verification} records how each result is verified.

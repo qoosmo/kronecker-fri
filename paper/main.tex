@@ -1,0 +1,83 @@
+\documentclass[11pt]{article}
+\usepackage[margin=1in]{geometry}
+\IfFileExists{lmodern.sty}{\usepackage[T1]{fontenc}\usepackage{lmodern}}{\DeclareTextCommand{\k}{OT1}[1]{\c{##1}}}
+\usepackage{amsmath,amssymb,amsthm,mathtools}
+\usepackage{stmaryrd}
+\usepackage{booktabs}
+\usepackage{longtable,array}
+\usepackage[hidelinks]{hyperref}
+\usepackage[capitalise,nameinlink]{cleveref}
+\emergencystretch=3em
+
+\newtheorem{theorem}{Theorem}[section]
+\newtheorem{lemma}[theorem]{Lemma}
+\newtheorem{proposition}[theorem]{Proposition}
+\newtheorem{corollary}[theorem]{Corollary}
+\newtheorem{fact}[theorem]{Fact}
+\theoremstyle{definition}
+\newtheorem{definition}[theorem]{Definition}
+\newtheorem{remark}[theorem]{Remark}
+\newtheorem{example}[theorem]{Example}
+\crefname{fact}{Fact}{Facts}
+
+\newcommand{\N}{\mathbb{N}}
+\newcommand{\F}{\mathbb{F}}
+\newcommand{\Fq}{\mathbb{F}_q}
+\newcommand{\K}{\mathbb{K}}
+\newcommand{\iv}[2]{\llbracket #1, #2 \rrbracket}
+\newcommand{\wt}{\mathrm{wt}}
+\newcommand{\sub}{\preceq}
+\newcommand{\cmp}[1]{\overline{#1}}
+\newcommand{\coef}[2]{[X^{#1}]\,#2}
+\newcommand{\RS}{\mathrm{RS}}
+\newcommand{\ev}{\mathrm{ev}}
+\newcommand{\Cc}{\mathcal{C}}
+\newcommand{\Ll}{\mathcal{L}}
+\newcommand{\Enc}{\mathrm{Enc}}
+\newcommand{\Dd}{\mathcal{D}}
+\newcommand{\fold}{\mathrm{fold}}
+\newcommand{\pfold}{\mathrm{pfold}}
+\newcommand{\cfold}{\mathrm{cfold}}
+\newcommand{\dec}{\mathrm{dec}}
+\newcommand{\dens}{\mathrm{dens}}
+\newcommand{\Ww}{\mathcal{W}}
+\newcommand{\Bb}{\mathcal{B}}
+\newcommand{\Ii}{\mathcal{I}}
+
+\title{Kronecker-FRI: A Hash-Based Multilinear Polynomial Commitment\\ from a Coefficient-Extraction Identity}
+\author{Abdelali Mkhida\\ Algorizk Labs\\ \texttt{ali.mkhida@algorizk.xyz}}
+\date{Draft, September 2026}
+
+\begin{document}
+\maketitle
+\begin{abstract}
+We present Kronecker-FRI, a transparent, hash-based commitment scheme for multilinear polynomials whose evaluation proofs use no sumcheck.
+It rests on the identity $f(z) = [X^{N-1}]\,U_f(X)K_z(X)$, where $U_f$ is the Kronecker encoding of $f$, obtained by substituting $X^{2^{k-1}}$ for the $k$-th variable, and $K_z(X) = \prod_{k=1}^{n}(X^{2^{k-1}} + z_k)$.
+The prover commits to $U_f$ as a Reed--Solomon codeword on a smooth multiplicative domain. To open at $z$, it commits to one opening polynomial $A$; the verifier derives a second one from the identity $X U_f K_z = A + vX^N + X^{N+1}H$ as a virtual word, batches the three words with one random challenge, and runs an FRI-style folding test.
+We prove completeness, soundness, round-by-round knowledge soundness and evaluation binding in the unique-decoding regime, using only the correlated-agreement theorem of Ben-Sasson et al.\ for Reed--Solomon codes, and we derive post-quantum knowledge soundness of the compiled scheme in the quantum random oracle model from the theorem of Chiesa, Di, Hu and Zheng.
+We extend the scheme to the opening of several polynomials at one point.
+A Rust implementation over the Goldilocks field shows that, at identical engineering, Kronecker-FRI commits and verifies as fast as a sumcheck-based Reed--Solomon scheme, with proofs $8$--$17\%$ larger and an opening $3$ to $3.7$ times slower; its verifier is an FRI verifier with $O(n)$ extra field operations per query.
+\end{abstract}
+
+\tableofcontents
+
+\input{sections/01-introduction}
+\input{sections/02-preliminaries}
+\input{sections/03-proof-systems}
+\input{sections/04-kernel}
+\input{sections/05-fold}
+\input{sections/06-scheme}
+\input{sections/07-soundness}
+\input{sections/08-pq}
+\input{sections/09-implementation}
+\input{sections/10-experiments}
+\input{sections/11-applications}
+\input{sections/12-conclusion}
+
+\bibliographystyle{alpha}
+\bibliography{refs}
+
+\appendix
+\input{sections/A-notation}
+\input{sections/B-verification}
+\end{document}

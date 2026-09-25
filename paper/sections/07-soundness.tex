@@ -1,0 +1,237 @@
+\section{Soundness}\label{sec:sound}
+
+We prove that $\Pi_{\mathrm{KF}}$ is sound, round-by-round knowledge sound, and evaluation binding, in the unique-decoding regime.
+The only new ingredient is the batching lemma (\cref{lem:batching}), which combines correlated agreement for curves of degree $2$ (\cref{thm:curves} with $t = 2$) with the identity lemma (\cref{lem:identity}) through the virtual word; the folding part of the protocol is handled entirely by \cref{sec:fold}, whose witness sets are used without change.
+Throughout, the parameters are those of \cref{sec:scheme:params}, in particular $\rho = 2^{-R}$ with $R \ge 2$, and
+\[
+  \delta^* \;=\; \frac{1-\rho}{2}, \qquad 0 \;<\; \delta \;\le\; \delta^* .
+\]
+Probabilities are over the challenge space $\F \times \F^\ell \times L^{\times\kappa}$ of $\Pi_{\mathrm{KF}}$, with $\beta$, $r = (r_1,\dots,r_\ell)$ and the query points uniform and independent.
+A set $S \subseteq L$ is \emph{fibre-closed} if $-\xi \in S$ for every $\xi \in S$, that is, if it is a union of fibres (\cref{def:fibre}); a fibre-closed set of size at least $(1-\delta)M$ consists of at least $(1-\delta)M/2$ fibres.
+
+\subsection{The relation}\label{sec:sound:relation}
+
+\begin{definition}[Evaluation relation]\label{def:relation}
+\[
+  \mathcal{R}^\delta_{\mathrm{KF}} \;=\; \bigl\{\, ((w; z, v), f) \;:\; w \in \F^L,\ f \in \Ll_n(\F),\ \Delta^{\mathrm{fib}}_0(w, \Enc(f)) \le \delta \ \text{ and } \ f(z) = v \,\bigr\}.
+\]
+\end{definition}
+
+This is the relation $\mathcal{R}^\delta_{\mathrm{eval}}$ of \cref{sec:proofs:pcs} with $\mathrm{dist} = \Delta^{\mathrm{fib}}_0$ (\cref{def:fibre-dist}); the uniqueness property \eqref{eq:dist-unique} holds by \cref{lem:enc}(2).
+Since $\Delta \le \Delta^{\mathrm{fib}}_0$ (\cref{lem:fibre-dist}(1)), a witness also satisfies $\Delta(w, \Enc(f)) \le \delta$; the fibre distance is the natural one because every query of the protocol reads whole fibres, and it is the one used in \cref{sec:pq}, where oracle symbols are fibres.
+An instance $(w;z,v)$ has a witness if and only if the unique codeword of $\Cc_0$ within fibre distance $\delta$ of $w$ exists and is $\Enc(f)$ with $f(z) = v$.
+
+\begin{lemma}[Rate condition]\label{lem:rate}
+$2N < (1-\delta)M$, that is, $2\rho < 1-\delta$.
+\end{lemma}
+
+\begin{proof}
+$1 - \delta \ge 1 - \delta^* = (1+\rho)/2$, and $(1+\rho)/2 > 2\rho$ because $\rho \le 1/4 < 1/3$.
+\end{proof}
+
+\subsection{The value on an agreement set}\label{sec:sound:identity}
+
+\begin{lemma}[Value from agreement]\label{lem:identity-set}
+Let $w, w_A \in \F^L$, $z \in \F^n$, $v \in \F$ and $h = h[w,w_A;z,v]$ (\cref{def:virtual}).
+Let $\hat U, \hat A, \hat H \in \F[X]_{<N}$, and let $S \subseteq L$ be a set with $|S| > 2N$ on which $w = \ev_L(\hat U)$, $w_A = \ev_L(\hat A)$ and $h = \ev_L(\hat H)$.
+Then $v = \coef{N-1}{\hat U K_z}$; that is, $v = \hat f(z)$ for the $\hat f \in \Ll_n(\F)$ with $U_{\hat f} = \hat U$.
+\end{lemma}
+
+\begin{proof}
+Let $\Phi = X\hat U K_z - \hat A - vX^N - X^{N+1}\hat H$. For $\xi \in S$, \cref{lem:virtual}(1) and the three agreements give $\Phi(\xi) = \xi w(\xi) K_z(\xi) - w_A(\xi) - v\xi^N - \xi^{N+1}h(\xi) = 0$.
+Thus $\Phi$ has more than $2N$ roots, and $\deg \Phi \le 2N$ (\cref{lem:identity}), so $\Phi = 0$ (\cref{lem:roots}).
+Conclude with \cref{lem:identity}; $\hat f$ exists by \cref{lem:kron-sub}(2).
+\end{proof}
+
+\subsection{The batching lemma}\label{sec:sound:batching}
+
+For $w, w_A \in \F^L$, $z \in \F^n$, $v \in \F$ and $\beta \in \F$, write $w_\beta = w + \beta w_A + \beta^2 h$ with $h = h[w,w_A;z,v]$; this is the word $w_0$ of \cref{def:pikf}.
+
+\begin{lemma}[Batching]\label{lem:batching}
+Let $w, w_A \in \F^L$, $z \in \F^n$, $v \in \F$, and let $Y \subseteq L$ be fibre-closed.
+Let $\mathcal{G}$ be the set of $\beta \in \F$ for which there are $c \in \Cc_0$ and a fibre-closed set $T \subseteq Y$ with $|T| \ge (1-\delta)M$ such that $w_\beta$ agrees with $c$ on $T$.
+If $|\mathcal{G}| > 2M$, then there is $\hat f \in \Ll_n(\F)$ with $\hat f(z) = v$ such that $w$ agrees with $\Enc(\hat f)$ on a fibre-closed subset of $Y$ of size at least $(1-\delta)M$.
+In particular, for $Y = L$, $((w;z,v),\hat f) \in \mathcal{R}^\delta_{\mathrm{KF}}$.
+\end{lemma}
+
+\begin{proof}
+Let $h = h[w,w_A;z,v]$.
+
+\emph{Correlated agreement.}
+Every $\beta \in \mathcal{G}$ has $\Delta(w_\beta, \Cc_0) \le \delta$. Since $|\mathcal{G}| > 2M$, \cref{thm:curves} with $t = 2$, $(u_0,u_1,u_2) = (w, w_A, h)$ and $\Cc = \Cc_0$ gives codewords $\hat u = \ev_L(\hat U)$, $\hat a = \ev_L(\hat A)$, $\hat h = \ev_L(\hat H)$ with $\hat U, \hat A, \hat H \in \F[X]_{<N}$, and a set of at least $(1-\delta)M$ points on which $w = \hat u$, $w_A = \hat a$ and $h = \hat h$.
+Let $\mathrm{Agr}$ be the set of all points of $L$ where these three equalities hold; $|\mathrm{Agr}| \ge (1-\delta)M$.
+
+\emph{The value.}
+$|\mathrm{Agr}| \ge (1-\delta)M > 2N$ (\cref{lem:rate}), so \cref{lem:identity-set} with $S = \mathrm{Agr}$ gives $\hat f(z) = v$, where $U_{\hat f} = \hat U$.
+
+\emph{Bad challenges.}
+For $\xi \in L \setminus \mathrm{Agr}$, the polynomial $d_\xi(Z) = (w - \hat u)(\xi) + Z\,(w_A - \hat a)(\xi) + Z^2\,(h - \hat h)(\xi) \in \F[Z]$ is nonzero, of degree at most $2$, so it has at most $2$ roots (\cref{lem:roots}).
+Let $\mathrm{Bad}$ be the set of all these roots, over all $\xi \in L \setminus \mathrm{Agr}$; then $|\mathrm{Bad}| \le 2|L \setminus \mathrm{Agr}| \le 2\delta M < 2M$.
+Hence there is $\beta \in \mathcal{G} \setminus \mathrm{Bad}$; fix it, together with $c$ and $T$ as in the definition of $\mathcal{G}$.
+
+\emph{The codeword is the combination.}
+Let $\hat c = \hat u + \beta \hat a + \beta^2 \hat h \in \Cc_0$; then $w_\beta = \hat c$ on $\mathrm{Agr}$.
+The codewords $c$ and $\hat c$ both agree with $w_\beta$ on $T \cap \mathrm{Agr}$, of size at least $(1-\delta)M + (1-\delta)M - M = (1-2\delta)M \ge \rho M = N$. By \cref{lem:rs-params}(2), $c = \hat c$.
+
+\emph{$T \subseteq \mathrm{Agr}$.}
+Let $\xi \in T$. Then $w_\beta(\xi) = c(\xi) = \hat c(\xi)$, that is, $d_\xi(\beta) = 0$. If $\xi \notin \mathrm{Agr}$, then $\beta$ is a root of the nonzero polynomial $d_\xi$, so $\beta \in \mathrm{Bad}$, which is excluded. So $T \subseteq \mathrm{Agr}$.
+
+\emph{Agreement.}
+$\Enc(\hat f) = \ev_L(\hat U) = \hat u$, and $w = \hat u$ on $T$, a fibre-closed subset of $Y$ with $|T| \ge (1-\delta)M$.
+For $Y = L$, $w$ and $\Enc(\hat f)$ agree on the at least $(1-\delta)M/2$ fibres contained in $T$, so $\Delta^{\mathrm{fib}}_0(w, \Enc(\hat f)) \le \delta$ (\cref{lem:fibre-dist}(2)).
+\end{proof}
+
+\begin{remark}[The parameter $Y$]\label{rem:Y}
+For the interactive analysis $Y = L$. The set $Y$ is used in \cref{sec:pq}, where the words are only partially defined (the fibres opened by the adversary) and the lemma is applied to arbitrary completions of them, with $Y$ the union of the defined fibres.
+\end{remark}
+
+\begin{remark}[Where $R \ge 2$ is used]\label{rem:where-rate}
+Only in the step ``the value'': the identity has degree $2N$ as a polynomial, and the agreement set must have more than $2N$ points. With $\rho = 1/2$, the condition $2\rho < 1-\delta$ fails for every $\delta > 0$ (for $\delta = 1/4$, $(1-\delta)M = \tfrac32 N < 2N$), and the lemma does not conclude; rate $1/2$ would need a different identity or a different argument.
+\end{remark}
+
+\subsection{Direct soundness}\label{sec:sound:direct}
+
+Put
+\[
+  \varepsilon_{\mathrm{KF}} \;=\; \frac{2M}{|\F|} + \varepsilon_{\mathrm{fold}} + (1-\delta)^\kappa \;=\; \frac{2M + M(1-2^{-\ell})}{|\F|} + (1-\delta)^\kappa \;<\; \frac{3M}{|\F|} + (1-\delta)^\kappa,
+\]
+with $\varepsilon_{\mathrm{fold}}$ as in \cref{sec:fold:sound}.
+
+\begin{lemma}[Witness sets are fibre-closed]\label{lem:fibre-closed}
+For every $j \in \iv{0}{\ell}$ and $c \in \Cc_j$, the witness set $\Ww_j(c)$ of \cref{def:witness} is fibre-closed.
+\end{lemma}
+
+\begin{proof}
+For $j = 0$ the definition is symmetric in $\xi$ and $-\xi$. For $j \ge 1$, the conditions defining $\Ww_j(c)$ involve $\xi$ only through $\xi^{2^i}$ with $i \ge 1$, and $(-\xi)^{2^i} = \xi^{2^i}$.
+\end{proof}
+
+\begin{theorem}[Soundness]\label{thm:sound}
+Let $(w;z,v)$ be an instance with no witness in $\mathcal{R}^\delta_{\mathrm{KF}}$. Then every prover makes the verifier of $\Pi_{\mathrm{KF}}$ accept with probability at most $\varepsilon_{\mathrm{KF}}$.
+\end{theorem}
+
+\begin{proof}
+By \cref{lem:randomised} it suffices to treat a deterministic prover. Its round-$1$ message $w_A$ is fixed, and so is the set $\mathcal{G}$ of \cref{lem:batching} with $Y = L$. Since there is no witness, $|\mathcal{G}| \le 2M$.
+For each fixed $\beta$, rounds $2$ to $\ell+2$ are an execution of $\Pi_{\mathrm{FT}}[\ell,\kappa]$ on $w_0 = w_\beta$ by a deterministic prover; let $\mathsf{Good}_\beta \subseteq \F^\ell$ be the event of \cref{thm:fpt}, so that $\Pr_r[\neg\mathsf{Good}_\beta] \le \varepsilon_{\mathrm{fold}}$.
+Let $\mathcal{A} = \{(\beta, r) : \beta \notin \mathcal{G},\ r \in \mathsf{Good}_\beta\}$.
+
+By \cref{lem:passing}(1), a query point is accepted if and only if it lies in $\Ww_\ell(w_\ell)$.
+We claim $\dens_\ell(w_\ell) < 1-\delta$ for $(\beta,r) \in \mathcal{A}$. Otherwise \cref{prop:chain} gives $c_0 \in \Cc_0$ such that $w_\beta$ agrees with $c_0$ on $T = \Ww_\ell(w_\ell)$, which is fibre-closed (\cref{lem:fibre-closed}) and has at least $(1-\delta)M$ points; so $\beta \in \mathcal{G}$, a contradiction.
+By \cref{lem:queries} with $\Omega' = \F \times \F^\ell$, the verifier accepts with $(\beta,r) \in \mathcal{A}$ with probability at most $(1-\delta)^\kappa$. Finally
+\[
+  \Pr[(\beta,r) \notin \mathcal{A}] \;\le\; \Pr[\beta \in \mathcal{G}] + \max_\beta \Pr_r[\neg\mathsf{Good}_\beta] \;\le\; \frac{2M}{|\F|} + \varepsilon_{\mathrm{fold}}. \qedhere
+\]
+\end{proof}
+
+\subsection{Round-by-round knowledge soundness}\label{sec:sound:rbr}
+
+Fix an instance $(w;z,v)$. For $i \in \iv{0}{\ell+2}$, $\tau_i$ denotes a partial transcript of $i$ rounds (\cref{sec:proofs:iop}).
+Once $\tau_1$ is fixed, so are $w_A$, $\beta$ and the word $w_0 = w_\beta$.
+For $j \in \iv{0}{\ell}$, the partial transcript $\tau_{j+1}$ determines $w_0,\dots,w_{j-1}$ and $r_1,\dots,r_j$, hence the witness sets $\Ww_j(c)$ of \cref{def:witness} for $c \in \Cc_j$ (for $j = 0$, only $w_0$), and their densities $\dens_j(c)$.
+
+\begin{definition}[Doomed set and extractor]\label{def:doomed}
+\begin{itemize}
+  \item The empty transcript $\tau_0$ is doomed.
+  \item For $j \in \iv{0}{\ell}$, $\tau_{j+1}$ is \emph{not doomed} if there is $c \in \Cc_j$ with $\dens_j(c) \ge 1-\delta$, and doomed otherwise.
+  \item A full transcript $\tau_{\ell+2}$ is doomed if and only if the verifier rejects it.
+\end{itemize}
+The extractor $\mathsf{Ext}$, on every input $(\tau, \mathsf{m})$, reads the oracle $w$ of the instance, and outputs the $\hat f \in \Ll_n(\F)$ such that $\Enc(\hat f)$ is the codeword of $\Cc_0$ within fibre distance $\delta^*$ of $w$, if it exists, and $\hat f = 0$ otherwise.
+\end{definition}
+
+\begin{lemma}[The extractor]\label{lem:ext}
+$\mathsf{Ext}$ is well defined and runs in time polynomial in $M$. Its output depends only on $w$, and it is a witness for $(w;z,v)$ whenever a witness exists. If $w \in \Fq^L$, its output has coefficients in $\Fq$.
+\end{lemma}
+
+\begin{proof}
+The codeword within fibre distance $\delta^*$ is unique by \cref{lem:unique}, which holds for every radius at most $(1-\rho)/2$, in particular for $\delta^*$. By \cref{rem:decode} (at radius $\delta^*$), it is found, and its existence decided, in time polynomial in $M$; an inverse NTT (\cref{fact:ntt}) gives $U_{\hat f}$, whose coefficients are those of $\hat f$ (\cref{def:kron-enc}).
+If $((w;z,v),f) \in \mathcal{R}^\delta_{\mathrm{KF}}$, then $\Enc(f)$ is within fibre distance $\delta \le \delta^*$ of $w$, so it is the decoded codeword and $\hat f = f$.
+The last statement is \cref{lem:enc}(3).
+\end{proof}
+
+\begin{theorem}[Round-by-round knowledge soundness]\label{thm:rbr}
+With the doomed set and extractor of \cref{def:doomed}:
+\begin{enumerate}
+  \item (Round $1$.) If $\mathsf{Ext}$ does not output a witness, then for every round-$1$ message $w_A$, $\tau_1$ is not doomed for at most $2M$ values of $\beta$.
+  \item (Round $j+1$, $j \in \iv{1}{\ell}$.) If $\tau_j$ is doomed, then for every round-$(j+1)$ message, $\tau_{j+1}$ is not doomed for at most $M_j$ values of $r_j$.
+  \item (Round $\ell+2$.) If $\tau_{\ell+1}$ is doomed, then for every final polynomial $P$, the verifier accepts with probability at most $(1-\delta)^\kappa$ over the query points.
+\end{enumerate}
+Consequently, $\Pi_{\mathrm{KF}}$ is round-by-round knowledge sound for $\mathcal{R}^\delta_{\mathrm{KF}}$ (\cref{def:rbr-knowledge}) with errors
+\[
+  \varepsilon_1 = \min\Bigl(1, \frac{2M}{|\F|}\Bigr), \qquad \varepsilon_{j+1} = \min\Bigl(1, \frac{M_j}{|\F|}\Bigr) \ (j \in \iv{1}{\ell}), \qquad \varepsilon_{\ell+2} = (1-\delta)^\kappa .
+\]
+\end{theorem}
+
+\begin{proof}
+\emph{Item 1.} Fix $w_A$, and let $\mathcal{G}$ be the set of \cref{lem:batching} with $Y = L$. If $\tau_1$ is not doomed, there is $c \in \Cc_0$ with $|\Ww_0(c)| \ge (1-\delta)M$; by \cref{def:witness}, $w_\beta = c$ on $T = \Ww_0(c)$, which is fibre-closed (\cref{lem:fibre-closed}), so $\beta \in \mathcal{G}$.
+If this happened for more than $2M$ values of $\beta$, \cref{lem:batching} would give a witness, and then $\mathsf{Ext}$ would output a witness (\cref{lem:ext}), contrary to the hypothesis.
+
+\emph{Item 2.} Fix the doomed $\tau_j$ and the round-$(j+1)$ message; this fixes $w_{j-1}$. At most $M_j$ values of $r_j$ are not good for $w_{j-1}$ at level $j$ (\cref{lem:good}).
+Let $r_j$ be good, and suppose $\tau_{j+1}$ is not doomed, with $c' \in \Cc_j$ and $\dens_j(c') \ge 1-\delta$. Then \cref{lem:rbr-step} gives $c \in \Cc_{j-1}$ with $\dens_{j-1}(c) \ge 1-\delta$, so $\tau_j$ is not doomed, a contradiction.
+
+\emph{Item 3.} A query point is accepted if and only if it lies in $\Ww_\ell(w_\ell)$ (\cref{lem:passing}(1)). Since $w_\ell \in \Cc_\ell$ and $\tau_{\ell+1}$ is doomed, $\dens_\ell(w_\ell) < 1-\delta$, and the $\kappa$ independent uniform points all lie in $\Ww_\ell(w_\ell)$ with probability less than $(1-\delta)^\kappa$ (\cref{lem:queries}).
+
+\emph{The conditions of \cref{def:rbr-knowledge}.} Condition~1 holds by definition. Condition~3 holds because a doomed full transcript is rejected by definition. For condition~2, let $\tau$ be doomed with $i-1$ rounds and $\mathsf{m}_i$ a message such that the probability over $\mathsf{c}_i$ of leaving $\Dd$ exceeds $\varepsilon_i$. For $i = 1$, item~1 shows that $\mathsf{Ext}$ outputs a witness. For $i = j+1$ with $j \in \iv{1}{\ell}$, and for $i = \ell+2$, items~2 and~3 show that this cannot happen, so the condition holds vacuously.
+\end{proof}
+
+Items~2 and~3 are statements about the folding test alone: from round $2$ on, the doomed set is that of $\Pi_{\mathrm{FT}}[\ell,\kappa]$ on the word $w_0$, and the evaluation claim is used only in round $1$, through the batching lemma.
+
+\subsection{Consequences}\label{sec:sound:cons}
+
+\begin{corollary}[Knowledge, soundness and binding]\label{cor:sound}
+\begin{enumerate}
+  \item (Knowledge.) If a prover makes the verifier accept $(w;z,v)$ with probability greater than $\varepsilon_{\mathrm{KF}}$, then $\hat f = \mathsf{Ext}(w)$ satisfies $\Delta^{\mathrm{fib}}_0(w, \Enc(\hat f)) \le \delta$ and $\hat f(z) = v$.
+  \item (Soundness.) If $(w;z,v)$ has no witness, every prover is accepted with probability at most $\varepsilon_{\mathrm{KF}}$.
+  \item (Binding.) $\Pi_{\mathrm{KF}}$ is $\varepsilon_{\mathrm{KF}}$-evaluation binding (\cref{def:binding}).
+\end{enumerate}
+\end{corollary}
+
+\begin{proof}
+(1) By \cref{lem:randomised}, some deterministic prover is accepted with probability greater than $\varepsilon_{\mathrm{KF}} \ge \sum_i \varepsilon_i$. By \cref{lem:rbr-overall}(2) and \cref{thm:rbr}, $\mathsf{Ext}$ outputs a witness on some input; its output depends only on $w$ (\cref{lem:ext}).
+(2) is (1) in contrapositive form, and also \cref{thm:sound}.
+(3) \Cref{lem:rbr-binding}, with \eqref{eq:dist-unique} given by \cref{lem:enc}(2).
+\end{proof}
+
+\begin{remark}[Base-field commitments]\label{rem:base}
+If the commitment is computed over $\Fq$, so that $w \in \Fq^L$, the extracted polynomial has coefficients in $\Fq$ (\cref{lem:ext}), while the point $z$, the value $v$ and all challenges lie in $\F$.
+\end{remark}
+
+\subsection{Parameters}\label{sec:sound:params}
+
+The error $\varepsilon_{\mathrm{KF}}$ has a field term, below $3M/|\F|$, and a query term $(1-\delta)^\kappa$ with $\delta$ up to $\delta^* = (1-\rho)/2$.
+\Cref{tab:kappa} gives the smallest $\kappa$ with $(1-\delta^*)^\kappa \le 2^{-\lambda}$, and \cref{tab:field} the field term for the extensions of degree $e$ of the Goldilocks field ($q = 2^{64}-2^{32}+1$, $|\F| = q^e$).
+For example, $\rho = 1/4$ and $\kappa = 148$ give $\lambda = 100$ bits for the query term, and the quadratic extension keeps the field term below $2^{-100}$ for $M \le 2^{26}$; for larger $M$, or for $128$ bits, one takes $e \ge 3$.
+These are the bounds of the interactive protocol; the non-interactive scheme is analysed in \cref{sec:pq}.
+
+\begin{table}[ht]
+\centering
+\begin{tabular}{ccccc}
+\toprule
+$\rho$ & $\delta^*$ & $-\log_2(1-\delta^*)$ & $\kappa$ for $\lambda = 100$ & $\kappa$ for $\lambda = 128$ \\
+\midrule
+$1/4$ & $3/8$ & $0.678$ & $148$ & $189$ \\
+$1/8$ & $7/16$ & $0.830$ & $121$ & $155$ \\
+$1/16$ & $15/32$ & $0.913$ & $110$ & $141$ \\
+\bottomrule
+\end{tabular}
+\caption{Number of queries $\kappa$ such that $(1-\delta^*)^\kappa \le 2^{-\lambda}$.}
+\label{tab:kappa}
+\end{table}
+
+\begin{table}[ht]
+\centering
+\begin{tabular}{cccccc}
+\toprule
+$e$ & $M = 2^{20}$ & $M = 2^{24}$ & $M = 2^{26}$ & $M = 2^{28}$ & $M = 2^{32}$ \\
+\midrule
+$2$ & $-106.4$ & $-102.4$ & $-100.4$ & $-98.4$ & $-94.4$ \\
+$3$ & $-170.4$ & $-166.4$ & $-164.4$ & $-162.4$ & $-158.4$ \\
+$4$ & $-234.4$ & $-230.4$ & $-228.4$ & $-226.4$ & $-222.4$ \\
+\bottomrule
+\end{tabular}
+\caption{$\log_2(3M/|\F|)$ for $|\F| = q^e$, $q = 2^{64}-2^{32}+1$.}
+\label{tab:field}
+\end{table}
+
+\begin{remark}[Unique decoding only]\label{rem:unique-only}
+All results are in the unique-decoding regime $\delta \le (1-\rho)/2$, where \cref{thm:curves} is proved with the error $M/|\F|$ per degree of the curve.
+Beyond it, correlated agreement holds only with weaker errors (up to the Johnson bound in~\cite{BCIKS23}), and the extractor must list-decode; we do not treat that regime.
+\end{remark}

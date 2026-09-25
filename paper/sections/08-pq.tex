@@ -1,0 +1,193 @@
+\section{The Non-Interactive Scheme}\label{sec:pq}
+
+We compile $\Pi_{\mathrm{KF}}$ into a non-interactive argument with the BCS transformation for interactive oracle reductions of Chiesa, Di, Hu and Zheng~\cite{CDHZ25}, and derive post-quantum straightline knowledge soundness in the quantum random oracle model from \cref{thm:cdhz}.
+The hypothesis of that theorem is relaxed round-by-round knowledge soundness (\cref{def:rrbr}), in which the commitment and the prover messages may be \emph{partial strings}: the extractor of~\cite{CDHZ25} recovers from the adversary only the positions that it opened.
+The proof is the one of \cref{sec:sound:rbr}, run on the words in which every undefined entry is replaced by $0$, with witness sets restricted to query points that read no undefined entry; the batching lemma is applied with $Y$ the union of the defined fibres of the commitment (\cref{rem:Y}).
+Every query of $\Pi_{\mathrm{KF}}$ reads whole fibres, so we take fibres as the symbols of all strings, as in~\cite[\S7.7]{Mkh26}, whose structure we follow.
+Throughout, $\delta^* = (1-\rho)/2$; the results of \cref{sec:sound} hold for every $\delta \in (0,\delta^*]$, and below $\delta$ ranges over $[0,1]$.
+
+\subsection{The protocol as an interactive oracle reduction}\label{sec:pq:ior}
+
+\paragraph{Fibre strings.}
+For each $j \in \iv{0}{\ell-1}$ and $\eta \in L_{j+1}$, fix one of the two square roots $\xi_\eta \in L_j$ of $\eta$ (\cref{lem:power}); the other is $-\xi_\eta$.
+Let $\Sigma = \F^2$, and for $u \in \F^{L_j}$ let $\mathrm{fib}_j(u) \in \Sigma^{M_{j+1}}$ be the string $\eta \mapsto (u(\xi_\eta), u(-\xi_\eta))$, indexed by $L_{j+1}$ in a fixed order.
+The map $\mathrm{fib}_j$ is a bijection from $\F^{L_j}$ onto $\Sigma^{M_{j+1}}$, and by \cref{def:fibre-dist},
+\begin{equation}\label{eq:fib-hamming}
+  \Delta\bigl(\mathrm{fib}_j(u), \mathrm{fib}_j(c)\bigr) \;=\; \Delta^{\mathrm{fib}}_j(u, c) \qquad (u, c \in \F^{L_j}).
+\end{equation}
+For a partial string $s$ over $\Sigma$, the \emph{filling} $\bar s$ replaces every $\bot$ by $(0,0)$; since $\bar s$ and $s$ agree on $\mathrm{Dom}(s)$, $\Delta(\bar s, s') \le \Delta(s, s')$ for every full string $s'$.
+
+\paragraph{The relation.}
+Let
+\[
+  \mathcal{R}_{\mathrm{KF}} \;=\; \bigl\{\, ((z,v),\, y,\, f) \;:\; y = \mathrm{fib}_0(\Enc(f)) \ \text{ and } \ f(z) = v \,\bigr\},
+\]
+with explicit instance $(z,v) \in \F^n \times \F$, implicit instance $y \in \Sigma^{M/2}$ and witness $f \in \Ll_n(\F)$.
+For a partial string $y$ and $\delta \in [0,1]$, $((z,v), y, f) \in (\mathcal{R}_{\mathrm{KF}})_{\le\delta}$ if and only if $\Delta(y, \mathrm{fib}_0(\Enc(f))) \le \delta$, with $\bot$ counted as a disagreement, and $f(z) = v$.
+For a full string $y = \mathrm{fib}_0(w)$, by \eqref{eq:fib-hamming}, this says $((w;z,v),f) \in \mathcal{R}^\delta_{\mathrm{KF}}$ (\cref{def:relation}).
+
+\paragraph{Challenges.}
+Fix an integer $\lambda_{\mathrm{ch}} \ge \log_2|\F|$ and a bijection $\mathrm{num} : \iv{0}{|\F|-1} \to \F$, and let $\phi : \{0,1\}^{\lambda_{\mathrm{ch}}} \to \F$, $\phi(\mathsf{vr}) = \mathrm{num}(\mathrm{int}(\mathsf{vr}) \bmod |\F|)$, where $\mathrm{int}$ reads a bit string as a binary integer.
+Fix a bijection $\mathrm{pos} : \{0,1\}^{n+R} \to L$ (recall $M = 2^{n+R}$).
+
+\begin{lemma}[Sampling]\label{lem:sampling}
+For every $S \subseteq \F$, $\Pr_{\mathsf{vr} \leftarrow \{0,1\}^{\lambda_{\mathrm{ch}}}}[\phi(\mathsf{vr}) \in S] \le |S|\,(1/|\F| + 2^{-\lambda_{\mathrm{ch}}})$.
+For $\mathsf{vr}$ uniform in $\{0,1\}^{\kappa(n+R)}$, cut into $\kappa$ blocks of $n+R$ bits, the images of the blocks under $\mathrm{pos}$ are independent and uniform in $L$.
+\end{lemma}
+
+\begin{proof}
+Each $a \in \F$ has at most $\lceil 2^{\lambda_{\mathrm{ch}}}/|\F| \rceil < 2^{\lambda_{\mathrm{ch}}}/|\F| + 1$ preimages under $\phi$; divide by $2^{\lambda_{\mathrm{ch}}}$ and sum over $S$.
+The map $\{0,1\}^{\kappa(n+R)} \to L^{\times\kappa}$ induced by $\mathrm{pos}$ is a bijection.
+\end{proof}
+
+\begin{definition}[The IOR $\Pi^\Sigma_{\mathrm{KF}}$]\label{def:pikf-sigma}
+$\Pi^\Sigma_{\mathrm{KF}}$ is $\Pi_{\mathrm{KF}}$ (\cref{def:pikf}) with statement $((z,v); y)$, where the commitment is $w = \mathrm{fib}_0^{-1}(y)$, and the following encoding of messages and challenges.
+\begin{enumerate}
+  \item Round $1$: the message is $\mathrm{fib}_0(w_A) \in \Sigma^{M/2}$, and the challenge $\mathsf{vr}_1 \in \{0,1\}^{\lambda_{\mathrm{ch}}}$ gives $\beta = \phi(\mathsf{vr}_1)$.
+  \item Round $2$: the message is a single symbol, which the verifier never reads (so that every round has a nonempty string to commit to), and $\mathsf{vr}_2$ gives $r_1 = \phi(\mathsf{vr}_2)$.
+  \item Round $j+1$, $j \in \iv{2}{\ell}$: the message is $\mathrm{fib}_{j-1}(w_{j-1}) \in \Sigma^{M_j}$, and $\mathsf{vr}_{j+1}$ gives $r_j = \phi(\mathsf{vr}_{j+1})$.
+  \item Round $\ell+2$: the message is the string of the $N_\ell$ coefficients of $P$, two per symbol and padded with a zero if $N_\ell = 1$, which the verifier reads entirely; and $\mathsf{vr}_{\ell+2} \in \{0,1\}^{\kappa(n+R)}$ gives the query points by $\mathrm{pos}$.
+\end{enumerate}
+On partial strings, the verifier rejects if an entry that it reads is $\bot$; otherwise it runs the verifier of $\Pi_{\mathrm{KF}}$ on the words $w = \mathrm{fib}_0^{-1}(\bar y)$, $w_A = \mathrm{fib}_0^{-1}(\overline{\Pi_1})$, $w_{j-1} = \mathrm{fib}_{j-1}^{-1}(\overline{\Pi_{j+1}})$ and the polynomial read from the filled final message, and outputs $(\top, ())$ if that verifier accepts.
+\end{definition}
+
+The query point $\xi$ reads the symbol at position $\xi^2$ of $y$ and of $\Pi_1$ (the fold check of level $1$, through the virtual word, \cref{lem:virtual}(2)), and the symbol at position $\xi^{2^i}$ of $\Pi_{i+1} = \mathrm{fib}_{i-1}(w_{i-1})$ for $i \in \iv{2}{\ell}$ (the fold check of level $i$, which reads $w_{i-1}$ on the fibre over $\xi^{2^i}$); for $i \ge 2$, one of the two values of that symbol is the value $w_{i-1}(\pm\xi^{2^{i-1}})$ compared at level $i-1$. These positions are determined by the challenges.
+So $\Pi^\Sigma_{\mathrm{KF}}$ is an IOR from $\mathcal{R}_{\mathrm{KF}}$ to $\mathcal{R}_{\mathrm{acc}}$ in the sense of \cref{sec:proofs:bcs}, with $\nu = \ell+2$ rounds, $\lambda_{\min} = \min(\lambda_{\mathrm{ch}}, \kappa(n+R))$ and longest string $l_{\max} = M/2$.
+Every string of the prescribed lengths over $\Sigma$ encodes a message of $\Pi_{\mathrm{KF}}$, and filled strings are such strings; so the objects of \cref{sec:sound} ($h$, $w_0$, $\hat w_j$, $\Bb_j$, $\Ww_j(c)$) are defined for the fillings.
+
+\subsection{Erasures and the knowledge state function}\label{sec:pq:kstate}
+
+For $j \in \iv{0}{\ell}$, let $\mathcal{Z}_j \subseteq L$ be the set of points $\xi$ such that every symbol read by $\xi$ at the levels $1, \dots, \max(j,1)$ is defined: the symbols at position $\xi^2$ of $y$ and $\Pi_1$, and at position $\xi^{2^i}$ of $\Pi_{i+1}$ for $i \in \iv{2}{\max(j,1)}$. The set $\mathcal{Z}_j$ is determined by the statement and the messages $\Pi_1, \Pi_3, \dots, \Pi_{j+1}$, hence by $\tau_{j+1}$.
+Then $\mathcal{Z}_0 = \mathcal{Z}_1 \supseteq \mathcal{Z}_2 \supseteq \dots \supseteq \mathcal{Z}_\ell$; every $\mathcal{Z}_j$ is fibre-closed, since it depends on $\xi$ only through $\xi^2$; and $\mathcal{Z}_0 \subseteq Y_y$, where $Y_y = \{\xi \in L : \xi^2 \in \mathrm{Dom}(y)\}$ is the union of the defined fibres of $y$.
+With the notation of \cref{sec:sound:rbr} applied to the fillings, put, for $c \in \Cc_j$,
+\[
+  \Ww^\bot_j(c) \;=\; \Ww_j(c) \cap \mathcal{Z}_j, \qquad \dens^\bot_j(c) \;=\; |\Ww^\bot_j(c)|/M ;
+\]
+by \cref{lem:fibre-closed}, $\Ww^\bot_j(c)$ is fibre-closed.
+For $\delta \in (0,\delta^*]$, let $\Dd^\bot_\delta$ be the set of partial transcripts obtained from \cref{def:doomed} with $\dens^\bot_j$ in place of $\dens_j$. It depends on the erasures of $y$ and of the messages, not only on their fillings; without erasures, it is the doomed set of \cref{def:doomed}.
+
+\begin{definition}[Knowledge state function of $\Pi^\Sigma_{\mathrm{KF}}$]\label{def:kstate}
+The algorithm $\mathsf{E}$, on every input, reads $y$ and outputs $\mathsf{Ext}(\mathrm{fib}_0^{-1}(\bar y))$ (\cref{def:doomed}): the $\hat f$ such that $\Enc(\hat f)$ is the codeword within fibre distance $\delta^*$ of $\mathrm{fib}_0^{-1}(\bar y)$ if it exists, and $0$ otherwise.
+For $\delta \in [0,1]$, a statement $((z,v), y)$, a transcript $\mathrm{tr}$ and $f \in \Ll_n(\F)$, let $\mathsf{KState}_\delta((z,v), y, \mathrm{tr}, f)$ be:
+\begin{enumerate}
+  \item $1$ if and only if $((z,v), y, f) \in (\mathcal{R}_{\mathrm{KF}})_{\le\delta}$, if $\mathrm{tr} = \mathrm{tr}_\emptyset$;
+  \item $1$ if and only if the verifier of $\Pi^\Sigma_{\mathrm{KF}}$ accepts, if $\mathrm{tr}$ is a full transcript;
+  \item for $\mathrm{tr} = \tau_i$ the partial transcript after $i \in \iv{1}{\ell+1}$ rounds: $1$ if and only if $\tau_i \notin \Dd^\bot_\delta$, when $\delta \in (0,\delta^*]$; and $1$ when $\delta \notin (0,\delta^*]$;
+  \item $\mathsf{KState}_\delta((z,v), y, \mathrm{tr}', f)$, if $\mathrm{tr} = \mathrm{tr}' \| \Pi$ ends with a prover message.
+\end{enumerate}
+\end{definition}
+
+$\mathsf{E}$ runs in time polynomial in $M$ (\cref{lem:ext}) and does not depend on $\delta$. Conditions~1, 2 and~3 of \cref{def:rrbr} hold by items~1, 4 and~2 respectively.
+
+\begin{lemma}[Round-by-round steps with erasures]\label{lem:rbr-erasures}
+Let $\delta \in (0,\delta^*]$, fix a statement $((z,v);y)$ with $y$ a partial string, and fix a partial transcript and the next prover message (partial strings).
+\begin{enumerate}
+  \item (Round $1$.) If $((z,v), y, \mathsf{E}(y)) \notin (\mathcal{R}_{\mathrm{KF}})_{\le\delta}$, then for every round-$1$ message, $\tau_1 \notin \Dd^\bot_\delta$ for at most $2M$ values of $\beta$.
+  \item (Round $j+1$, $j \in \iv{1}{\ell}$.) If $\tau_j \in \Dd^\bot_\delta$, then for every round-$(j+1)$ message, $\tau_{j+1} \notin \Dd^\bot_\delta$ for at most $M_j$ values of $r_j$.
+  \item (Round $\ell+2$.) If $\tau_{\ell+1} \in \Dd^\bot_\delta$, then for every final message, the verifier of $\Pi^\Sigma_{\mathrm{KF}}$ accepts with probability at most $(1-\delta)^\kappa$ over the query points.
+\end{enumerate}
+\end{lemma}
+
+\begin{proof}
+All objects are those of the filled words $w = \mathrm{fib}_0^{-1}(\bar y)$, $w_A$, $w_1, \dots$, which are words of $\Pi_{\mathrm{KF}}$.
+
+(1) Fix the round-$1$ message, and apply \cref{lem:batching} to $w$ and $w_A$ with $Y = Y_y$, which is fibre-closed; let $\mathcal{G}$ be the set of that lemma.
+If $\tau_1 \notin \Dd^\bot_\delta$, there is $c \in \Cc_0$ with $|\Ww^\bot_0(c)| \ge (1-\delta)M$. The set $T = \Ww^\bot_0(c)$ is fibre-closed and contained in $\mathcal{Z}_0 \subseteq Y_y$, and $w_\beta$ agrees with $c$ on $\Ww_0(c) \supseteq T$; so $\beta \in \mathcal{G}$.
+If there were more than $2M$ such $\beta$, \cref{lem:batching} would give $\hat f$ with $\hat f(z) = v$ such that $w$ agrees with $\Enc(\hat f)$ on a fibre-closed subset of $Y_y$ with at least $(1-\delta)M$ points, that is, on at least $(1-\delta)M/2$ fibres over positions where $y$ is defined and equal to $\bar y$. Then $\Delta(y, \mathrm{fib}_0(\Enc(\hat f))) \le \delta$ with $\bot$ counted as a disagreement, so $((z,v), y, \hat f) \in (\mathcal{R}_{\mathrm{KF}})_{\le\delta}$.
+Moreover $\Delta^{\mathrm{fib}}_0(w, \Enc(\hat f)) = \Delta(\bar y, \mathrm{fib}_0(\Enc(\hat f))) \le \delta \le \delta^*$ by \eqref{eq:fib-hamming}, so $\mathsf{E}(y) = \hat f$ (\cref{lem:ext}), contradicting the hypothesis.
+
+(2) Fix the round-$(j+1)$ message; at most $M_j$ values of $r_j$ are not good for $w_{j-1}$ at level $j$ (\cref{lem:good}).
+Let $r_j$ be good, and suppose $\tau_{j+1} \notin \Dd^\bot_\delta$, witnessed by $c' \in \Cc_j$ with $\dens^\bot_j(c') \ge 1-\delta$. Then $\dens_j(c') \ge 1-\delta$, and \cref{lem:rbr-step} gives $c \in \Cc_{j-1}$ with $\Ww_j(c') \subseteq \Ww_{j-1}(c)$.
+Intersecting with $\mathcal{Z}_j \subseteq \mathcal{Z}_{j-1}$ gives $\Ww^\bot_j(c') \subseteq \Ww^\bot_{j-1}(c)$; so $\tau_j \notin \Dd^\bot_\delta$, a contradiction.
+
+(3) If the verifier accepts, the final message has no $\bot$, and every query point $\xi$ reads no $\bot$, so $\xi \in \mathcal{Z}_\ell$; and $\xi$ passes the checks of $\Pi_{\mathrm{KF}}$ on the fillings, so $\xi \in \Ww_\ell(w_\ell)$ (\cref{lem:passing}(1)). Hence every query point lies in $\Ww^\bot_\ell(w_\ell)$, where $w_\ell = \ev_{L_\ell}(P) \in \Cc_\ell$.
+Since $\tau_{\ell+1} \in \Dd^\bot_\delta$, $\dens^\bot_\ell(w_\ell) < 1-\delta$, and by \cref{lem:sampling,lem:queries} the verifier accepts with probability less than $(1-\delta)^\kappa$.
+\end{proof}
+
+\begin{theorem}[Relaxed round-by-round knowledge soundness]\label{thm:rrbr}
+$\Pi^\Sigma_{\mathrm{KF}}$ has relaxed round-by-round knowledge soundness errors (\cref{def:rrbr}), with $\mathsf{KState}$ and $\mathsf{E}$ of \cref{def:kstate},
+\[
+  \varepsilon^{\mathrm{rr}}_1(\delta) = 2M\Bigl(\frac{1}{|\F|} + \frac{1}{2^{\lambda_{\mathrm{ch}}}}\Bigr), \qquad
+  \varepsilon^{\mathrm{rr}}_{j+1}(\delta) = M_j\Bigl(\frac{1}{|\F|} + \frac{1}{2^{\lambda_{\mathrm{ch}}}}\Bigr) \ (j \in \iv{1}{\ell}), \qquad
+  \varepsilon^{\mathrm{rr}}_{\ell+2}(\delta) = (1-\delta)^\kappa
+\]
+for $\delta \in (0,\delta^*]$, and $\varepsilon^{\mathrm{rr}}_i(\delta) = 1$ for $\delta \notin (0,\delta^*]$.
+\end{theorem}
+
+\begin{proof}
+For $\delta \notin (0,\delta^*]$ there is nothing to prove. Fix $\delta \in (0,\delta^*]$, a statement, a round $i \in \iv{1}{\ell+2}$, and $\mathrm{tr} = \tau_{i-1} \| \Pi_i$, where $\tau_0 = \mathrm{tr}_\emptyset$.
+By item~4 of \cref{def:kstate}, $\mathsf{KState}_\delta(\cdot, \mathrm{tr}, \cdot) = \mathsf{KState}_\delta(\cdot, \tau_{i-1}, \cdot)$, and by items~2 and~3, $\mathsf{KState}_\delta(\cdot, \mathrm{tr} \| \mathsf{vr}_i, f)$ does not depend on $f$.
+So the event of \cref{def:rrbr} is contained in the conjunction of $\mathsf{KState}_\delta(\cdot, \tau_{i-1}, \mathsf{E}(\cdot)) = 0$, which does not depend on $\mathsf{vr}_i$, and $\mathsf{KState}_\delta(\cdot, \tau_i, \cdot) = 1$.
+If the first condition fails, the event is empty. Otherwise, for $i = 1$ it says $((z,v), y, \mathsf{E}(y)) \notin (\mathcal{R}_{\mathrm{KF}})_{\le\delta}$, and for $i \ge 2$ it says $\tau_{i-1} \in \Dd^\bot_\delta$.
+For $i \le \ell+1$, \cref{lem:rbr-erasures}(1,2) bounds the number of exceptional values of $\beta$ or $r_j$, and \cref{lem:sampling} converts it into the stated probability.
+For $i = \ell+2$, $\mathsf{KState}_\delta(\cdot, \tau_{\ell+2}, \cdot) = 1$ means acceptance, whose probability is at most $(1-\delta)^\kappa$ by \cref{lem:rbr-erasures}(3).
+\end{proof}
+
+\subsection{Post-quantum knowledge soundness}\label{sec:pq:main}
+
+\begin{corollary}[Post-quantum knowledge soundness]\label{cor:pq}
+Let $\delta \in (0,\delta^*]$ and
+\[
+  \varepsilon_{\mathrm{rr}}(\delta) \;=\; \max\Bigl\{\, 2M\Bigl(\frac{1}{|\F|} + \frac{1}{2^{\lambda_{\mathrm{ch}}}}\Bigr),\ (1-\delta)^\kappa \,\Bigr\}.
+\]
+The non-interactive scheme $\mathsf{BCS}[\Pi^\Sigma_{\mathrm{KF}}]$ (\cref{sec:proofs:bcs}) satisfies the conclusion of \cref{thm:cdhz} with $\nu = \ell + 2$, $\lambda_{\min} = \min(\lambda_{\mathrm{ch}}, \kappa(n+R))$, $l_{\max} = M/2$ and this $\varepsilon_{\mathrm{rr}}(\delta)$.
+In particular, for every quantum adversary that makes at most $Q$ queries to the random oracle and outputs a Merkle root $\mathrm{cm}$, a claim $(z,v)$ and a proof, except with probability $\varepsilon_{\mathrm{ext}}(Q)$, if the verifier accepts then the extractor outputs a partial string $y \in (\Sigma \sqcup \{\bot\})^{M/2}$, a polynomial $f \in \Ll_n(\F)$ and a trapdoor such that:
+the openings of all positions of $\mathrm{Dom}(y)$ are accepted under $\mathrm{cm}$; $y$ agrees with $\mathrm{fib}_0(\Enc(f))$ on at least $(1-\delta)M/2$ fibres; and $f(z) = v$.
+\end{corollary}
+
+\begin{proof}
+\Cref{thm:rrbr} and \cref{thm:cdhz}, with $\max_i \varepsilon^{\mathrm{rr}}_i(\delta) = \varepsilon_{\mathrm{rr}}(\delta)$ since $M_j < 2M$; the last sentence unfolds \cref{def:committed} for $\mathcal{R}_{\mathrm{KF}}$, with $\bot$ entries counted as disagreements.
+\end{proof}
+
+The extracted polynomial is bound to the root: two extracted witnesses for the same root with different polynomials expose a hash collision.
+
+\begin{lemma}[Uniqueness of relaxed committed witnesses]\label{lem:cr-unique}
+Let $\delta \in (0,\delta^*]$ and let $\mathrm{cm}$ be a Merkle root. Let $\mathtt{cx} = ((z,v),\mathrm{cm})$ and $\mathtt{cx}' = ((z',v'),\mathrm{cm})$, and suppose that $(\mathtt{cx}, (y,f,\mathrm{td}))$ and $(\mathtt{cx}', (y',f',\mathrm{td}'))$ belong to $\widehat{\mathsf{CR}}[\mathcal{R}_{\mathrm{KF}}, \delta]$.
+If $f \ne f'$, then $\mathrm{td}$ and $\mathrm{td}'$ yield two accepting openings, under $\mathrm{cm}$, of one position to different values, hence a collision of the random oracle.
+In particular, if $z = z'$ and $v \ne v'$, such a collision is obtained.
+\end{lemma}
+
+\begin{proof}
+Let $D = \{\eta \in L_1 : y(\eta) = \mathrm{fib}_0(\Enc(f))(\eta)\}$ and $D' = \{\eta \in L_1 : y'(\eta) = \mathrm{fib}_0(\Enc(f'))(\eta)\}$. Then $D \subseteq \mathrm{Dom}(y)$, $D' \subseteq \mathrm{Dom}(y')$ and $|D|, |D'| \ge (1-\delta)M/2$, so $|D \cap D'| \ge (1-2\delta)M/2 \ge \rho M/2 = N/2$.
+If $y = y'$ on $D \cap D'$, then $\Enc(f)$ and $\Enc(f')$ agree on the at least $N$ points of the fibres over $D \cap D'$, hence are equal (\cref{lem:rs-params}(2)), and $f = f'$ (\cref{lem:enc}(1)).
+So if $f \ne f'$, some $\eta \in D \cap D'$ has $y(\eta) \ne y'(\eta)$, and the openings of $\eta$ computed from $\mathrm{td}$ and $\mathrm{td}'$ are both accepted under $\mathrm{cm}$ (\cref{def:committed}), with the same random oracle since the commitment index is fixed by the scheme; apply the salted form of \cref{lem:merkle}(1) (\cref{sec:proofs:bcs}).
+If $z = z'$ and $v \ne v'$, then $f(z) = v \ne v' = f'(z)$, so $f \ne f'$.
+\end{proof}
+
+\Cref{lem:cr-unique} is deterministic. As in~\cite{Mkh26}, we do not state a probability bound for an adversary that produces two accepting proofs for one root, since that would require running the extractor of \cref{thm:cdhz} on two proofs of one adversary, which the theorem does not address.
+
+\subsection{Parameters}\label{sec:pq:params}
+
+\begin{remark}[Post-quantum parameters]\label{rem:pq-params}
+Take $\rho = 1/4$, $\delta = \delta^* = 3/8$, $M \le 2^{32}$ (so $n \le 30$ and $\ell \le 30$), the quartic extension $\F = \Fq[\iota]/(\iota^4 - 7)$ of the Goldilocks field $\Fq$, $q = 2^{64} - 2^{32} + 1$, of size $q^4 > 2^{255.99}$, $\lambda_{\mathrm{ch}} = 320$, hash output length $\lambda_{\mathsf{H}} = 256$, and $\kappa = 248$.
+The polynomial $\iota^4 - 7$ is irreducible over $\Fq$, because $7$ is not a square in $\Fq$ and $q \equiv 1 \pmod 4$~\cite[Theorem~3.75]{LN97}.
+Then $(5/8)^{248} = 2^{-168.16}$ and $2M(1/|\F| + 2^{-320}) < 2^{-222}$, so $\varepsilon_{\mathrm{rr}}(\delta) = 2^{-168.16}$.
+The quantities of \cref{thm:cdhz} satisfy:
+\begin{itemize}
+  \item $\nu = \ell + 2 \le 32$, $l_{\max} = M/2 \le 2^{31}$, and $\lambda_{\min} = \min(320, \kappa(n+R)) = 320$, since $\kappa(n+R) \ge 248 \cdot 3$;
+  \item $q_s \le \kappa(\ell+1) + \lceil N_\ell/2 \rceil \le 2^{30}$: one symbol of $y$, one of $\Pi_1$ and one of $\Pi_{i+1}$ at each level $i \in \iv{2}{\ell}$ per query point, and the final symbols;
+  \item $q_{\mathsf{V}} \le \nu + q_s(\lceil \log_2 l_{\max} \rceil + 1) \le 2^{36}$: one challenge query per round, and one authentication path of at most $\lceil \log_2 l_{\max} \rceil + 1$ hashes per position read;
+  \item $q_{\widehat{\mathsf{CR}}} \le (M/2)\log_2 M \le 2^{36}$: one leaf hash and $\log_2(M/2)$ internal hashes per position of $y$.
+\end{itemize}
+For an adversary making $Q = 2^{64}$ queries, \cref{thm:cdhz} gives $\varepsilon_{\mathrm{ext}}(2^{64}) < 2^{-31.8}$: the first term is $2^{-31.84}$, and the other terms are below $2^{-51}$. The bound is evaluated exactly in rational arithmetic by \texttt{rust/examples/pq\_params.rs} in the companion repository, which also checks that $7$ is not a square in $\Fq$.
+The dominant term is $320\,Q^2\,\varepsilon_{\mathrm{rr}}(\delta)$, so each additional factor $2$ in $Q$ costs $2/\log_2(8/5) \approx 3$ further queries.
+These are the same parameters as for the scheme of~\cite{Mkh26}, whose dominant error is also the query term; the round-$1$ error $2M/|\F|$ of the batching lemma is negligible at this field size.
+\end{remark}
+
+\begin{remark}[Classical parameters]\label{rem:classical}
+Against classical adversaries, \cref{thm:sound,cor:sound} give the interactive bound $\varepsilon_{\mathrm{KF}}$, and the parameters of \cref{sec:sound:params} ($\kappa = 148$ for $\rho = 1/4$, quadratic extension, $M \le 2^{26}$) give about $100$ bits for the interactive protocol.
+For the compiled scheme, \cref{thm:cdhz} applies to classical adversaries as well (\cref{sec:proofs:bcs}), but its $Q^2$ loss makes these parameters insufficient against $2^{64}$ queries; the parameters of \cref{sec:exp} are therefore stated as interactive security levels.
+\end{remark}
+
+\begin{remark}[Merkle trees]\label{rem:layout}
+Each string is committed by one Merkle tree with one leaf per symbol, that is, per fibre: a query opens one leaf and one authentication path per string read, and the two values compared by a fold check come from one leaf.
+The commitment $y$ has entries in $\Fq^2 \subseteq \Sigma$ when $f$ has coefficients in $\Fq$, which the implementation uses to halve the size of its leaves (\cref{sec:impl}).
+\end{remark}
+
+\begin{remark}[Scope]\label{rem:scope}
+\begin{itemize}
+  \item The analysis concerns one commitment opened at one point $z$ per proof. Reusing a commitment across several openings, opening several points or polynomials in one proof, or choosing $z$ after the commitment inside a larger Fiat--Shamir transcript, is not analysed here.
+  \item \Cref{cor:pq} applies to the compiler $\mathsf{BCS}$ of~\cite[Construction~11.7]{CDHZ25}, with salted Merkle trees and the challenge derivation described in \cref{sec:proofs:bcs}. An implementation with unsalted trees or a different transcript hashing is not covered by \cref{cor:pq} as it stands; \cref{sec:impl} states which variant the implementation uses.
+  \item The bounds also hold against classical adversaries in the random oracle model, with the same (quantum) extractor.
+\end{itemize}
+\end{remark}

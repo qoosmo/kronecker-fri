@@ -1,0 +1,38 @@
+\section{Verification Status}\label{app:verification}
+
+This appendix records, for each result, how it is established.
+\emph{Proved} means proved in this paper; \emph{from~\cite{Mkh26}} means that the statement and its proof are reproduced from the companion paper, whose Lean~4 project formalises most of these statements, sometimes in a slightly different form (for instance with a sumcheck and a final table instead of a final polynomial), with the exceptions of \cref{lem:descent,lem:merkle}; \emph{adapted} means that the proof follows one of~\cite{Mkh26} with changes; \emph{quoted} means that the result is cited and not reproved.
+\emph{Tested} refers to the Rust test suite and examples of \cref{sec:impl:tests}, which check the statement on random instances; tests are evidence, not proofs.
+No result of this paper is formalised in Lean yet; a formalisation of \cref{sec:kernel,sec:fold,sec:scheme,sec:sound} is in preparation.
+
+\begin{center}
+\small
+\begin{longtable}{@{}p{0.33\textwidth} p{0.27\textwidth} >{\raggedright\arraybackslash}p{0.34\textwidth}@{}}
+\toprule
+Result & Status & Machine check \\
+\midrule
+\endhead
+\Cref{fact:cyclic,fact:decode,fact:ntt} & quoted~\cite{LN97,WB86,Gao03,CT65} & NTT tested against Horner evaluation \\
+\Cref{thm:curves} (correlated agreement) & quoted~\cite{BCIKS23} & -- \\
+\Cref{thm:cdhz} (BCS for IORs) & quoted~\cite{CDHZ25} & bound of \cref{rem:pq-params} evaluated exactly \\
+\Cref{lem:complement,lem:roots,lem:split-poly,lem:mobius,lem:power,lem:metric,lem:rs-params,lem:descent,lem:split-words} & proved; from~\cite{Mkh26} & M\"obius transform tested \\
+\Cref{lem:sequential,lem:queries,lem:randomised,lem:rbr-overall,lem:rbr-binding,lem:merkle} & proved; from~\cite{Mkh26} & Merkle openings tested \\
+\Cref{lem:kron-sub,lem:kernel-basic,thm:extraction,cor:several-points,cor:cube-sum,prop:bilinear,lem:reversal} & proved & coefficient rule and extraction identity tested ($n \le 8$, two fields; $\mathbb{F}_{257}$) \\
+\Cref{lem:cost,lem:split,lem:identity} & proved & kernel product, split and root bound tested \\
+\Cref{lem:fold-word,lem:line,prop:fold-consistency} & proved; from~\cite{Mkh26} & tested ($n \le 7$) \\
+\Cref{lem:iterated} & proved & tested ($n \le 7$) \\
+\Cref{lem:fibre-dist,lem:unique,lem:far,lem:survive,lem:good,lem:step} & proved; from~\cite{Mkh26} & -- \\
+\Cref{lem:passing,lem:rbr-step,prop:chain,thm:fpt} & proved; adapted from~\cite{Mkh26} & -- \\
+\Cref{lem:enc,lem:virtual,lem:kernel-domain} & proved & virtual word and $\ev_L(K_z)$ tested \\
+\Cref{thm:complete} & proved & completeness tested ($n \le 9$, all $\ell$, three rates) \\
+\Cref{prop:costs} & proved & -- \\
+\Cref{lem:fpt-complete} & proved; adapted from~\cite{Mkh26} & covered by the completeness tests \\
+\Cref{lem:rate,lem:identity-set,lem:batching,lem:fibre-closed} & proved & -- \\
+\Cref{rem:design}(1), \cref{rem:why-x} & proved & two cheating provers rejected \\
+\Cref{thm:sound,thm:rbr,lem:ext,cor:sound} & proved & tampering tests \\
+\Cref{lem:sampling,lem:rbr-erasures,thm:rrbr,cor:pq,lem:cr-unique} & proved (using \cref{thm:cdhz}) & -- \\
+\Cref{rem:pq-params} (parameters) & computed & exact rational evaluation; non-squareness of $7$ checked \\
+\Cref{thm:batch,cor:batch} & proved & not implemented \\
+\bottomrule
+\end{longtable}
+\end{center}
