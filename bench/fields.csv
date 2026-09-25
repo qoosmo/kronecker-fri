@@ -1,0 +1,4 @@
+setting,field,queries,salt,commit_ms,open_ms,verify_ms,proof_kib
+classical,2,148,0,963.38,2992.76,6.821,1173.2
+classical-salted,2,148,32,1236.30,3680.12,8.234,1252.4
+post-quantum,4,248,32,1217.77,6431.79,12.252,2221.9
