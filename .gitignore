@@ -1,0 +1,20 @@
+# Rust
+rust/target/
+**/*.rs.bk
+
+# LaTeX build files (the compiled PDF paper/kronecker-fri.pdf is tracked)
+paper/*.aux
+paper/*.bbl
+paper/*.blg
+paper/*.log
+paper/*.out
+paper/*.toc
+paper/*.fls
+paper/*.fdb_latexmk
+paper/*.synctex.gz
+paper/main.pdf
+
+# Editors / OS
+.DS_Store
+.vscode/
+.idea/

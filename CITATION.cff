@@ -1,0 +1,25 @@
+cff-version: 1.2.0
+message: "If you use this work, please cite it as below."
+title: "Kronecker-FRI: A Hash-Based Multilinear Polynomial Commitment from a Coefficient-Extraction Identity"
+authors:
+  - family-names: Mkhida
+    given-names: Abdelali
+    affiliation: Algorizk Labs
+    email: ali.mkhida@algorizk.xyz
+    orcid: "https://orcid.org/0009-0009-2101-9070"
+version: 0.1.0
+date-released: 2026-09-25
+repository-code: "https://github.com/qoosmo/kronecker-fri"
+url: "https://qoosmo.github.io/kronecker-fri/"
+license:
+  - MIT
+  - Apache-2.0
+keywords:
+  - zero-knowledge proofs
+  - polynomial commitment schemes
+  - multilinear polynomials
+  - FRI
+  - Reed-Solomon codes
+  - Kronecker substitution
+  - post-quantum security
+  - Rust
