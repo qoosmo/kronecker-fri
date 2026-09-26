@@ -27,7 +27,7 @@ jobs:
       - name: No sorry / admit
         run: "! grep -rnwE 'sorry|admit' KBFold KroneckerFRI"
       - name: Exactly one axiom
-        run: test "$(grep -rn '^axiom' KBFold KroneckerFRI | wc -l)" = "1"
+        run: test "$(grep -rnE '^(private |protected )?axiom [A-Za-z_]' KBFold KroneckerFRI | wc -l)" = "1"
       - name: Axiom audit
         run: |
           lake env lean KroneckerFRI/Audit.lean | tee axioms.txt

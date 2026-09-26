@@ -2,8 +2,8 @@
 KroneckerFRI/Audit.lean
 Prints the axioms used by the main theorems.  The expected output for every theorem is a subset
 of `[propext, Classical.choice, Quot.sound, KBFold.bciks_curves]`: the three standard axioms of
-Lean and Mathlib, and correlated agreement for curves (Theorem 2.16 of the paper), the single
-axiom of the project.
+Lean and Mathlib, and correlated agreement for curves (Theorem 2.16 of the paper), which is the
+only project-specific assumption.
 -/
 import KroneckerFRI.Generic
 import KroneckerFRI.Batch
