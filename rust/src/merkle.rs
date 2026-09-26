@@ -76,8 +76,10 @@ impl MerkleTree {
         while layers.last().unwrap().len() > 1 {
             let prev = layers.last().unwrap();
             let next: Vec<Digest> = prev
-                .chunks_exact(2)
-                .map(|c| hash_node(&c[0], &c[1]))
+                .as_chunks::<2>()
+                .0
+                .iter()
+                .map(|[l, r]| hash_node(l, r))
                 .collect();
             layers.push(next);
         }
@@ -134,8 +136,10 @@ pub fn verify_group(
         .collect();
     while level.len() > 1 {
         level = level
-            .chunks_exact(2)
-            .map(|c| hash_node(&c[0], &c[1]))
+            .as_chunks::<2>()
+            .0
+            .iter()
+            .map(|[l, r]| hash_node(l, r))
             .collect();
     }
     let mut cur = level[0];
@@ -191,8 +195,10 @@ impl Transcript {
         let limbs = E::DEGREE + 1;
         let bytes = self.squeeze(8 * limbs);
         let mut x: Vec<u64> = bytes
-            .chunks_exact(8)
-            .map(|c| u64::from_le_bytes(c.try_into().unwrap()))
+            .as_chunks::<8>()
+            .0
+            .iter()
+            .map(|c| u64::from_le_bytes(*c))
             .collect();
         let mut digits = Vec::with_capacity(E::DEGREE);
         for _ in 0..E::DEGREE {

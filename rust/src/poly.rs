@@ -179,7 +179,11 @@ pub fn opening_polys<F: Field>(u: &[F], z: &[F]) -> (Vec<F>, F, Vec<F>) {
 pub fn pfold<F: Field>(c: &[F], r: F) -> Vec<F> {
     let a = r.double() - F::ONE;
     let b = F::ONE - r;
-    c.chunks_exact(2).map(|p| a * p[0] + b * p[1]).collect()
+    c.as_chunks::<2>()
+        .0
+        .iter()
+        .map(|[e, o]| a * *e + b * *o)
+        .collect()
 }
 
 /// Kernel fold of one fibre in line form (Lemma 5.3): with a = w(xi), b = w(-xi),
