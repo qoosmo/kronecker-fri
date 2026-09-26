@@ -18,7 +18,7 @@
 \newcommand{\iv}[2]{[#1,#2]}
 \title{Sumcheck-free hypercube inner products\\ from table-form Kronecker encodings}
 \author{Research note (companion to Kronecker-FRI)}
-\date{September 2026 --- version 3 (Section 3 proved; Rust prototypes of Sections 2 and 3)}
+\date{September 2026 --- version 4 (Sections 1--3 formalised in Lean~4; Rust prototypes of Sections 2 and 3)}
 \emergencystretch=3em
 \begin{document}
 \maketitle
@@ -27,7 +27,7 @@
 We encode a multilinear polynomial by its \emph{table}, $V_f(X)=\sum_{w}f(w)X^{w}$, instead of its coefficients.
 Two quantities then become single coefficients of univariate products: the evaluation $\tilde f(z)$, with a product-form kernel, and the hypercube inner product $\sum_{w}a(w)b(w)$ of two committed tables, through the reversal $V_b^\ast(X)=X^{N-1}V_b(1/X)$.
 Because a smooth domain is closed under inversion, the verifier reads $V_b^\ast$ from the commitment to $b$ as a virtual word, and the Kronecker-FRI machinery (opening polynomial, virtual word, one folding test) proves $\sum_w a(w)b(w)=S$ with no sumcheck, with soundness error $3M/|\F|+\varepsilon_{\mathrm{fold}}+(1-\delta)^\kappa$.
-With geometric weights $\gamma^w$ and DEEP quotients as further virtual words, the same method gives a sumcheck-free Hadamard check $a\circ b=c$ for three committed tables, with soundness error $(N-1)/(|\F|-M-1)+(N-1)/(|\F|-2M)+8M/|\F|+\varepsilon_{\mathrm{fold}}+(1-\delta)^\kappa$.
+With geometric weights $\gamma^w$ and DEEP quotients as further virtual words, the same method gives a sumcheck-free Hadamard check $a\circ b=c$ for three committed tables, with soundness error $2(N-1)/|\F|+8M/|\F|+\varepsilon_{\mathrm{fold}}+(1-\delta)^\kappa$. All results are machine-checked in Lean~4.
 \end{abstract}
 
 \paragraph{Setting.}
@@ -157,40 +157,41 @@ If $d=a\circ b-c\ne0$, then $D_d(X)=\sum_wd(w)X^w$ is a nonzero polynomial of de
 The values $V_a(\gamma\xi)$ and $V_c(\gamma)$ lie outside $L$; the prover commits to $Q(X)=V_a(\gamma X)$, and both are tied to the commitments by DEEP quotients, which are virtual words like $h$.
 
 \begin{definition}[Quotient words]
-For $w\in\F^L$, $y\in\F$ and $x\in\F\setminus L$, put $q[w,y,x](\xi)=\bigl(w(\xi)-y\bigr)/(\xi-x)$.
+For $w\in\F^L$ and $y,x\in\F$, put $q[w,y,x](\xi)=\bigl(w(\xi)-y\bigr)/(\xi-x)$, with the value $0$ at $\xi=x$ if $x\in L$.
 \end{definition}
 
 \begin{lemma}[DEEP step on an agreement set]\label{lem:deep}
-Let $x\in\F\setminus L$, $y\in\F$, $P,R\in\F[X]_{<N}$ and $T\subseteq L$ with $|T|>N$.
+Let $x,y\in\F$, $P,R\in\F[X]_{<N}$ and $T\subseteq L$ with $|T|>N+1$.
 If $w=\ev(P)$ and $q[w,y,x]=\ev(R)$ on $T$, then $P(x)=y$ and $R=(P-y)/(X-x)$.
-Conversely, if $w=\ev_L(P)$ and $P(x)=y$, then $q[w,y,x]=\ev_L\bigl((P-y)/(X-x)\bigr)$, a polynomial of degree $\le N-2$.
+Conversely, if $x\notin L$, $w=\ev_L(P)$ and $P(x)=y$, then $q[w,y,x]=\ev_L\bigl((P-y)/(X-x)\bigr)$, a polynomial of degree $\le N-2$.
 \end{lemma}
 \begin{proof}
-$(X-x)R-P+y$ has degree $\le N$ and vanishes on $T$, so it is $0$; evaluate at $x$.
+$(X-x)R-P+y$ has degree $\le N$ and vanishes on $T\setminus\{x\}$, which has more than $N$ points, so it is $0$; evaluate at $x$.
 The converse is the factor theorem.
 \end{proof}
 
 \begin{definition}[$\Pi_{\mathrm{Had}}$]\label{def:had}
 Instance: oracles $w_a,w_b,w_c\in\F^L$; honestly $w_f=\mathrm{Enc}^{\mathrm T}(f)$ for $f\in\{a,b,c\}$ and $a\circ b=c$.
 \begin{enumerate}[nosep]
-\item The verifier sends $\gamma$, uniform in $\F^\times\setminus L$. The prover sends $w_Q=\ev_L(Q)$, where $Q(X)=V_a(\gamma X)$.
-\item The verifier sends $\theta$, uniform in $\F\setminus(L\cup\gamma^{-1}L)$. The prover sends $y_1=V_a(\gamma\theta)$, $y_3=V_c(\gamma)$ and $w_A=\ev_L(A)$, where $XQV_b^\ast=A+y_3X^N+X^{N+1}H$ (Lemma~\ref{lem:gen-identity}).
+\item The verifier sends $\gamma$, uniform in $\F$. The prover sends $w_Q=\ev_L(Q)$, where $Q(X)=V_a(\gamma X)$.
+\item The verifier sends $\theta$, uniform in $\F$. The prover sends $y_1=V_a(\gamma\theta)$, $y_3=V_c(\gamma)$ and $w_A=\ev_L(A)$, where $XQV_b^\ast=A+y_3X^N+X^{N+1}H$ (Lemma~\ref{lem:gen-identity}).
 \item The verifier sends $\beta$, uniform in $\F$. With $h(\xi)=\bigl(\xi\,w_Q(\xi)\,w_b^\ast(\xi)-w_A(\xi)-y_3\xi^N\bigr)/\xi^{N+1}$ and
 \[(u_0,\dots,u_8)=\bigl(w_a,\;w_c,\;w_Q,\;w_b^\ast,\;w_A,\;h,\;q[w_a,y_1,\gamma\theta],\;q[w_Q,y_1,\theta],\;q[w_c,y_3,\gamma]\bigr),\]
 put $w_0=\sum_{i=0}^8\beta^iu_i$.
 \item Run $\Pi_{\mathrm{FT}}[\ell,\kappa]$ (or $\Pi^C_{\mathrm{FT}}$) on $w_0$.
 \end{enumerate}
 \end{definition}
-Since $\gamma\in\F^\times\setminus L$ and $L$ is a group, $L\cap\gamma^{-1}L=\emptyset$, so $\theta$ ranges over $|\F|-2M$ values, and the three poles $\gamma\theta,\theta,\gamma$ lie outside $L$.
+The challenges are unrestricted: soundness holds for all values, and a pole $\gamma\theta,\theta,\gamma$ in $L$ affects only completeness.
 Using $y_1$ for both $V_a(\gamma\theta)$ and $Q(\theta)$ is the consistency check $V_a(\gamma\theta)=Q(\theta)$.
 Per query point the verifier reads $w_a,w_c,w_Q,w_A$ on the coset of $\xi$ and $w_b$ on the coset of $\xi^{-1}$, and does $O(1)$ field operations and three inversions per point (one batched inversion per query) beyond the folding test.
 
 \begin{theorem}[Completeness]
-If $w_f=\mathrm{Enc}^{\mathrm T}(f)$ for $f\in\{a,b,c\}$ and $a\circ b=c$, the honest prover is accepted with probability $1$.
+If $w_f=\mathrm{Enc}^{\mathrm T}(f)$ for $f\in\{a,b,c\}$ and $a\circ b=c$, the honest prover is accepted whenever $\gamma\theta,\theta,\gamma\notin L$, hence with probability at least $1-3M/|\F|$.
 \end{theorem}
 \begin{proof}
 $Q\in\F[X]_{<N}$; $y_1=V_a(\gamma\theta)=Q(\theta)$; and $y_3=V_c(\gamma)=\sum_w\gamma^wc(w)=\sum_w\gamma^wa(w)b(w)=\coef{N-1}{QV_b^\ast}$, so $A,H$ exist and $h=\ev_L(H)$ as in $\Pi_{\mathrm{IP}}$.
-By Lemma~\ref{lem:deep} the three quotient words are codewords, and $w_0$ is the codeword of a polynomial of degree $<N$.
+By Lemma~\ref{lem:deep} the three quotient words are codewords when the poles lie outside $L$, and then $w_0$ is the codeword of a polynomial of degree $<N$.
+Each of the events $\gamma\in L$, $\theta\in L$, $\gamma\theta\in L$ has probability at most $M/|\F|$ (for $\gamma\ne0$, at most $M$ values of $\theta$ put $\gamma\theta$ in $L$; for $\gamma=0$, none).
 \end{proof}
 
 \begin{definition}[Relation]
@@ -198,7 +199,7 @@ $\mathcal R^\delta_{\mathrm{Had}}$: $((w_a,w_b,w_c),(a,b,c))$ with $\Delta^{\mat
 \end{definition}
 
 \begin{lemma}[Batching, degree $8$]\label{lem:batch8}
-Fix $\gamma,\theta$ as in Definition~\ref{def:had} and the prover's $w_Q,y_1,y_3,w_A$.
+Fix $\gamma,\theta\in\F$ and the prover's $w_Q,y_1,y_3,w_A$.
 Let $\mathcal G$ be the set of $\beta$ for which $w_0$ agrees with some $c'\in\Cc_0$ on a fibre-closed $T\subseteq L$ with $|T|\ge(1-\delta)M$.
 If $|\mathcal G|>8M$, there are tables $a,b,c$ and $\hat Q\in\F[X]_{<N}$ with
 \begin{enumerate}[nosep]
@@ -208,7 +209,7 @@ If $|\mathcal G|>8M$, there are tables $a,b,c$ and $\hat Q\in\F[X]_{<N}$ with
 \end{enumerate}
 \end{lemma}
 \begin{proof}
-Correlated agreement on one fibre-closed set (the step shared with Lemma~\ref{lem:batch3}; Lean: \texttt{curve\_agreement}, $t=8$) gives $P_0,\dots,P_8\in\F[X]_{<N}$ and a fibre-closed $T$, $|T|\ge(1-\delta)M>2N$ (KF Lemma~7.2), with $u_i=\ev(P_i)$ on $T$.
+Correlated agreement on one fibre-closed set (the step shared with Lemma~\ref{lem:batch3}; Lean: \texttt{curve\_agreement}, $t=8$) gives $P_0,\dots,P_8\in\F[X]_{<N}$ and a fibre-closed $T$, $|T|\ge(1-\delta)M>2N\ge N+2$ (KF Lemma~7.2), with $u_i=\ev(P_i)$ on $T$.
 As in Lemma~\ref{lem:batch3}, $XP_2P_3-P_4-y_3X^N-X^{N+1}P_5$ vanishes on $T$ and has degree $\le2N$, so $y_3=\coef{N-1}{P_2P_3}$.
 Lemma~\ref{lem:deep} with $(P_0,P_6,\gamma\theta)$, $(P_2,P_7,\theta)$ and $(P_1,P_8,\gamma)$ gives $P_0(\gamma\theta)=y_1$, $P_2(\theta)=y_1$ and $P_1(\gamma)=y_3$.
 Let $V_a=P_0$, $V_c=P_1$, $V_b=P_3^\ast$ and $\hat Q=P_2$; then (2) and (3) hold, and (1) follows from agreement on $T$ (for $w_b$, on $T^{-1}$, Lemma~\ref{lem:rev}).
@@ -217,7 +218,7 @@ Let $V_a=P_0$, $V_c=P_1$, $V_b=P_3^\ast$ and $\hat Q=P_2$; then (2) and (3) hold
 \begin{theorem}[Soundness]\label{thm:had}
 Let $R\ge2$ and $0<\delta\le\delta^\ast$. If $(w_a,w_b,w_c)$ has no witness in $\mathcal R^\delta_{\mathrm{Had}}$, every prover is accepted with probability at most
 \[
-\varepsilon_{\mathrm{Had}}=\frac{N-1}{|\F|-M-1}+\frac{N-1}{|\F|-2M}+\frac{8M}{|\F|}+\varepsilon_{\mathrm{fold}}+(1-\delta)^\kappa .
+\varepsilon_{\mathrm{Had}}=\frac{2(N-1)}{|\F|}+\frac{8M}{|\F|}+\varepsilon_{\mathrm{fold}}+(1-\delta)^\kappa .
 \]
 \end{theorem}
 \begin{proof}
@@ -228,16 +229,16 @@ Call $(\gamma,\theta)$ \emph{good} if, for every choice of the prover's round-$2
 \emph{Case 1: some $w_f$ has no table within fibre distance $\delta$.} Lemma~\ref{lem:batch8}(1) fails, so every $(\gamma,\theta)$ is good.
 
 \emph{Case 2: $w_a,w_b,w_c$ decode to $\hat a,\hat b,\hat c$ with $\hat a\circ\hat b\ne\hat c$.}
-Let $D=D_{\hat a\circ\hat b-\hat c}\ne0$. The event $D(\gamma)=0$ has probability at most $(N-1)/(|\F|-M-1)$. Fix $\gamma$ with $D(\gamma)\ne0$, and the prover's $w_Q$ (a function of $\gamma$).
+Let $D=D_{\hat a\circ\hat b-\hat c}\ne0$. The event $D(\gamma)=0$ has probability at most $(N-1)/|\F|$. Fix $\gamma$ with $D(\gamma)\ne0$, and the prover's $w_Q$ (a function of $\gamma$).
 If $w_Q$ has no codeword within fibre distance $\delta$, $(\gamma,\theta)$ is good for every $\theta$ by Lemma~\ref{lem:batch8}(1).
 If it decodes to $\hat Q=V_{\hat a}(\gamma X)$, then Lemma~\ref{lem:batch8}(3) would give $\sum_w\gamma^w\hat c(w)=V_{\hat c}(\gamma)=\coef{N-1}{V_{\hat a}(\gamma X)V_{\hat b}^\ast}=\sum_w\gamma^w\hat a(w)\hat b(w)$, i.e.\ $D(\gamma)=0$; so every $\theta$ is good.
-Otherwise $\hat Q-V_{\hat a}(\gamma X)$ is a nonzero polynomial of degree $\le N-1$, fixed before $\theta$ is drawn; the event $\hat Q(\theta)=V_{\hat a}(\gamma\theta)$ has probability at most $(N-1)/(|\F|-2M)$, and outside it Lemma~\ref{lem:batch8}(2) fails, so $\theta$ is good.
+Otherwise $\hat Q-V_{\hat a}(\gamma X)$ is a nonzero polynomial of degree $\le N-1$, fixed before $\theta$ is drawn; the event $\hat Q(\theta)=V_{\hat a}(\gamma\theta)$ has probability at most $(N-1)/|\F|$, and outside it Lemma~\ref{lem:batch8}(2) fails, so $\theta$ is good.
 \end{proof}
 
-When $|\F|\gg M$ the first two terms are about $2N/|\F|$, so $\varepsilon_{\mathrm{Had}}\approx(8M+2N)/|\F|+\varepsilon_{\mathrm{fold}}+(1-\delta)^\kappa$, against $3M/|\F|$ for $\Pi_{\mathrm{IP}}$ and $2M/|\F|$ for an evaluation.
+So $\varepsilon_{\mathrm{Had}}<(8M+2N)/|\F|+\varepsilon_{\mathrm{fold}}+(1-\delta)^\kappa$, against $3M/|\F|$ for $\Pi_{\mathrm{IP}}$ and $2M/|\F|$ for an evaluation.
 The curve has degree $8$ because $w_a$ and $w_c$ must be in the batch themselves: a quotient word alone determines $w_a$ on $T$ only as a polynomial of degree $\le N$, which does not identify the decoding.
 
-Knowledge and binding follow as for $\Pi_{\mathrm{IP}}$ (KF Cor.~7.12): the extractor decodes $w_a,w_b,w_c$ at radius $\delta$, and the decoded tables form the unique witness.
+Knowledge follows: if the acceptance probability exceeds $\varepsilon_{\mathrm{Had}}$, the instance has a witness, and the extractor decodes $w_a,w_b,w_c$ at radius $\delta$ (KF Cor.~7.12).
 
 \begin{remark}[Consequence]
 Linear functionals (evaluations, with the kernel $E^\ast_z$), inner products ($\Pi_{\mathrm{IP}}$) and Hadamard checks ($\Pi_{\mathrm{Had}}$) are all proved on table-form Kronecker-FRI commitments by one folding test each, with no sumcheck and a verifier that is an FRI verifier plus $O(1)$ operations per query point (plus $O(n)$ for $E^\ast_z$).
@@ -261,7 +262,8 @@ For that baseline the fastest prover we know of in our own work is the tree circ
 Lemma~\ref{lem:eval}: \texttt{eval\_table}; Lemma~\ref{lem:ip}: \texttt{inner\_product}; Lemma~\ref{lem:gen-identity}: \texttt{splitG\_iff}, \texttt{natDegree\_PhiG\_le}, \texttt{identityG}; Lemma~\ref{lem:rev}: \texttt{wrev\_ev}, \texttt{wrev\_eq\_iff}, \texttt{inv\_image\_closed}, \texttt{ncard\_inv\_image}; completeness: \texttt{honestIP\_prob\_one}; Lemma~\ref{lem:batch3}: \texttt{batching\_IP}; soundness: \texttt{soundness\_IP}, and \texttt{soundnessC\_IP} for any folding arity $2^k$; knowledge and binding: \texttt{knowledge\_IP}, \texttt{binding\_IP}.
 The common step of KF Lemma~7.4 and Lemma~\ref{lem:batch3}, correlated agreement on one fibre-closed set for a curve of any degree, is the separate theorem \texttt{curve\_agreement}.
 \item \emph{Rust.} The module \texttt{ip} of the Kronecker-FRI crate implements $\Pi_{\mathrm{IP}}$ with Merkle caps, arity $2^k$ and Fiat--Shamir, on the commitments of \texttt{pcs}. Its tests check Lemmas~\ref{lem:ip}, \ref{lem:gen-identity} and~\ref{lem:rev}(1), completeness for $n\le10$, two rates and arities $2$ to $16$, and the rejection of three cheating provers (a wrong $S$; a wrong $S$ absorbed into a polynomial $A$ of degree $N$, as in KF Remark~4.13; opening polynomials computed from a table $b'\ne b$).
-\item \emph{Section~3.} The proofs are written out above and not yet formalised; the Lean formalisation reuses \texttt{curve\_agreement} ($t=8$), \texttt{identityG} and the reversed words, and adds Lemma~\ref{lem:deep}. The module \texttt{had} implements $\Pi_{\mathrm{Had}}$ on the shared folding-test code of module \texttt{ft}, drawing $\gamma$, $\theta$ by rejection sampling outside the base field $\F_p\supseteq L$ (a subset of the sets of Definition~\ref{def:had}; the two first terms of $\varepsilon_{\mathrm{Had}}$ become $(N-1)/(|\F|-p)$ each); its tests check completeness for $n\le10$, two rates and arities $2$ to $16$, and the rejection of a wrong $y_1$, of a wrong $Q$ (with $y_1=Q(\theta)$), and of a false instance ($c$ differing from $a\circ b$ in one entry) with three choices of $y_3$. Removing $q[w_c,y_3,\gamma]$ from the batch makes the false instance accepted, and a wrong pole in the verifier breaks completeness, so the tests exercise each part.
+\item \emph{Lean~4, Section~3.} File \texttt{Hadamard.lean}, same axiom, no \texttt{sorry}. Lemma~\ref{lem:deep}: \texttt{deep\_step}, \texttt{deep\_honest}; completeness: \texttt{honestHad\_accepts}, and \texttt{honestHad\_prob} for the bound $1-3M/|\F|$; Lemma~\ref{lem:batch8}: \texttt{batching\_Had}; Theorem~\ref{thm:had}: \texttt{prob\_bad\_le} (the bad pairs $(\gamma,\theta)$), \texttt{soundness\_Had}, and \texttt{soundnessC\_Had} for any folding arity $2^k$; knowledge: \texttt{knowledge\_Had}. The step ``for good $(\gamma,\theta)$, the argument of KF Thm~7.8'' is the separate theorem \texttt{ft\_family\_bound}: for any family of words $w_0(\beta)$, the acceptance probability is at most $|\mathcal G|/|\F|+\varepsilon_{\mathrm{fold}}+(1-\delta)^\kappa$.
+\item \emph{Rust, Section~3.} The module \texttt{had} implements $\Pi_{\mathrm{Had}}$ on the shared folding-test code of module \texttt{ft}, drawing $\gamma$, $\theta$ by rejection sampling outside the base field $\F_p\supseteq L$, so that no pole lies in $L$ and completeness is perfect (the two first terms of $\varepsilon_{\mathrm{Had}}$ become $(N-1)/(|\F|-p)$ each); its tests check completeness for $n\le10$, two rates and arities $2$ to $16$, and the rejection of a wrong $y_1$, of a wrong $Q$ (with $y_1=Q(\theta)$), and of a false instance ($c$ differing from $a\circ b$ in one entry) with three choices of $y_3$. Removing $q[w_c,y_3,\gamma]$ from the batch makes the false instance accepted, and a wrong pole in the verifier breaks completeness, so the tests exercise each part.
 \end{itemize}
 
 \begin{table}[h]
@@ -284,7 +286,7 @@ $n$ & KF & IP & Had & KF & IP & Had & KF & IP & Had\\
 An inner product of two committed tables costs less prover time than one evaluation opening (the round-$1$ work is in the base field), about the same verifier time, and about $20\%$ more proof, the extra openings of $w_b$ on the inverse cosets.
 A Hadamard check costs about $2.2$ evaluation openings of prover time (its polynomials $Q$, $A$, $H$ lie in the extension field) and $1.7$ times the proof, since five oracles are opened per query instead of two; when $a$, $b$, $c$ are committed together, one tree with three values per leaf removes two of the five authentication paths per query.
 
-\paragraph{Next.} Lean formalisation of Section~3; batching $\Pi_{\mathrm{IP}}$, $\Pi_{\mathrm{Had}}$ and evaluation openings (KF Thm~11.2) in one folding test; the sparse products $Az,Bz,Cz$.
+\paragraph{Next.} Batching $\Pi_{\mathrm{IP}}$, $\Pi_{\mathrm{Had}}$ and evaluation openings (KF Thm~11.2) in one folding test; the sparse products $Az,Bz,Cz$.
 
 \begin{thebibliography}{9}
 \bibitem{KF} A.~Mkhida. Kronecker-FRI: A Hash-Based Multilinear Polynomial Commitment from a Coefficient-Extraction Identity. Preprint, 2026. \url{https://github.com/qoosmo/kronecker-fri}.

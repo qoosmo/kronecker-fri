@@ -4,8 +4,8 @@ Machine-checked proofs of the results of §4–§7 and §11 of the paper
 [`../paper/kronecker-fri.pdf`](../paper/kronecker-fri.pdf): the extraction identity, the
 folding proximity test with any folding arity, the scheme, completeness, soundness,
 round-by-round knowledge soundness, evaluation binding, and batched openings; and the
-sumcheck-free inner-product protocol `Π_IP` of the research note
-[`../notes/inner-product/note.pdf`](../notes/inner-product/note.pdf) (§1–2).
+sumcheck-free inner-product protocol `Π_IP` and Hadamard check `Π_Had` of the research note
+[`../notes/inner-product/note.pdf`](../notes/inner-product/note.pdf) (§1–3).
 
 - **Toolchain:** Lean 4.23.0, Mathlib `v4.23.0` (pinned in `lakefile.lean` and `lake-manifest.json`).
 - **No `sorry`.**
@@ -57,7 +57,7 @@ lake env lean KroneckerFRI/Audit.lean
 | **Cor 7.12 (knowledge, soundness, binding)** | `knowledge`, `soundness`, `binding`; framework form `rbr_binding` | `RBR.lean`, `Generic.lean` |
 | Def 11.1, **Thm 11.2, Cor 11.3 (batched openings)** | `wGamma`, `RelBatch`, `accProbBatch`, `wGamma_encode`, `batch_soundness`, `batch_knowledge`, `batch_binding` | `Batch.lean` |
 
-## Research note: sumcheck-free inner products (table form)
+## Research note: sumcheck-free inner products and Hadamard checks (table form)
 
 | Note | Lean | File |
 |---|---|---|
@@ -74,6 +74,13 @@ lake env lean KroneckerFRI/Audit.lean
 | **Lemma batch3 (batching, degree 3)** | `goodBetaIP`, `batching_IP`, `card_goodBetaIP_le` | `InnerProduct.lean` |
 | **Thm (soundness)**, `ε_IP = 3M/\|F\| + ε_fold + (1-δ)^κ` | `epsIP`, `epsIP_lt`, `soundness_IP`, `soundnessC_IP` (any set of committed levels) | `InnerProduct.lean` |
 | Knowledge and binding | `knowledge_IP`, `binding_IP` | `InnerProduct.lean` |
+| Def (quotient words), **Lemma deep** (DEEP step on an agreement set, and its converse) | `qword`, `deep_step`, `deep_honest`, `divq`, `divq_mem` | `Hadamard.lean` |
+| Geometric weights: `V_a(γX)`, `∑_w γ^w a(w) b(w) = [X^{N-1}] V_a(γX) V_b*` | `gscale`, `eval_gscale`, `weighted_inner_product` | `Hadamard.lean` |
+| Def (`Π_Had`), relation `R^δ_Had` | `curveHad`, `wbatHad`, `HadProver`, `HadProver.Accepts`, `HadProver.accProb`, `HadProver.AcceptsC`, `RelHad` | `Hadamard.lean` |
+| **Thm (completeness)**: accepted when no pole lies in `L`; probability `≥ 1 - 3M/\|F\|` | `hadPolys`, `hadU0`, `curveHad_honest`, `wbatHad_honest`, `honestHad_accepts`, `honestHad_prob` | `Hadamard.lean` |
+| **Lemma batch8 (batching, degree 8)** | `batching_Had` | `Hadamard.lean` |
+| KF Thm 7.8 for any family of words `w_0(β)` | `goodSet`, `ft_family_bound` | `Hadamard.lean` |
+| **Thm had (soundness)**, `2(N-1)/\|F\| + 8M/\|F\| + ε_fold + (1-δ)^κ`; knowledge | `prob_bad_le`, `soundness_Had`, `soundnessC_Had` (any set of committed levels), `knowledge_Had` | `Hadamard.lean` |
 
 ## Modelling
 

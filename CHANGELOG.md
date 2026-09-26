@@ -1,5 +1,14 @@
 # Changelog
 
+## Unreleased — Lean formalisation of the Hadamard check
+
+### Lean (`lean/KroneckerFRI/Hadamard.lean`)
+- §3 of the note: DEEP step on an agreement set, geometric weights, Π_Had with challenges γ, θ, β uniform in F, completeness (accepted when no pole lies in L; probability ≥ 1 - 3M/|F|), degree-8 batching lemma, soundness 2(N-1)/|F| + 8M/|F| + ε_fold + (1-δ)^κ for any folding arity, knowledge. Still no `sorry` and one axiom; 10 new entries in `Audit.lean`.
+- `ft_family_bound`: the argument of Theorem 7.8 for any family of batched words.
+
+### Note (version 4)
+- §3 restated for unrestricted challenges, as formalised (a pole in L only affects completeness); Lean names added.
+
 ## Unreleased — research note: sumcheck-free Hadamard check
 
 ### Note (`notes/inner-product/`, version 3, 7 pages)
