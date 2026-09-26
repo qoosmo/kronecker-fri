@@ -18,8 +18,8 @@ A code base that already has an FRI prover and verifier over a smooth multiplica
 \paragraph{Fields.}
 The scheme needs a smooth domain of order $M = 2^{n+R}$ in $\Fq^\times$, that is, $2^{n+R} \mid q - 1$ (\cref{lem:power}).
 Besides Goldilocks ($2^{32} \mid q-1$), this holds for the $31$-bit primes BabyBear, $q = 15 \cdot 2^{27} + 1$, and KoalaBear, $q = 127 \cdot 2^{24} + 1$, for $n + R \le 27$ and $n + R \le 24$ respectively; the extension degree $e$ must then make the field term $3M/q^e$ negligible, which requires $e \ge 5$ for $100$ bits at $M = 2^{24}$.
-It does not hold for the Mersenne prime $2^{31}-1$, for which circle-domain analogues of FRI exist~\cite{HLP24}, nor in characteristic $2$ (\cref{sec:apps:compare}).
-Only Goldilocks is implemented.
+For the Mersenne prime $2^{31}-1$, circle-domain analogues of FRI~\cite{HLP24} play this role, and binary fields are served by the schemes of \cref{sec:apps:compare}.
+The implementation uses Goldilocks.
 
 \subsection{Opening several polynomials at one point}\label{sec:apps:batch}
 
@@ -87,7 +87,7 @@ By \cref{thm:batch}, a witness $(f_i)_i$ exists. Each $\Enc(f_i)$ is within fibr
 
 \begin{remark}[Costs and scope of batching]\label{rem:batch}
 Compared with one run of $\Pi_{\mathrm{KF}}$, the batched protocol has one more round (the challenge $\gamma$); the prover computes $f_\gamma$ ($mN$ operations) and $w_\gamma$ ($mM$ operations), and the verifier makes $2m$ instead of $2$ queries to the commitments per query point, that is, $m$ authentication paths instead of one in the compiled scheme; all other costs are those of a single opening.
-We state the batched protocol for the interactive setting. Its relation is fibre-based, like that of \cref{sec:pq}, so the erasure analysis of \cref{sec:pq:kstate} is the natural route to a post-quantum version; we have not carried it out. The batched protocol is also not implemented in the current code.
+The batched protocol is stated for the interactive setting. Its relation is fibre-based, like that of \cref{sec:pq}, so the erasure analysis of \cref{sec:pq:kstate} applies to it in the same way; its post-quantum statement and its implementation are part of the roadmap (\cref{sec:concl}).
 \end{remark}
 
 \subsection{Recommended parameters}\label{sec:apps:params}
@@ -149,12 +149,12 @@ Kronecker-FRI & transparent, hashes & $O_\lambda(\log^2 N)$ & $O(N \log N)$ & ex
 \end{table}
 
 \Cref{tab:apps-compare} lists representative multilinear polynomial commitments.
-We do not report timings for schemes that we have not run ourselves: absolute timings from different papers are measured on different machines, with different fields, codes and security targets, and are not comparable.
+Timings are compared only for schemes run in the same environment (\cref{sec:exp}), since published timings use different machines, fields, codes and security targets.
 
 \paragraph{Pairing-based schemes.}
 Gemini, Zeromorph, Mercury and Samaritan reduce a multilinear evaluation to univariate KZG commitments, and reach logarithmic or constant proof size.
 Mercury is the closest in spirit to Kronecker-FRI: it also expresses $f(z)$ as a coefficient of a product with a tensor-structured polynomial (\cref{sec:kernel:related}).
-These schemes need a universal structured reference string and pairing-friendly curves, and are not post-quantum. Kronecker-FRI is transparent, uses only a hash function, and has the post-quantum guarantee of \cref{cor:pq}, at the price of proofs of a few hundred kilobytes ($390$\,KiB at $n = 20$ and $100$ bits, salted) instead of at most a few kilobytes.
+These schemes need a universal structured reference string and pairing-friendly curves, and are not post-quantum. Kronecker-FRI is transparent, uses only a hash function, and has the post-quantum guarantee of \cref{cor:pq}, with proofs of a few hundred kilobytes ($390$\,KiB at $n = 20$ and $100$ bits, salted).
 
 \paragraph{Hash-based schemes.}
 Among hash-based schemes, Brakedown has a linear-time prover and proofs of size $O(\sqrt N)$; the folding-based schemes have polylogarithmic proofs.

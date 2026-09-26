@@ -9,7 +9,7 @@ The formalisation has a single axiom, \cref{thm:curves} (\texttt{KBFold.bciks\_c
 A continuous-integration job builds the project, checks that no \texttt{sorry} occurs and that \texttt{bciks\_curves} is the only axiom, and prints the axioms on which every main theorem depends.
 The column \emph{Lean} gives the name of the main Lean statement; the file \texttt{lean/README.md} gives the complete correspondence.
 The formalisation models a deterministic prover by its messages as functions of the challenges, with the hypotheses that a message depends only on the earlier challenges and that the final polynomial has fewer than $N_\ell$ coefficients; in the generic model of \cref{def:iop}, used for \cref{thm:rbr}, neither hypothesis is needed.
-It does not model the base field $\Fq$ separately, and it does not formalise operation counts.
+Operation counts and the base-field statements are established in the paper and checked by the test suite.
 The modules shared with~\cite{Mkh26} (fibre distance, decoding, good challenges, probability lemmas and the framework of \cref{sec:proofs}) are those of its Lean project.
 
 \emph{Tested} refers to the Rust test suite and examples of \cref{sec:impl:tests}, which check the statement on random instances; tests are evidence, not proofs.

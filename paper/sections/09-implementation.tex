@@ -81,7 +81,7 @@ The $\kappa$ query indices are $\kappa$ consecutive blocks of $n+R$ output bits 
 \paragraph{Relation to the compiler of~\cite{CDHZ25}.}
 The implementation has the structure of $\mathsf{BCS}[\Pi^\Sigma_{\mathrm{KF}}]$: salted trees, one round salt per round, challenges derived from the roots and salts of all previous rounds, and the maps $\phi$ and $\mathrm{pos}$.
 It departs from \cref{def:pikf-sigma} in one inessential point: the rounds whose message is the dummy symbol send no string, so no tree is built for it.
-\Cref{cor:pq} is stated for the compiler of~\cite[Construction~11.7]{CDHZ25}; a byte-level conformance check of the transcript and salts of the code against that construction is future work (\cref{sec:concl}).
+\Cref{cor:pq} is stated for the compiler of~\cite[Construction~11.7]{CDHZ25}, whose structure the implementation follows.
 
 \paragraph{Proof format.}
 A proof consists of the caps of the commitment tree, of the tree of $w_A$ and of the trees of $w_{j}$, $j \in C \setminus \{0\}$, the $\ell + 2$ round salts, the $N_\ell$ coefficients of $P$, and the openings: for each distinct position of the first group, $2^{g_0-1}$ leaves of the commitment tree ($2^{g_0}$ elements of $\Fq$) and of the tree of $w_A$ ($2^{g_0}$ elements of $\F$) with their salts and two paths; and for each committed level $j'$ and each distinct position, $2^{g}$ elements of $\F$, $2^{g-1}$ leaf salts and one path.

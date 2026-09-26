@@ -173,7 +173,7 @@ With $\ell = n$, $P$ is a constant and the verifier's work per point is $O(n)$; 
 
 \begin{remark}[Comparison with the kernel-basis scheme]\label{rem:vs-kbfold}
 The evaluation protocol of~\cite{Mkh26} runs a sumcheck of $\ell$ rounds alongside the folds, and sends no oracle besides the folded words.
-$\Pi_{\mathrm{KF}}$ replaces the sumcheck by the virtual word, at the price of one oracle $w_A$ (one NTT over $\F$ and one Merkle tree for the prover, $2$ more queries per point) and of the product $U_f K_z$.
+$\Pi_{\mathrm{KF}}$ replaces the sumcheck by the virtual word and one oracle $w_A$ (one NTT over $\F$ and one Merkle tree for the prover, $2$ more queries per point), computed from the product $U_f K_z$.
 A quantitative comparison is in \cref{sec:exp}.
 \end{remark}
 

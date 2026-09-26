@@ -80,7 +80,7 @@ For $z^{(1)}, \dots, z^{(s)} \in \F^n$ and $\gamma_1, \dots, \gamma_s \in \F$,
 The map $K \mapsto \coef{N-1}{U_f K}$ is linear; apply \cref{thm:extraction} to each point.
 \end{proof}
 
-\Cref{cor:several-points} is not used in this paper; it is the starting point for openings at several points, which we leave to future work.
+\Cref{cor:several-points} is the starting point for openings at several points (\cref{sec:concl}).
 
 \begin{corollary}[Sums over the hypercube]\label{cor:cube-sum}
 For every $f \in \Ll_n(\F)$,
@@ -188,4 +188,4 @@ $X^{N-1} = \prod_k X^{2^{k-1}}$, so $X^{N-1}K_z(1/X) = \prod_k X^{2^{k-1}}(X^{-2
 For vectors $u = (u_a)_{a<N}$ and $u' = (u'_a)_{a<N}$ over $\F$, the classical identity $\sum_a u_a u'_a = \coef{N-1}{(\sum_a u_a X^a)(\sum_a u'_a X^{N-1-a})}$ writes an inner product as one coefficient of a product.
 By \cref{lem:reversal}, \cref{thm:extraction} is this identity for the coefficient vector $(\alpha_a)_a$ of $f$ and the vector $(z^a)_a$ of monomial values, whose generating polynomial is $K^\ast_z$ and whose reversed generating polynomial is $K_z$.
 The same tensor structure appears in the Lagrange basis in pairing-based schemes: Mercury~\cite{EG25} writes $f(u) = \langle \hat P_u, \hat g \rangle$, with $\hat P_u(X) = \prod_{k=0}^{n-1}\bigl((1-u_k) + u_k X^{2^k}\bigr)$ and $\hat g$ the table form of $f$, and proves the inner product with KZG commitments.
-The contribution of this paper is not the identity itself but its use in a transparent, hash-based scheme over Reed--Solomon codes, through \eqref{eq:identity} and one folding proximity test (\cref{sec:scheme}), together with the analysis of \cref{sec:sound,sec:pq}.
+Kronecker-FRI turns this identity into a transparent, hash-based scheme over Reed--Solomon codes, through \eqref{eq:identity} and one folding proximity test (\cref{sec:scheme}), with the analysis of \cref{sec:sound,sec:pq}.

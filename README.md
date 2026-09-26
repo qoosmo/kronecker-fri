@@ -11,7 +11,7 @@
 
 | | What | Where |
 |---|---|---|
-| 📄 | A self-contained paper (64 pages): definitions, theorems and full proofs, experiments, comparison | [`paper/kronecker-fri.pdf`](paper/kronecker-fri.pdf) |
+| 📄 | A self-contained paper (63 pages): definitions, theorems and full proofs, experiments, comparison | [`paper/kronecker-fri.pdf`](paper/kronecker-fri.pdf) |
 | ✅ | A Lean 4 formalisation of §4–§7 and §11: no `sorry`, one axiom (correlated agreement) | [`lean/`](lean/) |
 | ⚙️ | A Rust reference implementation (Goldilocks, quadratic and quartic extensions, salted Merkle trees, folding arity $2^k$, Merkle caps) | [`rust/`](rust/) |
 | 📊 | Raw benchmark data behind every table of the paper | [`bench/`](bench/) |

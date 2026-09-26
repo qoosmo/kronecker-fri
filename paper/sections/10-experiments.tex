@@ -8,7 +8,7 @@ All codes are single-threaded and use no SIMD and no hash-specific batching, so 
 
 \paragraph{Machine.}
 All runs use one core of an Intel Xeon processor at $2.10$\,GHz (cloud virtual machine, $2$ vCPUs, $7$\,GB RAM), Rust $1.95.0$, release profile with fat LTO and one codegen unit, and no \texttt{target-cpu} flag.
-All numbers of this section come from one session on one machine; they are not comparable with the absolute timings reported in~\cite{Mkh26}, which were measured on another machine.
+All numbers of this section come from one session on one machine; the absolute timings of~\cite{Mkh26} were measured on another machine.
 Times are medians over $11$ runs for $n \le 18$, $5$ for $n = 20$ and $3$ for $n = 22$ and for \cref{tab:exp-arity,tab:exp-stop,tab:apps-params}; verification times are medians over $21$ runs.
 The machine is a shared virtual machine, and timings of identical work vary by up to about $10$--$20\%$ between runs.
 
@@ -68,7 +68,7 @@ Verification times agree within the variability of the machine, between $2.2$ an
 Kronecker-FRI opens one more tree, that of $w_A$, at every query point, while the $\ell$ sumcheck messages of the other schemes are negligible. With deduplication, which saves $56$ to $59$\,KiB here, Kronecker-FRI proofs are within $1.4$--$4.2\%$ of those of KBFold ($5$ to $54$\,KiB larger); without it, the difference is the $\kappa$ openings of $w_A$, $\kappa\,(32(\log_2 M - 1) + 32)$ bytes minus the sumcheck messages ($101$\,KiB at $n = 20$).
 
 \paragraph{Open.}
-Opening is $2.5$ to $3.5$ times slower for Kronecker-FRI with arity $2$ than for KBFold. The prover commits to one more word of length $M$ over $\F$; \cref{sec:exp:breakdown} measures each step.
+The opening of Kronecker-FRI with arity $2$ takes $2.5$ to $3.5$ times the opening time of KBFold, since the prover commits to one more word of length $M$ over $\F$; \cref{sec:exp:breakdown} measures each step, and higher arity reduces it (\cref{sec:exp:kf8}).
 
 \subsection{Folding arity and Merkle caps}\label{sec:exp:arity}
 
@@ -124,7 +124,7 @@ $n$ & unsalted & salted & unsalted & salted & unsalted & salted & unsalted & sal
 \end{table}
 
 \Cref{tab:exp-kf8} reports KF-8 for $n = 12, \dots, 22$.
-Proofs are $95$ to $372$\,KiB unsalted, $3.6$ to $4.2$ times smaller than those of KF-2, and grow by $35$ to $73$\,KiB per two variables. Verification takes $1.6$ to $4.5$\,ms, $1.5$ to $1.8$ times faster than KF-2. Opening is $1.2$ to $1.4$ times faster than KF-2, since the folded words are committed at one level in three; it remains $1.9$ to $2.8$ times slower than the opening of KBFold with arity $2$. Commitment is unchanged.
+Proofs are $95$ to $372$\,KiB unsalted, $3.6$ to $4.2$ times smaller than those of KF-2, and grow by $35$ to $73$\,KiB per two variables. Verification takes $1.6$ to $4.5$\,ms, $1.5$ to $1.8$ times faster than KF-2. Opening is $1.2$ to $1.4$ times faster than KF-2, since the folded words are committed at one level in three, and takes $1.9$ to $2.8$ times the opening time of KBFold with arity $2$. Commitment is unchanged.
 
 \subsection{Where the prover's time goes}\label{sec:exp:breakdown}
 

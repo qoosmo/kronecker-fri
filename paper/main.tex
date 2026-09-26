@@ -46,17 +46,17 @@
 
 \title{Kronecker-FRI: A Hash-Based Multilinear Polynomial Commitment\\ from a Coefficient-Extraction Identity}
 \author{Abdelali Mkhida\\ Algorizk Labs\\ \texttt{ali.mkhida@algorizk.xyz}}
-\date{Draft, September 2026}
+\date{Preprint, September 2026}
 
 \begin{document}
 \maketitle
 \begin{abstract}
-We present Kronecker-FRI, a transparent, hash-based commitment scheme for multilinear polynomials whose evaluation proofs use no sumcheck.
-It rests on the identity $f(z) = [X^{N-1}]\,U_f(X)K_z(X)$, where $U_f$ is the Kronecker encoding of $f$, obtained by substituting $X^{2^{k-1}}$ for the $k$-th variable, and $K_z(X) = \prod_{k=1}^{n}(X^{2^{k-1}} + z_k)$.
-The prover commits to $U_f$ as a Reed--Solomon codeword on a smooth multiplicative domain. To open at $z$, it commits to one opening polynomial $A$; the verifier derives a second one from the identity $X U_f K_z = A + vX^N + X^{N+1}H$ as a virtual word, batches the three words with one random challenge, and runs an FRI-style folding test.
-We prove completeness, soundness, round-by-round knowledge soundness and evaluation binding in the unique-decoding regime, using only the correlated-agreement theorem of Ben-Sasson et al.\ for Reed--Solomon codes, and we derive post-quantum knowledge soundness of the compiled scheme in the quantum random oracle model from the theorem of Chiesa, Di, Hu and Zheng.
-We extend the scheme to the opening of several polynomials at one point. All interactive results are formalised in Lean~4, with correlated agreement as the only axiom.
-The analysis covers folding of any arity $2^k$ with the same error bound. A Rust implementation over the Goldilocks field shows that, at identical engineering, Kronecker-FRI commits and verifies as fast as a sumcheck-based Reed--Solomon scheme; with arity $8$ and Merkle caps, a $2^{20}$-coefficient polynomial is opened at a $100$-bit interactive soundness level with a proof of $299$\,KiB ($390$\,KiB with salted trees), verified in $3.4$\,ms on one core. The verifier is an FRI verifier with $O(n)$ extra field operations per query.
+We present Kronecker-FRI, a transparent, hash-based polynomial commitment scheme for multilinear polynomials whose evaluation proofs need no sumcheck.
+The scheme rests on the extraction identity $f(z) = [X^{N-1}]\,U_f(X)K_z(X)$, where $U_f$ is the Kronecker encoding of $f$ and $K_z(X) = \prod_{k=1}^{n}(X^{2^{k-1}} + z_k)$: a multilinear evaluation is one coefficient of a univariate product.
+The prover commits to $U_f$ as a Reed--Solomon codeword. To open at $z$, it commits to a single opening polynomial; the verifier derives a second one pointwise as a virtual word, batches the words with one challenge, and runs an FRI-style folding test, so that one proximity test enforces both low degree and the claimed value.
+We prove completeness, soundness, round-by-round knowledge soundness and evaluation binding, for any folding arity $2^k$, with correlated agreement for Reed--Solomon codes as the only external result; we derive post-quantum straightline knowledge soundness of the compiled scheme in the quantum random oracle model; and we extend the scheme to batched openings of several polynomials.
+All interactive results are machine-checked in Lean~4, with correlated agreement as the single axiom.
+A Rust implementation over the Goldilocks field commits and verifies as fast as a sumcheck-based Reed--Solomon scheme at identical engineering; with arity $8$ and Merkle caps it opens a polynomial with $2^{20}$ coefficients at a $100$-bit interactive soundness level with a $299$\,KiB proof, verified in $3.4$\,ms on a single core.
 \end{abstract}
 
 \tableofcontents

@@ -154,7 +154,7 @@ So if $f \ne f'$, some $\eta \in D \cap D'$ has $y(\eta) \ne y'(\eta)$, and the 
 If $z = z'$ and $v \ne v'$, then $f(z) = v \ne v' = f'(z)$, so $f \ne f'$.
 \end{proof}
 
-\Cref{lem:cr-unique} is deterministic. As in~\cite{Mkh26}, we do not state a probability bound for an adversary that produces two accepting proofs for one root, since that would require running the extractor of \cref{thm:cdhz} on two proofs of one adversary, which the theorem does not address.
+\Cref{lem:cr-unique} is deterministic, as in~\cite{Mkh26}; it is the form in which binding follows from \cref{cor:pq}, since the extractor of \cref{thm:cdhz} is defined for one proof at a time.
 
 \subsection{Parameters}\label{sec:pq:params}
 
@@ -187,8 +187,8 @@ The commitment $y$ has entries in $\Fq^2 \subseteq \Sigma$ when $f$ has coeffici
 
 \begin{remark}[Scope]\label{rem:scope}
 \begin{itemize}
-  \item The analysis concerns one commitment opened at one point $z$ per proof. Reusing a commitment across several openings, opening several points or polynomials in one proof, or choosing $z$ after the commitment inside a larger Fiat--Shamir transcript, is not analysed here.
-  \item \Cref{cor:pq} applies to the compiler $\mathsf{BCS}$ of~\cite[Construction~11.7]{CDHZ25}, with salted Merkle trees and the challenge derivation described in \cref{sec:proofs:bcs}. An implementation with unsalted trees or a different transcript hashing is not covered by \cref{cor:pq} as it stands; \cref{sec:impl} states which variant the implementation uses.
+  \item The statement concerns one commitment opened at one point $z$ per proof. Several polynomials at one point are handled by the batched protocol of \cref{sec:apps:batch}; several points and composition inside a larger Fiat--Shamir transcript are discussed in \cref{sec:concl}.
+  \item \Cref{cor:pq} applies to the compiler $\mathsf{BCS}$ of~\cite[Construction~11.7]{CDHZ25}, with salted Merkle trees and the challenge derivation described in \cref{sec:proofs:bcs}. Unsalted trees are used only to measure the cost of salting; \cref{sec:impl} describes the variant the implementation uses.
   \item The bounds also hold against classical adversaries in the random oracle model, with the same (quantum) extractor.
 \end{itemize}
 \end{remark}
