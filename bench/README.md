@@ -13,7 +13,7 @@ Configurations: **KF-2** = arity 2, no caps, ℓ = n − 4 (`config = v1`); **KF
 | `breakdown.csv` | `... -- breakdown` | Table 6 |
 | `stop.csv` | `... -- stop` | Table 7 |
 | `params.csv` | `... -- params` | Table 8 |
-| `ip.csv` | `cargo run --release --example ip_bench` (KF-8, 148 queries, 32-byte salts, F_{p^2}; a later session on the same machine type) | research note `notes/inner-product`, §4 |
+| `ip.csv` | `cargo run --release --example ip_bench` (KF-8, 148 queries, 32-byte salts, F_{p^2}; a later session on the same machine type) | research note `notes/inner-product`, §4 (evaluation, inner product and Hadamard check) |
 | `kbfold_scaling.csv` | `cargo run --release --example bench -- scaling` in [qoosmo/kbfold](https://github.com/qoosmo/kbfold) `rust/` | Table 3 (KBFold and baseline columns) |
 
 Timings of identical work vary by about 10–20% between runs on this shared machine; proof sizes are exact.

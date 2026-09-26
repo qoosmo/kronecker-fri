@@ -1,8 +1,10 @@
-//! Cost of the inner-product protocol Pi_IP against one evaluation opening Pi_KF, with the
+//! Cost of the inner-product protocol Pi_IP and of the Hadamard check Pi_Had against one
+//! evaluation opening Pi_KF, with the
 //! recommended configuration KF-8 (rate 1/4, arity 8, caps of 128 nodes, l = n - 8), 148 queries,
 //! 32-byte salts, over F_{p^2}.  Single-threaded.
 //!   cargo run --release --example ip_bench -- [n ...]      (default: 12 14 16 18 20)
 use kronecker_fri::field::{ExtField, Fp, Fp2};
+use kronecker_fri::had::{prove_had, verify_had};
 use kronecker_fri::ip::{commit_table_form, prove_ip, verify_ip};
 use kronecker_fri::pcs::{Params, open, verify};
 use std::time::Instant;
@@ -41,7 +43,7 @@ fn main() {
         args
     };
     println!(
-        "n,commit_ms,kf_open_ms,kf_verify_ms,kf_proof_kib,ip_prove_ms,ip_verify_ms,ip_proof_kib"
+        "n,commit_ms,kf_open_ms,kf_verify_ms,kf_proof_kib,ip_prove_ms,ip_verify_ms,ip_proof_kib,had_prove_ms,had_verify_ms,had_proof_kib"
     );
     for n in ns {
         let p = Params::recommended(n, 148, 32);
@@ -51,6 +53,8 @@ fn main() {
         let b: Vec<Fp> = (0..p.big_n()).map(|_| rng.fp()).collect();
         let z: Vec<Fp2> = (0..n).map(|_| rng.e()).collect();
         let (mut cm, mut ko, mut kv, mut ipp, mut ipv) = (vec![], vec![], vec![], vec![], vec![]);
+        let (mut hp, mut hv, mut had_size) = (vec![], vec![], 0);
+        let c: Vec<Fp> = a.iter().zip(&b).map(|(&x, &y)| x * y).collect();
         let (mut kf_size, mut ip_size) = (0, 0);
         for _ in 0..reps {
             let t = Instant::now();
@@ -73,16 +77,28 @@ fn main() {
             assert!(verify_ip(&p, &ra, &rb, s, &ipr));
             ipv.push(ms(t));
             ip_size = ipr.size_bytes();
+
+            let (rc, pdc) = commit_table_form(&p, &c, &[5u8; 32]);
+            let t = Instant::now();
+            let hpr = prove_had::<Fp2>(&p, &pda, &pdb, &pdc, &[6u8; 32]);
+            hp.push(ms(t));
+            let t = Instant::now();
+            assert!(verify_had(&p, [&ra, &rb, &rc], &hpr));
+            hv.push(ms(t));
+            had_size = hpr.size_bytes();
         }
         println!(
-            "{n},{:.2},{:.2},{:.3},{:.1},{:.2},{:.3},{:.1}",
+            "{n},{:.2},{:.2},{:.3},{:.1},{:.2},{:.3},{:.1},{:.2},{:.3},{:.1}",
             median(cm),
             median(ko),
             median(kv),
             kf_size as f64 / 1024.0,
             median(ipp),
             median(ipv),
-            ip_size as f64 / 1024.0
+            ip_size as f64 / 1024.0,
+            median(hp),
+            median(hv),
+            had_size as f64 / 1024.0
         );
     }
 }

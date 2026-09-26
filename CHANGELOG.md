@@ -1,5 +1,15 @@
 # Changelog
 
+## Unreleased — research note: sumcheck-free Hadamard check
+
+### Note (`notes/inner-product/`, version 3, 7 pages)
+- §3: the Hadamard check Π_Had proving a∘b = c for three committed tables with one folding test and no sumcheck (geometric weights γ^w, a committed Q(X) = V_a(γX), DEEP quotient words in the batch); completeness, degree-8 batching lemma and soundness (N-1)/(|F|-M-1) + (N-1)/(|F|-2M) + 8M/|F| + ε_fold + (1-δ)^κ, proofs written out (not yet in Lean).
+
+### Code
+- `rust/src/had.rs`: prototype prover and verifier of Π_Had (label `kronecker-fri-had-v1`); tests for completeness, two cheating provers and a false instance with three strategies.
+- `rust/src/ft.rs`: the folding test on a batched word and level-0 coset openings, factored out of `pcs` for new protocols.
+- `examples/ip_bench.rs` and `bench/ip.csv` gain the Hadamard columns.
+
 ## Unreleased — research note: sumcheck-free inner products
 
 ### Note (`notes/inner-product/`, 5 pages)

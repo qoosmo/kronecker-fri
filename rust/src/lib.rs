@@ -8,11 +8,15 @@
 //! - `merkle`: salted Merkle trees and the Fiat-Shamir transcript (Sections 3.4, 8.1);
 //! - `pcs`: commitment, prover and verifier of Pi_KF (Section 6);
 //! - `ip`: prototype of the sumcheck-free inner-product protocol Pi_IP (research note
-//!   `notes/inner-product`).
+//!   `notes/inner-product`, Section 2);
+//! - `had`: prototype of the sumcheck-free Hadamard check Pi_Had (same note, Section 3);
+//! - `ft`: the folding test on a batched word and level-0 coset openings, shared by `had`.
 
 #![allow(clippy::needless_range_loop)] // index loops mirror the formulas of the paper
 
 pub mod field;
+pub mod ft;
+pub mod had;
 pub mod ip;
 pub mod merkle;
 pub mod pcs;
