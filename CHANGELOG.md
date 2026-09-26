@@ -1,5 +1,15 @@
 # Changelog
 
+## v0.3.0 — 2026-09-26
+
+### Lean 4 formalisation (`lean/`)
+- Machine-checked proofs of §4 (extraction identity, split and identity lemmas, corollaries), §5 (iterated fold, folding test soundness, codeword chain, virtual levels and arity 2^k), §6 (encoding, virtual word, completeness), §7 (batching lemma, soundness for any set of committed levels, round-by-round knowledge soundness in the generic IOP framework, knowledge and binding) and §11 (batched openings).
+- No `sorry`; single axiom: correlated agreement for curves (Theorem 2.16). CI job `Lean` builds, checks for `sorry`, and audits the axioms of every main theorem.
+
+### Paper (64 pages)
+- Appendix B gains a Lean column; introduction, abstract and conclusion updated.
+
+
 ## v0.2.0 — 2026-09-26
 
 ### Paper (63 pages)

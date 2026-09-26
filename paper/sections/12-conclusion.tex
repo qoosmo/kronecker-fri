@@ -2,7 +2,7 @@
 
 Kronecker-FRI proves a multilinear evaluation $f(z) = v$ by reading $v$ as the coefficient of $X^{N-1}$ in $U_f K_z$, where $U_f$ is the Kronecker encoding of $f$ and $K_z = \prod_k (X^{2^{k-1}} + z_k)$.
 The prover commits to one opening polynomial; the verifier derives a second one as a virtual word, batches the three words, and runs an FRI-style folding test.
-We proved the scheme complete, sound, round-by-round knowledge sound and evaluation binding in the unique-decoding regime, with the correlated-agreement theorem of~\cite{BCIKS23} as the only external input about codes, and we derived post-quantum knowledge soundness of the compiled scheme from the theorem of~\cite{CDHZ25}.
+We proved the scheme complete, sound, round-by-round knowledge sound and evaluation binding in the unique-decoding regime, with the correlated-agreement theorem of~\cite{BCIKS23} as the only external input about codes, and we derived post-quantum knowledge soundness of the compiled scheme from the theorem of~\cite{CDHZ25}. The results of \cref{sec:kernel,sec:fold,sec:scheme,sec:sound} and the batched openings are formalised in Lean~4, with correlated agreement as the only axiom.
 At identical engineering, it commits and verifies at the same cost as a sumcheck-based Reed--Solomon scheme; with arity $8$ and Merkle caps, which the analysis covers with the same error, proofs are $95$ to $372$\,KiB unsalted for $2^{12}$ to $2^{22}$ coefficients at an interactive $100$-bit level (\cref{sec:exp}).
 
 \paragraph{Limitations.}
@@ -17,7 +17,7 @@ Several questions remain open.
   \item \emph{Conformance of the implementation.} Check the transcript and the salts of the implementation against~\cite[Construction~11.7]{CDHZ25}, so that \cref{cor:pq} applies to the code, and implement the batched protocol.
   \item \emph{Opening cost.} The opening pays for the product $U_f K_z$, one NTT, one Merkle tree and the virtual word (\cref{tab:exp-breakdown}). Parallel and SIMD arithmetic would reduce all of them, as for any FRI-based scheme; whether the product and the NTT can be merged is open.
   \item \emph{Recursion.} The verifier is an FRI verifier plus $O(n)$ operations per query. Measuring its cost inside a recursive verification circuit is left to future work.
-  \item \emph{Formal verification.} A Lean~4 formalisation of \cref{sec:kernel,sec:fold,sec:scheme,sec:sound}, along the lines of the one for~\cite{Mkh26}, is in preparation (\cref{app:verification}).
+  \item \emph{Formal verification of \cref{sec:pq}.} The results of \cref{sec:kernel,sec:fold,sec:scheme,sec:sound} and \cref{sec:apps:batch} are formalised in Lean~4 (\cref{app:verification}); the post-quantum analysis would need a formalisation of the theorem of~\cite{CDHZ25}.
   \item \emph{Zero knowledge.} Adapt standard masking techniques for FRI-based schemes to the opening polynomial $A$ and the folded words.
 \end{itemize}
 

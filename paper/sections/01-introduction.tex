@@ -52,6 +52,9 @@ The only external result about codes is the correlated-agreement theorem of Ben-
 \paragraph{The non-interactive scheme (\cref{sec:pq}).}
 We derive relaxed round-by-round knowledge soundness, with fibres as oracle symbols and partially defined strings (\cref{thm:rrbr}), and apply the BCS theorem for interactive oracle reductions of Chiesa, Di, Hu and Zheng~\cite{CDHZ25}. The compiled scheme is straightline knowledge sound, for one opening, against quantum adversaries in the quantum random oracle model (\cref{cor:pq}); with the parameters of \cref{rem:pq-params}, the extraction error against $2^{64}$ oracle queries is below $2^{-31.8}$.
 
+\paragraph{Formal verification (\cref{app:verification}).}
+The results of \cref{sec:kernel,sec:fold,sec:scheme,sec:sound}, including the arity result, round-by-round knowledge soundness and the batched openings of \cref{sec:apps:batch}, are formalised in Lean~4 with Mathlib, without \texttt{sorry}; the only axiom is the correlated-agreement theorem for curves (\cref{thm:curves}).
+
 \paragraph{Implementation, experiments and practical use (\cref{sec:impl,sec:exp,sec:apps}).}
 We give a Rust implementation over the Goldilocks field, with quadratic and quartic extensions and salted Merkle trees, whose test suite checks the algebraic statements of \cref{sec:kernel,sec:fold,sec:scheme} listed in \cref{app:verification} against direct computations.
 We compare it at identical engineering with the sumcheck-based scheme of~\cite{Mkh26} and a coefficient-form (BaseFold-style) baseline: Kronecker-FRI commits and verifies at the same cost, with proofs within $5\%$ of theirs (\cref{tab:exp-scaling}). With arity $8$ and Merkle caps, proofs at $n = 20$ shrink from $1117$ to $315$\,KiB at the same $\ell$, and to $299$\,KiB with $\ell = n - 8$, with verification in $3.4$\,ms (unsalted, interactive soundness error below $2^{-99}$; \cref{tab:exp-arity,tab:exp-kf8}).

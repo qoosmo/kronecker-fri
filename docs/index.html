@@ -175,7 +175,7 @@ footer .who{color:var(--ink)}
       <a class="btn primary" href="https://github.com/qoosmo/kronecker-fri/blob/main/paper/kronecker-fri.pdf">Read the paper (PDF)</a>
       <a class="btn" href="https://github.com/qoosmo/kronecker-fri">Source on GitHub</a>
       <a class="btn" href="https://github.com/qoosmo/kronecker-fri/tree/main/rust">Rust implementation</a>
-      <a class="btn" href="https://github.com/qoosmo/kronecker-fri/releases/tag/v0.2.0">Release v0.2.0</a>
+      <a class="btn" href="https://github.com/qoosmo/kronecker-fri/releases/tag/v0.3.0">Release v0.3.0</a>
     </div>
   </div>
   <div class="kernel">
@@ -294,9 +294,9 @@ footer .who{color:var(--ink)}
     </div>
   </div>
   <div class="next">
-    <div><h3>Offered</h3><ul><li>No sumcheck; the verifier is FRI plus local work.</li><li>A one-step soundness argument on top of the folding test.</li><li>Built from components that FRI-based systems already have, including higher-arity folding and Merkle caps.</li><li>Transparent and hash-based; no trusted setup.</li></ul></div>
+    <div><h3>Offered</h3><ul><li>No sumcheck; the verifier is FRI plus local work.</li><li>A one-step soundness argument on top of the folding test.</li><li>Built from components that FRI-based systems already have, including higher-arity folding and Merkle caps.</li><li>Transparent and hash-based; no trusted setup.</li><li>Machine-checked in Lean 4 (§4–§7, §11): no <code>sorry</code>, one axiom (correlated agreement).</li></ul></div>
     <div><h3>Parameters</h3><ul><li>100 bits: 𝔽<sub>q²</sub>, ρ = 1/4, κ = 148 — 390 KiB salted at n = 20.</li><li>128 bits: 𝔽<sub>q⁴</sub>, κ = 189 — 586 KiB.</li><li>Post-quantum: 𝔽<sub>q⁴</sub>, κ = 248, salted — 755 KiB.</li></ul></div>
-    <div><h3>Next</h3><ul><li>Lean 4 formalisation.</li><li>List-decoding analysis of the batching lemma.</li><li>Post-quantum batched openings; zero knowledge.</li></ul></div>
+    <div><h3>Next</h3><ul><li>Lean 4 formalisation of §8 (needs the CDHZ theorem in Lean).</li><li>List-decoding analysis of the batching lemma.</li><li>Post-quantum batched openings; zero knowledge.</li></ul></div>
   </div>
 </section>
 

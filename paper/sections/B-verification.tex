@@ -1,39 +1,62 @@
 \section{Verification Status}\label{app:verification}
 
 This appendix records, for each result, how it is established.
-\emph{Proved} means proved in this paper; \emph{from~\cite{Mkh26}} means that the statement and its proof are reproduced from the companion paper, whose Lean~4 project formalises most of these statements, sometimes in a slightly different form (for instance with a sumcheck and a final table instead of a final polynomial), with the exceptions of \cref{lem:descent,lem:merkle}; \emph{adapted} means that the proof follows one of~\cite{Mkh26} with changes; \emph{quoted} means that the result is cited and not reproved.
+\emph{Proved} means proved in this paper; \emph{from~\cite{Mkh26}} means that the statement and its proof are reproduced from the companion paper; \emph{adapted} means that the proof follows one of~\cite{Mkh26} with changes; \emph{quoted} means that the result is cited and not reproved.
+
+\paragraph{Lean~4.}
+The results of \cref{sec:kernel,sec:fold,sec:scheme,sec:sound} and of \cref{sec:apps:batch} are formalised in Lean~4 with Mathlib, in the directory \texttt{lean/} of the companion repository, without \texttt{sorry}.
+The formalisation has a single axiom, \cref{thm:curves} (\texttt{KBFold.bciks\_curves}); the case $t = 1$ used by the folding test is derived from it.
+A continuous-integration job builds the project, checks that no \texttt{sorry} occurs and that \texttt{bciks\_curves} is the only axiom, and prints the axioms on which every main theorem depends.
+The column \emph{Lean} gives the name of the main Lean statement; the file \texttt{lean/README.md} gives the complete correspondence.
+The formalisation models a deterministic prover by its messages as functions of the challenges, with the hypotheses that a message depends only on the earlier challenges and that the final polynomial has fewer than $N_\ell$ coefficients; in the generic model of \cref{def:iop}, used for \cref{thm:rbr}, neither hypothesis is needed.
+It does not model the base field $\Fq$ separately, and it does not formalise operation counts.
+The modules shared with~\cite{Mkh26} (fibre distance, decoding, good challenges, probability lemmas and the framework of \cref{sec:proofs}) are those of its Lean project.
+
 \emph{Tested} refers to the Rust test suite and examples of \cref{sec:impl:tests}, which check the statement on random instances; tests are evidence, not proofs.
-No result of this paper is formalised in Lean yet; a formalisation of \cref{sec:kernel,sec:fold,sec:scheme,sec:sound} is in preparation.
 
 \begin{center}
 \small
-\begin{longtable}{@{}p{0.33\textwidth} p{0.27\textwidth} >{\raggedright\arraybackslash}p{0.34\textwidth}@{}}
+\begin{longtable}{@{}>{\raggedright\arraybackslash}p{0.25\textwidth} >{\raggedright\arraybackslash}p{0.18\textwidth} >{\raggedright\arraybackslash}p{0.27\textwidth} >{\raggedright\arraybackslash}p{0.19\textwidth}@{}}
 \toprule
-Result & Status & Machine check \\
+Result & Status & Lean & Tested \\
 \midrule
 \endhead
-\Cref{fact:cyclic,fact:decode,fact:ntt} & quoted~\cite{LN97,WB86,Gao03,CT65} & NTT tested against Horner evaluation \\
-\Cref{thm:curves} (correlated agreement) & quoted~\cite{BCIKS23} & -- \\
-\Cref{thm:cdhz} (BCS for IORs) & quoted~\cite{CDHZ25} & bound of \cref{rem:pq-params} evaluated exactly \\
-\Cref{lem:complement,lem:roots,lem:split-poly,lem:mobius,lem:power,lem:metric,lem:rs-params,lem:descent,lem:split-words} & proved; from~\cite{Mkh26} & M\"obius transform tested \\
-\Cref{lem:sequential,lem:queries,lem:randomised,lem:rbr-overall,lem:rbr-binding,lem:merkle} & proved; from~\cite{Mkh26} & Merkle openings tested \\
-\Cref{lem:kron-sub,lem:kernel-basic,thm:extraction,cor:several-points,cor:cube-sum,prop:bilinear,lem:reversal} & proved & coefficient rule and extraction identity tested ($n \le 8$, two fields; $\mathbb{F}_{257}$) \\
-\Cref{lem:cost,lem:split,lem:identity} & proved & kernel product, split and root bound tested \\
-\Cref{lem:fold-word,lem:line,prop:fold-consistency} & proved; from~\cite{Mkh26} & tested ($n \le 7$) \\
-\Cref{lem:iterated} & proved & tested ($n \le 7$) \\
-\Cref{lem:fibre-dist,lem:unique,lem:far,lem:survive,lem:good,lem:step} & proved; from~\cite{Mkh26} & -- \\
-\Cref{lem:passing,lem:rbr-step,prop:chain,thm:fpt} & proved; adapted from~\cite{Mkh26} & -- \\
-\Cref{prop:arity} (virtual levels, arity $2^k$) & proved & completeness tested for arities $2$ to $8$ ($n \le 9$) and $16$ ($n = 10$), tampering and cheating provers for arities $2$ to $16$, with and without caps \\
-\Cref{lem:enc,lem:virtual,lem:kernel-domain} & proved & virtual word and $\ev_L(K_z)$ tested \\
-\Cref{thm:complete} & proved & completeness tested ($n \le 9$, all $\ell$, three rates, arities $2$, $4$, $8$) \\
-\Cref{prop:costs} & proved & -- \\
-\Cref{lem:fpt-complete} & proved; adapted from~\cite{Mkh26} & covered by the completeness tests \\
-\Cref{lem:rate,lem:identity-set,lem:batching,lem:fibre-closed} & proved & -- \\
-\Cref{rem:design}(1), \cref{rem:why-x} & proved & two cheating provers rejected \\
-\Cref{thm:sound,thm:rbr,lem:ext,cor:sound} & proved & tampering tests \\
-\Cref{lem:sampling,lem:rbr-erasures,thm:rrbr,cor:pq,lem:cr-unique} & proved (using \cref{thm:cdhz}) & -- \\
-\Cref{rem:pq-params} (parameters) & computed & exact rational evaluation; non-squareness of $7$ checked \\
-\Cref{thm:batch,cor:batch} & proved & not implemented \\
+\Cref{fact:cyclic,fact:decode,fact:ntt} & quoted~\cite{LN97,WB86,Gao03,CT65} & -- & NTT against Horner evaluation \\
+\Cref{thm:curves} (correlated agreement) & quoted~\cite{BCIKS23} & axiom \texttt{bciks\_curves} & -- \\
+\Cref{thm:cdhz} (BCS for IORs) & quoted~\cite{CDHZ25} & -- & bound of \cref{rem:pq-params} evaluated exactly \\
+\Cref{lem:complement,lem:roots,lem:split-poly,lem:mobius,lem:power,lem:metric,lem:rs-params,lem:split-words} & proved; from~\cite{Mkh26} & from~\cite{Mkh26} & M\"obius transform \\
+\Cref{lem:descent} & proved; from~\cite{Mkh26} & -- & -- \\
+\Cref{lem:sequential,lem:queries,lem:randomised,lem:rbr-overall,lem:rbr-binding} & proved; from~\cite{Mkh26} & from~\cite{Mkh26} & -- \\
+\Cref{lem:merkle} & proved; from~\cite{Mkh26} & -- & Merkle openings \\
+\Cref{lem:kron-sub} & proved & \texttt{kronEnc\_eq\_subst}, \texttt{kronEncLin\_bijective} & -- \\
+\Cref{lem:kernel-basic} & proved & \texttt{natDegree\_kernel}, \texttt{kernel\_recursion}, \texttt{coeff\_kernel\_bits} & coefficient rule \\
+\Cref{thm:extraction} & proved & \texttt{extraction} & $n \le 8$, two fields; $\mathbb{F}_{257}$ \\
+\Cref{cor:several-points,cor:cube-sum,prop:bilinear,lem:reversal} & proved & \texttt{extraction\_comb}, \texttt{cube\_sum\_half}, \texttt{bilinear}, \texttt{kernel\_reflect} & -- \\
+\Cref{lem:cost} & proved & -- (operation counts) & kernel product \\
+\Cref{lem:split} & proved & \texttt{split\_iff}, \texttt{split\_unique} & split identity \\
+\Cref{lem:identity}, \cref{rem:why-x} & proved & \texttt{identity\_lemma}, \texttt{without\_X\_absorbs} & root bound; two cheating provers \\
+\Cref{lem:fold-word,lem:line,prop:fold-consistency} & proved; from~\cite{Mkh26} & from~\cite{Mkh26} & $n \le 7$ \\
+\Cref{lem:iterated} & proved & \texttt{coeff\_pfoldUp} & $n \le 7$ \\
+\Cref{lem:fpt-complete}(1) & proved & \texttt{honestFT\_accepts} & completeness tests \\
+\Cref{lem:fibre-dist,lem:unique,lem:far,lem:survive,lem:good,lem:step} & proved; from~\cite{Mkh26} & from~\cite{Mkh26} & -- \\
+\Cref{lem:passing,lem:rbr-step,prop:chain} & proved; adapted from~\cite{Mkh26} & \texttt{queryOK\_iff}, \texttt{rbr\_step}, \texttt{chain\_final} & -- \\
+\Cref{thm:fpt} & proved; adapted from~\cite{Mkh26} & \texttt{fpt\_sound} & -- \\
+\Cref{prop:arity} & proved & \texttt{acceptsC\_iff}, \texttt{fptC\_sound} & arities $2$ to $16$, with and without caps \\
+\Cref{lem:enc}(1)--(2) & proved & \texttt{encode\_injective}, \texttt{encode\_fib\_unique} & -- \\
+\Cref{lem:enc}(3) & proved & -- (base field) & -- \\
+\Cref{lem:virtual}, \cref{rem:design}(1) & proved & \texttt{virt\_honest}, \texttt{virt\_wrong\_value}, \texttt{inv\_agree\_le} & virtual word \\
+\Cref{lem:kernel-domain,prop:costs} & proved & -- (operation counts) & $\ev_L(K_z)$ \\
+\Cref{thm:complete} & proved & \texttt{honestKF\_prob\_one} & $n \le 9$, all $\ell$, three rates, arities $2$, $4$, $8$ \\
+\Cref{lem:rate,lem:identity-set} & proved & \texttt{rate\_condition}, \texttt{value\_of\_agreement} & -- \\
+\Cref{lem:batching} & proved & \texttt{batching} & -- \\
+\Cref{lem:fibre-closed} & proved & \texttt{negPt\_mem\_Wset} & -- \\
+\Cref{thm:sound} & proved & \texttt{soundness}, \texttt{soundnessC} & tampering tests \\
+\Cref{lem:ext} & proved & \texttt{extKF\_witness} (running time not modelled) & -- \\
+\Cref{thm:rbr} & proved & \texttt{rbr\_knowledge} & -- \\
+\Cref{cor:sound} & proved & \texttt{knowledge}, \texttt{binding} & -- \\
+\Cref{lem:sampling,lem:rbr-erasures,thm:rrbr,cor:pq,lem:cr-unique} & proved (using \cref{thm:cdhz}) & -- & -- \\
+\Cref{rem:pq-params} (parameters) & computed & -- & exact rational evaluation; non-squareness of $7$ \\
+\Cref{thm:batch,cor:batch} & proved & \texttt{batch\_soundness}, \texttt{batch\_knowledge}, \texttt{batch\_binding} & not implemented \\
 \bottomrule
 \end{longtable}
 \end{center}

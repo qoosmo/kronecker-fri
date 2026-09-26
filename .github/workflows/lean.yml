@@ -1,0 +1,37 @@
+name: Lean
+on:
+  push:
+    branches: [main]
+    paths: ["lean/**", ".github/workflows/lean.yml"]
+  pull_request:
+    paths: ["lean/**", ".github/workflows/lean.yml"]
+  workflow_dispatch:
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: lean
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install elan
+        run: |
+          curl -sSfL https://raw.githubusercontent.com/leanprover/elan/master/elan-init.sh | sh -s -- -y --default-toolchain none
+          echo "$HOME/.elan/bin" >> "$GITHUB_PATH"
+      - name: Toolchain
+        run: lean --version && lake --version
+      - name: Fetch Mathlib cache
+        run: lake exe cache get
+      - name: Build
+        run: lake build
+      - name: No sorry / admit
+        run: "! grep -rnwE 'sorry|admit' KBFold KroneckerFRI"
+      - name: Exactly one axiom
+        run: test "$(grep -rn '^axiom' KBFold KroneckerFRI | wc -l)" = "1"
+      - name: Axiom audit
+        run: |
+          lake env lean KroneckerFRI/Audit.lean | tee axioms.txt
+          test "$(grep -c 'depends on axioms' axioms.txt)" -ge 25
+          extra=$(grep -o '\[.*\]' axioms.txt | tr -d '[]' | tr ',' '\n' | sed 's/ //g' | sort -u \
+            | grep -vxE 'propext|Classical.choice|Quot.sound|KBFold.bciks_curves' || true)
+          if [ -n "$extra" ]; then echo "unexpected axioms: $extra"; exit 1; fi

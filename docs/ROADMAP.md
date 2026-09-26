@@ -1,7 +1,9 @@
 # Roadmap
 
 ## Formal verification
-- **Lean 4 formalisation** of §4 (extraction and opening identities), §5 (folding test), §6 (scheme, virtual word) and §7 (soundness), reusing the KBFold Lean project (Mathlib, `bciks_unique` as the only axiom).
+- ✅ **Lean 4 formalisation** of §4–§7 and §11 (done in v0.3.0; `lean/`).
+- Formalise the base-field statements (Lemma 6.3(3)) and the operation counts.
+- Formalise §8, which would first need a Lean formalisation of the Chiesa–Di–Hu–Zheng BCS theorem.
 
 ## Theory
 - **List decoding.** Extend the batching lemma and the folding test beyond (1−ρ)/2. The identity lemma still holds for every δ < 1 − 2ρ; at ρ = 1/4 and 100 bits this would bring κ from 148 to about 100 near the Johnson bound.

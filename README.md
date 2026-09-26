@@ -4,13 +4,15 @@
 
 [![Rust](https://github.com/qoosmo/kronecker-fri/actions/workflows/rust.yml/badge.svg)](https://github.com/qoosmo/kronecker-fri/actions/workflows/rust.yml)
 [![Paper](https://github.com/qoosmo/kronecker-fri/actions/workflows/paper.yml/badge.svg)](https://github.com/qoosmo/kronecker-fri/actions/workflows/paper.yml)
+[![Lean](https://github.com/qoosmo/kronecker-fri/actions/workflows/lean.yml/badge.svg)](https://github.com/qoosmo/kronecker-fri/actions/workflows/lean.yml)
 ![Rust 2024](https://img.shields.io/badge/Rust-2024_edition-orange)
 ![License](https://img.shields.io/badge/code-MIT%20%7C%20Apache--2.0-blue)
 ![Paper](https://img.shields.io/badge/paper-CC%20BY%204.0-lightgrey)
 
 | | What | Where |
 |---|---|---|
-| 📄 | A self-contained paper (63 pages): definitions, theorems and full proofs, experiments, comparison | [`paper/kronecker-fri.pdf`](paper/kronecker-fri.pdf) |
+| 📄 | A self-contained paper (64 pages): definitions, theorems and full proofs, experiments, comparison | [`paper/kronecker-fri.pdf`](paper/kronecker-fri.pdf) |
+| ✅ | A Lean 4 formalisation of §4–§7 and §11: no `sorry`, one axiom (correlated agreement) | [`lean/`](lean/) |
 | ⚙️ | A Rust reference implementation (Goldilocks, quadratic and quartic extensions, salted Merkle trees, folding arity $2^k$, Merkle caps) | [`rust/`](rust/) |
 | 📊 | Raw benchmark data behind every table of the paper | [`bench/`](bench/) |
 | 🌐 | Project page | [qoosmo.github.io/kronecker-fri](https://qoosmo.github.io/kronecker-fri/) |
@@ -40,21 +42,27 @@ To prove $f(z) = v$, the prover splits $X\,U_f K_z = A + v\,X^N + X^{N+1}H$ with
 
 No sumcheck. The verifier is an FRI verifier plus $O(n)$ field operations per query.
 
-## Results (all proved in the paper)
+## Results (proved in the paper, machine-checked in Lean)
 
-| Result | Statement | Paper |
-|---|---|---|
-| Extraction identity | $f(z) = [X^{N-1}]\,U_f K_z$ | Thm 4.5 |
-| Identity lemma | $X U K_z = A + vX^N + X^{N+1}H$ with $\deg A, H < N$ forces $v = [X^{N-1}] U K_z$ | Lem 4.10, 4.12 |
-| Folding test | soundness for arbitrary words, witness sets, codeword chain | Thm 5.24 |
-| Higher arity | committing to every $k$-th folded word only leaves every error term unchanged | Prop 5.28 |
-| Batching lemma | correlated agreement for curves of degree 2 + identity lemma via the virtual word | Lem 7.4 |
-| Soundness | $\varepsilon_{\mathrm{KF}} < 3M/\lvert\mathbb{F}\rvert + (1-\delta)^\kappa$ for all $\delta \le (1-\rho)/2$ | Thm 7.8 |
-| Knowledge | round-by-round knowledge soundness with a decoding extractor; evaluation binding | Thm 7.11, Cor 7.12 |
-| Post-quantum | straightline knowledge soundness in the QROM via Chiesa–Di–Hu–Zheng; $\varepsilon_{\mathrm{ext}}(2^{64}) < 2^{-31.8}$ | Thm 8.5, Cor 8.6 |
-| Batched openings | $m$ polynomials at one point for the cost of one opening; error $(m-1)M/\lvert\mathbb{F}\rvert + \varepsilon_{\mathrm{KF}}$ | Thm 11.2 |
+| Result | Statement | Paper | Lean |
+|---|---|---|---|
+| Extraction identity | $f(z) = [X^{N-1}]\,U_f K_z$ | Thm 4.5 | `extraction` |
+| Identity lemma | $X U K_z = A + vX^N + X^{N+1}H$ with $\deg A, H < N$ forces $v = [X^{N-1}] U K_z$ | Lem 4.10, 4.12 | `split_iff`, `identity_lemma` |
+| Folding test | soundness for arbitrary words, witness sets, codeword chain | Thm 5.24 | `fpt_sound`, `chain_final` |
+| Higher arity | committing to every $k$-th folded word only leaves every error term unchanged | Prop 5.28 | `acceptsC_iff`, `fptC_sound` |
+| Batching lemma | correlated agreement for curves of degree 2 + identity lemma via the virtual word | Lem 7.4 | `batching` |
+| Soundness | $\varepsilon_{\mathrm{KF}} < 3M/\lvert\mathbb{F}\rvert + (1-\delta)^\kappa$ for all $\delta \le (1-\rho)/2$ | Thm 7.8 | `soundness`, `soundnessC` |
+| Knowledge | round-by-round knowledge soundness with a decoding extractor; evaluation binding | Thm 7.11, Cor 7.12 | `rbr_knowledge`, `knowledge`, `binding` |
+| Post-quantum | straightline knowledge soundness in the QROM via Chiesa–Di–Hu–Zheng; $\varepsilon_{\mathrm{ext}}(2^{64}) < 2^{-31.8}$ | Thm 8.5, Cor 8.6 | — (paper only) |
+| Batched openings | $m$ polynomials at one point for the cost of one opening; error $(m-1)M/\lvert\mathbb{F}\rvert + \varepsilon_{\mathrm{KF}}$ | Thm 11.2 | `batch_soundness`, `batch_knowledge` |
 
 The only external result about codes is the correlated-agreement theorem of Ben-Sasson, Carmon, Ishai, Kopparty and Saraf, in the unique-decoding regime. Theorem numbers refer to [`paper/kronecker-fri.pdf`](paper/kronecker-fri.pdf).
+
+**Lean 4.** Every result in the table except the post-quantum one is formalised in [`lean/`](lean/) (Lean 4.23.0, Mathlib v4.23.0). There is no `sorry`, and the single axiom is correlated agreement for curves. CI builds the project and checks the axioms of every main theorem. The post-quantum theorem rests on the Chiesa–Di–Hu–Zheng BCS theorem, which has no Lean formalisation. See [`lean/README.md`](lean/README.md) for the paper ↔ Lean table.
+
+```bash
+cd lean && lake exe cache get && lake build && lake env lean KroneckerFRI/Audit.lean
+```
 
 ## Measurements
 
@@ -119,6 +127,7 @@ The full program is [`rust/examples/quickstart.rs`](rust/examples/quickstart.rs)
 
 ```
 paper/     LaTeX sources and the compiled paper (make)
+lean/      Lean 4 formalisation (lake build)
 rust/      reference implementation: field, poly, merkle, pcs; tests; examples; benchmarks
 bench/     raw CSV output of every benchmark reported in the paper
 docs/      project page, verification status, roadmap
@@ -128,7 +137,7 @@ docs/      project page, verification status, roadmap
 
 - Proofs are in the unique-decoding regime; the post-quantum theorem covers one opening, for the compiler of Chiesa–Di–Hu–Zheng.
 - Batched openings are proved for the interactive protocol; zero knowledge is future work.
-- Next: a full Lean 4 formalisation and a list-decoding analysis (fewer queries).
+- Next: a list-decoding analysis (fewer queries) and post-quantum batched openings.
 
 See [`docs/VERIFICATION.md`](docs/VERIFICATION.md) for the status of every result and [`docs/ROADMAP.md`](docs/ROADMAP.md) for the roadmap.
 
