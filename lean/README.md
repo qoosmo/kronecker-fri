@@ -3,7 +3,9 @@
 Machine-checked proofs of the results of §4–§7 and §11 of the paper
 [`../paper/kronecker-fri.pdf`](../paper/kronecker-fri.pdf): the extraction identity, the
 folding proximity test with any folding arity, the scheme, completeness, soundness,
-round-by-round knowledge soundness, evaluation binding, and batched openings.
+round-by-round knowledge soundness, evaluation binding, and batched openings; and the
+sumcheck-free inner-product protocol `Π_IP` of the research note
+[`../notes/inner-product/note.pdf`](../notes/inner-product/note.pdf) (§1–2).
 
 - **Toolchain:** Lean 4.23.0, Mathlib `v4.23.0` (pinned in `lakefile.lean` and `lake-manifest.json`).
 - **No `sorry`.**
@@ -54,6 +56,24 @@ lake env lean KroneckerFRI/Audit.lean
 | **Thm 7.11 (round-by-round knowledge soundness)** | `rbr_item1`, `rbr_item2`, `rbr_item3`; in the framework of Def 3.7: `rbr_knowledge`, `rbr_knowledge'` | `RBR.lean`, `Generic.lean` |
 | **Cor 7.12 (knowledge, soundness, binding)** | `knowledge`, `soundness`, `binding`; framework form `rbr_binding` | `RBR.lean`, `Generic.lean` |
 | Def 11.1, **Thm 11.2, Cor 11.3 (batched openings)** | `wGamma`, `RelBatch`, `accProbBatch`, `wGamma_encode`, `batch_soundness`, `batch_knowledge`, `batch_binding` | `Batch.lean` |
+
+## Research note: sumcheck-free inner products (table form)
+
+| Note | Lean | File |
+|---|---|---|
+| Def (table encoding): `V_f = ∑_w f(w) X^w`, `Enc^T(f) = ev_L(V_f)` | `kronEnc`, `encode` (same maps as the coefficient form) | `Kronecker.lean`, `Scheme.lean` |
+| **Lemma eval** (`f~(z) = [X^{N-1}] V_f E*_z`) | `evalKer`, `coeff_evalKer_compl`, `eval_table` | `TableForm.lean` |
+| Def (reversal), `(P*)* = P`, `P*(x) = x^{N-1} P(1/x)` | `revP`, `revP_revP`, `eval_revP` | `TableForm.lean` |
+| **Lemma ip** (`∑_w a(w) b(w) = [X^{N-1}] V_a V_b*`) | `inner_product` | `TableForm.lean` |
+| **Lemma gen-identity** (split and identity for any `K ∈ F[X]_{<N}`) | `splitG_eq`, `splitG_iff`, `PhiG`, `natDegree_PhiG_le`, `identityG` | `TableForm.lean` |
+| **Lemma rev** (reversed words) | `invPt`, `wrev`, `wrev_ev`, `wrev_wrev`, `wrev_eq_iff`, `inv_image_closed`, `ncard_inv_image` | `TableForm.lean` |
+| Def (`Π_IP`), virtual word, locality | `virtIP`, `virtIP_identity`, `virtIP_congr`, `wbatIP`, `AcceptsIP`, `accProbIP`, `AcceptsIPC` | `InnerProduct.lean` |
+| **Thm (completeness)** | `virtIP_honest`, `wbatIP_honest`, `honestIP_accepts`, `honestIP_prob_one` | `InnerProduct.lean` |
+| Def (relation `R^δ_IP`) | `RelIP`, `RelIP_unique` | `InnerProduct.lean` |
+| Correlated agreement on a common fibre-closed set (any degree `t`) | `curve_agreement` | `InnerProduct.lean` |
+| **Lemma batch3 (batching, degree 3)** | `goodBetaIP`, `batching_IP`, `card_goodBetaIP_le` | `InnerProduct.lean` |
+| **Thm (soundness)**, `ε_IP = 3M/\|F\| + ε_fold + (1-δ)^κ` | `epsIP`, `epsIP_lt`, `soundness_IP`, `soundnessC_IP` (any set of committed levels) | `InnerProduct.lean` |
+| Knowledge and binding | `knowledge_IP`, `binding_IP` | `InnerProduct.lean` |
 
 ## Modelling
 

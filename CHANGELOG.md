@@ -1,5 +1,17 @@
 # Changelog
 
+## Unreleased — research note: sumcheck-free inner products
+
+### Note (`notes/inner-product/`, 5 pages)
+- Table-form commitments (the table of values committed as the coefficient vector of V_f; the same Merkle commitment as `pcs`), the evaluation kernel E*_z, and the protocol Π_IP proving `∑_w a(w) b(w) = S` for two committed tables with one folding test and no sumcheck; soundness error 3M/|F| + ε_fold + (1-δ)^κ.
+
+### Lean (`lean/KroneckerFRI/TableForm.lean`, `InnerProduct.lean`)
+- §1–2 of the note: evaluation kernel, reversal, inner-product identity, general split and identity lemmas, reversed words, completeness, degree-3 batching lemma, soundness (any arity), knowledge and binding. Still no `sorry` and one axiom; 13 new entries in `Audit.lean`.
+- `curve_agreement`: correlated agreement on one fibre-closed set for a curve of any degree.
+
+### Code (`rust/src/ip.rs`, `examples/ip_bench.rs`)
+- Prototype prover and verifier of Π_IP on the commitments of `pcs` (caps, arity 2^k, Fiat–Shamir label `kronecker-fri-ip-v1`); tests for completeness and three cheating provers; `bench/ip.csv`.
+
 ## v0.3.0 — 2026-09-26
 
 ### Lean 4 formalisation (`lean/`)

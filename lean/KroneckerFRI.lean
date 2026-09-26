@@ -9,3 +9,5 @@ import KroneckerFRI.Soundness
 import KroneckerFRI.RBR
 import KroneckerFRI.Generic
 import KroneckerFRI.Batch
+import KroneckerFRI.TableForm
+import KroneckerFRI.InnerProduct

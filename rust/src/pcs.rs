@@ -97,19 +97,19 @@ impl Params {
         out
     }
     /// Cap height actually used for a tree with `leaves` leaves opened in groups of 2^h leaves.
-    fn cap_for(&self, leaves: usize, h: usize) -> usize {
+    pub(crate) fn cap_for(&self, leaves: usize, h: usize) -> usize {
         let depth = leaves.trailing_zeros() as usize;
         self.cap_log.min(depth - h)
     }
 }
 
-fn e_bytes<E: ExtField>(x: &E) -> Vec<u8> {
+pub(crate) fn e_bytes<E: ExtField>(x: &E) -> Vec<u8> {
     let mut b = Vec::with_capacity(8 * E::DEGREE);
     x.to_bytes(&mut b);
     b
 }
 
-fn pair_bytes<T: Field>(a: &T, b: &T) -> Vec<u8> {
+pub(crate) fn pair_bytes<T: Field>(a: &T, b: &T) -> Vec<u8> {
     let mut out = Vec::with_capacity(64);
     a.to_bytes(&mut out);
     b.to_bytes(&mut out);
@@ -117,7 +117,7 @@ fn pair_bytes<T: Field>(a: &T, b: &T) -> Vec<u8> {
 }
 
 /// Tree over the fibres of a word u on L_jc (length mj = M_jc) for a group of length g.
-fn coset_tree<T: Field>(
+pub(crate) fn coset_tree<T: Field>(
     u: &[T],
     g: usize,
     seed: &Digest,
@@ -143,7 +143,7 @@ fn coset_tree<T: Field>(
 
 /// Values of u on the 2^g points above position a of L_{jc+g}, in the order t = 0 .. 2^g - 1
 /// of the positions a + t M_{jc+g} of L_jc.
-fn coset_values<T: Field>(u: &[T], g: usize, a: usize) -> Vec<[T; 2]> {
+pub(crate) fn coset_values<T: Field>(u: &[T], g: usize, a: usize) -> Vec<[T; 2]> {
     let half = u.len() / 2;
     let mg = u.len() >> g;
     (0..1usize << (g - 1))
@@ -155,13 +155,13 @@ fn coset_values<T: Field>(u: &[T], g: usize, a: usize) -> Vec<[T; 2]> {
 }
 
 /// Flatten leaf pairs into the 2^g values, position a + t M_{jc+g} at index t.
-fn unpair<T: Copy>(pairs: &[[T; 2]]) -> Vec<T> {
+pub(crate) fn unpair<T: Copy>(pairs: &[[T; 2]]) -> Vec<T> {
     let h = pairs.len();
     (0..2 * h).map(|t| pairs[t % h][t / h]).collect()
 }
 
 /// Fold 2^g values at positions a + t M_{jc+g} of L_jc down to the value at position a of L_{jc+g}.
-fn fold_coset<E: ExtField>(
+pub(crate) fn fold_coset<E: ExtField>(
     mut vals: Vec<E>,
     a: usize,
     jc: usize,
@@ -191,7 +191,7 @@ pub struct ProverData {
     pub alpha: Vec<Fp>,
     /// the commitment word y = Enc(f) = ev_L(U_f)
     pub y: Vec<Fp>,
-    tree0: MerkleTree,
+    pub(crate) tree0: MerkleTree,
 }
 
 /// Opening of the commitment and of w_A on the 2^{g_0} points above one position of L_{g_0}.
@@ -256,7 +256,7 @@ impl<E: ExtField> Proof<E> {
 }
 
 /// Sorted distinct positions i0 mod modulus.
-fn distinct_positions(idx: &[usize], modulus: usize) -> Vec<usize> {
+pub(crate) fn distinct_positions(idx: &[usize], modulus: usize) -> Vec<usize> {
     let mut v: Vec<usize> = idx.iter().map(|&i| i % modulus).collect();
     v.sort_unstable();
     v.dedup();
@@ -314,7 +314,7 @@ fn init_transcript<E: ExtField>(p: &Params, root: &Digest, z: &[E], v: E) -> Tra
     tr
 }
 
-fn inv_powers(omega: Fp, count: usize) -> Vec<Fp> {
+pub(crate) fn inv_powers(omega: Fp, count: usize) -> Vec<Fp> {
     let oi = omega.inv();
     let mut out = Vec::with_capacity(count);
     let mut acc = Fp::ONE;

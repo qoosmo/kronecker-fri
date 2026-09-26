@@ -7,6 +7,7 @@ only project-specific assumption.
 -/
 import KroneckerFRI.Generic
 import KroneckerFRI.Batch
+import KroneckerFRI.InnerProduct
 
 open KroneckerFRI
 
@@ -42,3 +43,17 @@ open KroneckerFRI
 #print axioms KroneckerFRI.batch_soundness
 #print axioms KroneckerFRI.batch_knowledge
 #print axioms KroneckerFRI.batch_binding
+-- Research note: sumcheck-free inner products (table form)
+#print axioms KroneckerFRI.eval_table
+#print axioms KroneckerFRI.inner_product
+#print axioms KroneckerFRI.eval_revP
+#print axioms KroneckerFRI.splitG_iff
+#print axioms KroneckerFRI.identityG
+#print axioms KroneckerFRI.wrev_ev
+#print axioms KroneckerFRI.curve_agreement
+#print axioms KroneckerFRI.honestIP_prob_one
+#print axioms KroneckerFRI.batching_IP
+#print axioms KroneckerFRI.soundness_IP
+#print axioms KroneckerFRI.soundnessC_IP
+#print axioms KroneckerFRI.knowledge_IP
+#print axioms KroneckerFRI.binding_IP
