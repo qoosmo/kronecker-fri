@@ -11,7 +11,7 @@ jobs:
       run:
         working-directory: rust
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       # Pinned to the toolchain of the paper's measurements, so that new lints in later
       # stable releases do not change the result of this workflow.
       - uses: dtolnay/rust-toolchain@1.95.0
