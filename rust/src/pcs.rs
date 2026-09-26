@@ -1,16 +1,28 @@
 //! The evaluation protocol Pi_KF of Section 6.3, compiled with salted Merkle trees and a
-//! Fiat-Shamir transcript (Sections 3.4 and 8.1).
+//! Fiat-Shamir transcript (Sections 3.4 and 8.1), with folding of arity 2^k (Section 5.7) and
+//! Merkle caps.
 //!
 //! The committed polynomial has coefficients in F_p (Goldilocks); the point z, the value v, the
 //! challenges, the opening word w_A, the virtual word h and all folded words live in the extension
 //! E = F_{p^e} (e = 2 or 4).
 //!
 //! Domain layout: L = <omega>, position i of a word on L_j is omega_j^i with omega_j = omega^{2^j};
-//! the fibre over position k of L_{j+1} is {k, k + M_{j+1}}.
-//! Leaves are fibres (Section 8.1): leaf k of the tree of a word w on L_j holds (w[k], w[k + M_j/2]).
+//! the fibre over position q of L_{j+1} is {q, q + M_{j+1}}.
+//!
+//! Levels. The folding test runs l binary folds. Only the words at levels k, 2k, 3k, ... < l are
+//! committed; the words in between are virtual (exact folds, Section 5.7). A *group* is a pair
+//! (jc, g): the word at level jc (the commitment and w_A for jc = 0) is folded g <= k times
+//! locally by the verifier, up to level jc + g, the next committed level or l.
+//!
+//! Leaves. The tree of a word u on L_jc whose group has length g has one leaf per fibre; the fibre
+//! over position q of L_{jc+1}, with q = a + t M_{jc+g} (a < M_{jc+g}, t < 2^{g-1}), is leaf
+//! a 2^{g-1} + t. A query at position a of L_{jc+g} opens the aligned group of 2^{g-1} leaves,
+//! that is, u on the 2^g points above a, with one authentication path.
 
 use crate::field::{ExtField, Field, Fp};
-use crate::merkle::{Digest, GroupOpening, MerkleTree, Transcript, verify_group};
+use crate::merkle::{
+    Digest, GroupOpening, MerkleTree, Transcript, root_from_cap, verify_group_capped,
+};
 use crate::poly::{
     fold_pair, fold_word, horner, kernel_eval, kernel_on_domain, mobius, ntt, opening_polys, pfold,
 };
@@ -21,15 +33,44 @@ pub struct Params {
     pub n: usize,
     /// R with rate rho = 2^-R (R >= 2, Section 6.1)
     pub log_inv_rate: usize,
-    /// number of folding rounds l, 1 <= l <= n
+    /// number of binary folding rounds l, 1 <= l <= n
     pub ell: usize,
     /// number of queries kappa
     pub queries: usize,
     /// salt length in bytes (0 = unsalted trees)
     pub salt_len: usize,
+    /// folding arity 2^k: only every k-th folded word is committed (k = 1: every word)
+    pub fold_log: usize,
+    /// Merkle cap height c: the 2^c nodes below each root are sent once (c = 0: roots only)
+    pub cap_log: usize,
 }
 
 impl Params {
+    /// Parameters with binary folding and no caps.
+    pub fn new(n: usize, log_inv_rate: usize, ell: usize, queries: usize, salt_len: usize) -> Self {
+        Params {
+            n,
+            log_inv_rate,
+            ell,
+            queries,
+            salt_len,
+            fold_log: 1,
+            cap_log: 0,
+        }
+    }
+    /// The recommended configuration KF-8 of the paper (Section 10): rate 1/4, arity 8, caps of
+    /// 128 nodes, and l = n - 8 folding rounds (at least 1).
+    pub fn recommended(n: usize, queries: usize, salt_len: usize) -> Self {
+        Params {
+            n,
+            log_inv_rate: 2,
+            ell: n.saturating_sub(8).max(1),
+            queries,
+            salt_len,
+            fold_log: 3,
+            cap_log: 7,
+        }
+    }
     pub fn big_n(&self) -> usize {
         1 << self.n
     }
@@ -42,7 +83,23 @@ impl Params {
     pub fn check(&self) {
         assert!(self.n >= 1 && self.log_inv_rate >= 2 && self.n + self.log_inv_rate <= 32);
         assert!(self.ell >= 1 && self.ell <= self.n);
-        assert!(self.queries >= 1);
+        assert!(self.queries >= 1 && self.fold_log >= 1);
+    }
+    /// Groups (jc, g): start level and number of local folds.
+    pub fn groups(&self) -> Vec<(usize, usize)> {
+        let mut out = Vec::new();
+        let mut jc = 0;
+        while jc < self.ell {
+            let g = self.fold_log.min(self.ell - jc);
+            out.push((jc, g));
+            jc += g;
+        }
+        out
+    }
+    /// Cap height actually used for a tree with `leaves` leaves opened in groups of 2^h leaves.
+    fn cap_for(&self, leaves: usize, h: usize) -> usize {
+        let depth = leaves.trailing_zeros() as usize;
+        self.cap_log.min(depth - h)
     }
 }
 
@@ -59,19 +116,74 @@ fn pair_bytes<T: Field>(a: &T, b: &T) -> Vec<u8> {
     out
 }
 
-/// Tree over the fibres of a word: leaf k = (w[k], w[k + len/2]).
-fn fibre_tree<T: Field>(w: &[T], seed: &Digest, label: &[u8], salt_len: usize) -> MerkleTree {
-    let h = w.len() / 2;
+/// Tree over the fibres of a word u on L_jc (length mj = M_jc) for a group of length g.
+fn coset_tree<T: Field>(
+    u: &[T],
+    g: usize,
+    seed: &Digest,
+    label: &[u8],
+    salt_len: usize,
+) -> MerkleTree {
+    let half = u.len() / 2; // M_{jc+1}
+    let mg = u.len() >> g; // M_{jc+g}
+    let h = 1usize << (g - 1);
     MerkleTree::from_fn(
-        h,
-        |k, b| {
-            w[k].to_bytes(b);
-            w[k + h].to_bytes(b)
+        half,
+        |leaf, b| {
+            let (a, t) = (leaf >> (g - 1), leaf & (h - 1));
+            let q = a + t * mg;
+            u[q].to_bytes(b);
+            u[q + half].to_bytes(b)
         },
         seed,
         label,
         salt_len,
     )
+}
+
+/// Values of u on the 2^g points above position a of L_{jc+g}, in the order t = 0 .. 2^g - 1
+/// of the positions a + t M_{jc+g} of L_jc.
+fn coset_values<T: Field>(u: &[T], g: usize, a: usize) -> Vec<[T; 2]> {
+    let half = u.len() / 2;
+    let mg = u.len() >> g;
+    (0..1usize << (g - 1))
+        .map(|t| {
+            let q = a + t * mg;
+            [u[q], u[q + half]]
+        })
+        .collect()
+}
+
+/// Flatten leaf pairs into the 2^g values, position a + t M_{jc+g} at index t.
+fn unpair<T: Copy>(pairs: &[[T; 2]]) -> Vec<T> {
+    let h = pairs.len();
+    (0..2 * h).map(|t| pairs[t % h][t / h]).collect()
+}
+
+/// Fold 2^g values at positions a + t M_{jc+g} of L_jc down to the value at position a of L_{jc+g}.
+fn fold_coset<E: ExtField>(
+    mut vals: Vec<E>,
+    a: usize,
+    jc: usize,
+    mg: usize,
+    rs: &[E],
+    m: usize,
+    omega: Fp,
+) -> E {
+    let inv2 = Fp::new(2).inv();
+    let mut level = jc;
+    while vals.len() > 1 {
+        let half = vals.len() / 2;
+        vals = (0..half)
+            .map(|t| {
+                let pos = a + t * mg; // position in L_level
+                let inv_2xi = omega.pow((m - (pos << level)) as u64) * inv2;
+                fold_pair(vals[t], vals[t + half], inv_2xi, rs[level], inv2)
+            })
+            .collect();
+        level += 1;
+    }
+    vals[0]
 }
 
 pub struct ProverData {
@@ -82,29 +194,44 @@ pub struct ProverData {
     tree0: MerkleTree,
 }
 
+/// Opening of the commitment and of w_A on the 2^{g_0} points above one position of L_{g_0}.
 #[derive(Clone, Debug)]
-pub struct QueryProof<E> {
-    /// y(xi), y(-xi) for the level-1 fibre xi = omega^k, k = i mod M/2
-    pub y: [Fp; 2],
+pub struct Level0Opening<E> {
+    /// the position a of L_{g_0} (recomputed by the verifier; not counted in the proof size)
+    pub pos: usize,
+    /// the commitment on the points above `pos`, as leaf pairs
+    pub y: Vec<[Fp; 2]>,
     pub y_open: GroupOpening,
-    /// w_A(xi), w_A(-xi)
-    pub a: [E; 2],
+    /// w_A on the same points
+    pub a: Vec<[E; 2]>,
     pub a_open: GroupOpening,
-    /// for levels j = 1 .. l-1: w_j on the fibre read by the level-(j+1) fold check
-    pub levels: Vec<([E; 2], GroupOpening)>,
+}
+
+/// Opening of a committed folded word on the points above one position.
+#[derive(Clone, Debug)]
+pub struct LevelOpening<E> {
+    /// the position (recomputed by the verifier; not counted in the proof size)
+    pub pos: usize,
+    pub vals: Vec<[E; 2]>,
+    pub open: GroupOpening,
 }
 
 #[derive(Clone, Debug)]
 pub struct Proof<E> {
-    /// root of w_A
-    pub root_a: Digest,
-    /// roots of w_1 .. w_{l-1}
-    pub roots: Vec<Digest>,
+    /// cap of the commitment tree (its root is the commitment)
+    pub cap_y: Vec<Digest>,
+    /// cap of the tree of w_A
+    pub cap_a: Vec<Digest>,
+    /// caps of the trees of the committed folded words
+    pub caps: Vec<Vec<Digest>>,
     /// round salts of rounds 1 .. l+2
     pub round_salts: Vec<Vec<u8>>,
     /// coefficients of the final polynomial P (length N_l)
     pub p: Vec<E>,
-    pub queries: Vec<QueryProof<E>>,
+    /// level-0 openings, one per distinct queried position, sorted by position
+    pub level0: Vec<Level0Opening<E>>,
+    /// for each committed level, one opening per distinct queried position, sorted by position
+    pub levels: Vec<Vec<LevelOpening<E>>>,
 }
 
 impl<E: ExtField> Proof<E> {
@@ -113,26 +240,39 @@ impl<E: ExtField> Proof<E> {
         let e = 8 * E::DEGREE;
         let open =
             |o: &GroupOpening| 32 * o.path.len() + o.salts.iter().map(|s| s.len()).sum::<usize>();
-        let mut s = 32 + 32 * self.roots.len() + self.p.len() * e;
+        let mut s = 32 * (self.cap_y.len() + self.cap_a.len());
+        s += 32 * self.caps.iter().map(|c| c.len()).sum::<usize>() + self.p.len() * e;
         s += self.round_salts.iter().map(|x| x.len()).sum::<usize>();
-        for q in &self.queries {
-            s += 16 + open(&q.y_open) + 2 * e + open(&q.a_open);
-            for (_, o) in &q.levels {
-                s += 2 * e + open(o);
+        for o in &self.level0 {
+            s += 16 * o.y.len() + open(&o.y_open) + 2 * e * o.a.len() + open(&o.a_open);
+        }
+        for lv in &self.levels {
+            for o in lv {
+                s += 2 * e * o.vals.len() + open(&o.open);
             }
         }
         s
     }
 }
 
+/// Sorted distinct positions i0 mod modulus.
+fn distinct_positions(idx: &[usize], modulus: usize) -> Vec<usize> {
+    let mut v: Vec<usize> = idx.iter().map(|&i| i % modulus).collect();
+    v.sort_unstable();
+    v.dedup();
+    v
+}
+
 /// Commit to f given in coefficient form (Definition 6.2): one NTT of size M.
+/// The Merkle layout depends on the first group of `p` (its length min(k, l)).
 pub fn commit_coeffs(p: &Params, alpha: &[Fp], seed: &Digest) -> (Digest, ProverData) {
     p.check();
     assert_eq!(alpha.len(), p.big_n());
     let mut y = alpha.to_vec();
     y.resize(p.m(), Fp::ZERO);
     ntt(&mut y, p.omega());
-    let tree0 = fibre_tree(&y, seed, b"commit", p.salt_len);
+    let g0 = p.groups()[0].1;
+    let tree0 = coset_tree(&y, g0, seed, b"commit", p.salt_len);
     (
         tree0.root(),
         ProverData {
@@ -151,8 +291,17 @@ pub fn commit_table(p: &Params, table: &[Fp], seed: &Digest) -> (Digest, ProverD
 }
 
 fn init_transcript<E: ExtField>(p: &Params, root: &Digest, z: &[E], v: E) -> Transcript {
-    let mut tr = Transcript::new(b"kronecker-fri-v2");
-    let params = [p.n, p.log_inv_rate, p.ell, p.queries, p.salt_len, E::DEGREE];
+    let mut tr = Transcript::new(b"kronecker-fri-v3");
+    let params = [
+        p.n,
+        p.log_inv_rate,
+        p.ell,
+        p.queries,
+        p.salt_len,
+        p.fold_log,
+        p.cap_log,
+        E::DEGREE,
+    ];
     let pb: Vec<u8> = params
         .iter()
         .flat_map(|&x| (x as u64).to_le_bytes())
@@ -209,6 +358,7 @@ pub fn open_with<E: ExtField>(
     p.check();
     assert_eq!(z.len(), p.n);
     let (nn, m, ell) = (p.big_n(), p.m(), p.ell);
+    let groups = p.groups();
     let omega = p.omega();
     let inv2 = Fp::new(2).inv();
     let inv_x0 = inv_powers(omega, m / 2);
@@ -239,7 +389,8 @@ pub fn open_with<E: ExtField>(
     let mut wa = a.clone();
     wa.resize(m, E::ZERO);
     ntt(&mut wa, omega);
-    let tree_a = fibre_tree(&wa, seed, b"round1", p.salt_len);
+    let g0 = groups[0].1;
+    let tree_a = coset_tree(&wa, g0, seed, b"round1", p.salt_len);
     tr.absorb(b"root", &tree_a.root());
     round_salts.push(salt(1));
     tr.absorb(b"salt", round_salts.last().unwrap());
@@ -261,71 +412,82 @@ pub fn open_with<E: ExtField>(
         xinv = xinv * step_inv;
     }
     drop(kz);
-    // U_0 = U + beta A + beta^2 H (coefficients); for Cheat::AbsorbInA the degree-N term is
-    // dropped, since P must have fewer than N_l coefficients.
     let u0: Vec<E> = (0..nn).map(|i| u[i] + beta * a[i] + beta2 * h[i]).collect();
 
-    // round 2: no message, challenge r_1
-    round_salts.push(salt(2));
-    tr.absorb(b"salt", round_salts.last().unwrap());
-    let mut r: E = tr.challenge();
-
-    // rounds 3 .. l+1: w_1 .. w_{l-1}
-    let mut words: Vec<Vec<E>> = Vec::with_capacity(ell.saturating_sub(1));
-    let mut trees: Vec<MerkleTree> = Vec::new();
-    let mut roots = Vec::new();
+    // rounds 2 .. l+1: challenges r_1 .. r_l; the word of every committed level (a group start
+    // jc >= 1) is sent before r_{jc+1}
+    let committed: Vec<usize> = groups
+        .iter()
+        .map(|&(jc, _)| jc)
+        .filter(|&jc| jc >= 1)
+        .collect();
+    let mut kept: Vec<(usize, Vec<E>, MerkleTree)> = Vec::new(); // (level, word, tree)
+    let mut caps = Vec::new();
     let mut coeffs = u0;
-    for j in 1..ell {
-        let prev = if j == 1 { &w0 } else { &words[j - 2] };
-        let wj = fold_word(prev, r, &inv_x0, j - 1, inv2);
-        coeffs = pfold(&coeffs, r);
-        let tree = fibre_tree(&wj, seed, format!("w{j}").as_bytes(), p.salt_len);
-        tr.absorb(b"root", &tree.root());
-        roots.push(tree.root());
-        round_salts.push(salt(j + 2));
+    let mut cur = w0;
+    let mut rs: Vec<E> = Vec::with_capacity(ell);
+    for j in 1..=ell {
+        if j >= 2 && committed.contains(&(j - 1)) {
+            let g = groups.iter().find(|&&(s, _)| s == j - 1).unwrap().1;
+            let tree = coset_tree(&cur, g, seed, format!("w{}", j - 1).as_bytes(), p.salt_len);
+            tr.absorb(b"root", &tree.root());
+            caps.push(tree.cap(p.cap_for(cur.len() / 2, g - 1)));
+            kept.push((j - 1, cur.clone(), tree));
+        }
+        round_salts.push(salt(j + 1));
         tr.absorb(b"salt", round_salts.last().unwrap());
-        words.push(wj);
-        trees.push(tree);
-        r = tr.challenge();
+        let r: E = tr.challenge();
+        rs.push(r);
+        coeffs = pfold(&coeffs, r);
+        if j < ell {
+            cur = fold_word(&cur, r, &inv_x0, j - 1, inv2);
+        }
     }
-    drop(w0);
+    drop(cur);
     // round l+2: P = pfold^(l)(U_0)
-    let final_p = pfold(&coeffs, r);
+    let final_p = coeffs;
     let pb: Vec<u8> = final_p.iter().flat_map(e_bytes).collect();
     tr.absorb(b"final", &pb);
     round_salts.push(salt(ell + 2));
     tr.absorb(b"salt", round_salts.last().unwrap());
     let idx = tr.query_indices(p.queries, p.n + p.log_inv_rate);
 
-    let queries = idx
+    let c0 = p.cap_for(m / 2, g0 - 1);
+    let level0 = distinct_positions(&idx, m >> g0)
+        .into_iter()
+        .map(|a0| Level0Opening {
+            pos: a0,
+            y: coset_values(&pd.y, g0, a0),
+            y_open: pd.tree0.open_group_capped(a0 << (g0 - 1), g0 - 1, c0),
+            a: coset_values(&wa, g0, a0),
+            a_open: tree_a.open_group_capped(a0 << (g0 - 1), g0 - 1, c0),
+        })
+        .collect();
+    let levels = kept
         .iter()
-        .map(|&i0| {
-            let k0 = i0 % (m / 2);
-            let levels = (1..ell)
-                .map(|j| {
-                    let mj = m >> j;
-                    let k = i0 % (mj / 2);
-                    let w = &words[j - 1];
-                    ([w[k], w[k + mj / 2]], trees[j - 1].open_group(k, 0))
+        .map(|(jc, word, tree)| {
+            let g = groups.iter().find(|&&(s, _)| s == *jc).unwrap().1;
+            let c = p.cap_for(word.len() / 2, g - 1);
+            distinct_positions(&idx, m >> (jc + g))
+                .into_iter()
+                .map(|aj| LevelOpening {
+                    pos: aj,
+                    vals: coset_values(word, g, aj),
+                    open: tree.open_group_capped(aj << (g - 1), g - 1, c),
                 })
-                .collect();
-            QueryProof {
-                y: [pd.y[k0], pd.y[k0 + m / 2]],
-                y_open: pd.tree0.open_group(k0, 0),
-                a: [wa[k0], wa[k0 + m / 2]],
-                a_open: tree_a.open_group(k0, 0),
-                levels,
-            }
+                .collect()
         })
         .collect();
     (
         v,
         Proof {
-            root_a: tree_a.root(),
-            roots,
+            cap_y: pd.tree0.cap(c0),
+            cap_a: tree_a.cap(c0),
+            caps,
             round_salts,
             p: final_p,
-            queries,
+            level0,
+            levels,
         },
     )
 }
@@ -345,27 +507,74 @@ pub fn verify_detail<E: ExtField>(
 ) -> Result<(), &'static str> {
     p.check();
     let (nn, m, ell) = (p.big_n(), p.m(), p.ell);
+    let groups = p.groups();
+    let g0 = groups[0].1;
+    let ncommit = groups.len() - 1;
     if z.len() != p.n
-        || proof.roots.len() != ell - 1
+        || proof.caps.len() != ncommit
+        || proof.levels.len() != ncommit
         || proof.round_salts.len() != ell + 2
         || proof.p.len() != nn >> ell
-        || proof.queries.len() != p.queries
-        || proof.queries.iter().any(|q| q.levels.len() != ell - 1)
+        || proof
+            .level0
+            .iter()
+            .any(|o| o.y.len() != 1 << (g0 - 1) || o.a.len() != 1 << (g0 - 1))
     {
         return Err("shape");
     }
+    for (i, &(_, g)) in groups.iter().enumerate().skip(1) {
+        if proof.levels[i - 1]
+            .iter()
+            .any(|o| o.vals.len() != 1 << (g - 1))
+        {
+            return Err("shape");
+        }
+    }
+    // canonical form: caps, paths and salts have exactly the prescribed lengths
+    let sl = p.salt_len;
+    let op_ok = |op: &GroupOpening, depth: usize, h: usize, c: usize| {
+        op.path.len() == depth - h - c && op.salts.iter().all(|x| x.len() == sl)
+    };
+    let depth0 = (m / 2).trailing_zeros() as usize;
+    let c0 = p.cap_for(m / 2, g0 - 1);
+    if proof.round_salts.iter().any(|x| x.len() != sl)
+        || proof.cap_y.len() != 1 << c0
+        || proof.cap_a.len() != 1 << c0
+        || proof
+            .level0
+            .iter()
+            .any(|o| !op_ok(&o.y_open, depth0, g0 - 1, c0) || !op_ok(&o.a_open, depth0, g0 - 1, c0))
+    {
+        return Err("shape");
+    }
+    for (i, &(jc, g)) in groups.iter().enumerate().skip(1) {
+        let leaves = (m >> jc) / 2;
+        let (depth, c) = (leaves.trailing_zeros() as usize, p.cap_for(leaves, g - 1));
+        if proof.caps[i - 1].len() != 1 << c
+            || proof.levels[i - 1]
+                .iter()
+                .any(|o| !op_ok(&o.open, depth, g - 1, c))
+        {
+            return Err("shape");
+        }
+    }
+    if root_from_cap(&proof.cap_y) != *root {
+        return Err("merkle");
+    }
     let omega = p.omega();
-    let inv2 = Fp::new(2).inv();
     let mut tr = init_transcript(p, root, z, v);
-    tr.absorb(b"root", &proof.root_a);
+    tr.absorb(b"root", &root_from_cap(&proof.cap_a));
     tr.absorb(b"salt", &proof.round_salts[0]);
     let beta: E = tr.challenge();
     let beta2 = beta * beta;
-    tr.absorb(b"salt", &proof.round_salts[1]);
-    let mut rs: Vec<E> = vec![tr.challenge()];
-    for j in 1..ell {
-        tr.absorb(b"root", &proof.roots[j - 1]);
-        tr.absorb(b"salt", &proof.round_salts[j + 1]);
+    let mut rs: Vec<E> = Vec::with_capacity(ell);
+    let mut ci = 0;
+    for j in 1..=ell {
+        if j >= 2 && groups.iter().any(|&(s, _)| s == j - 1) {
+            tr.absorb(b"root", &root_from_cap(&proof.caps[ci]));
+            ci += 1;
+        }
+        tr.absorb(b"salt", &proof.round_salts[j]);
         rs.push(tr.challenge());
     }
     let pb: Vec<u8> = proof.p.iter().flat_map(e_bytes).collect();
@@ -373,70 +582,79 @@ pub fn verify_detail<E: ExtField>(
     tr.absorb(b"salt", &proof.round_salts[ell + 1]);
     let idx = tr.query_indices(p.queries, p.n + p.log_inv_rate);
 
-    for (q, &i0) in proof.queries.iter().zip(&idx) {
-        let k0 = i0 % (m / 2);
-        if !verify_group(root, k0, 0, &[pair_bytes(&q.y[0], &q.y[1])], &q.y_open)
-            || !verify_group(
-                &proof.root_a,
-                k0,
-                0,
-                &[pair_bytes(&q.a[0], &q.a[1])],
-                &q.a_open,
-            )
+    // the openings must be exactly one per distinct queried position, in increasing order
+    let mg0 = m >> g0;
+    let pos0 = distinct_positions(&idx, mg0);
+    if proof.level0.len() != pos0.len() || proof.level0.iter().zip(&pos0).any(|(o, &a)| o.pos != a)
+    {
+        return Err("shape");
+    }
+    for (gi, &(jc, g)) in groups.iter().enumerate().skip(1) {
+        let pj = distinct_positions(&idx, m >> (jc + g));
+        let lv = &proof.levels[gi - 1];
+        if lv.len() != pj.len() || lv.iter().zip(&pj).any(|(o, &a)| o.pos != a) {
+            return Err("shape");
+        }
+    }
+    // authenticate every opening once
+    for o in &proof.level0 {
+        let yd: Vec<Vec<u8>> = o.y.iter().map(|[x, y]| pair_bytes(x, y)).collect();
+        let ad: Vec<Vec<u8>> = o.a.iter().map(|[x, y]| pair_bytes(x, y)).collect();
+        if !verify_group_capped(&proof.cap_y, o.pos << (g0 - 1), g0 - 1, &yd, &o.y_open)
+            || !verify_group_capped(&proof.cap_a, o.pos << (g0 - 1), g0 - 1, &ad, &o.a_open)
         {
             return Err("merkle");
         }
-        // w_0 on the fibre {xi, -xi}, xi = omega^{k0}, through the virtual word (Definition 6.5)
-        let xi = omega.pow(k0 as u64);
-        let xi2 = xi.square();
-        let xi_n = xi2.pow((nn / 2) as u64); // (+-xi)^N, N even
-        let inv_xi_n1 = (xi_n * xi).inv(); // xi^{-(N+1)}; (-xi)^{-(N+1)} = -xi^{-(N+1)}
-        // K_z(+-xi) = (z_1 +- xi) K_{z'}(xi^2)
-        let k_rest = kernel_eval(&z[1..], E::from(xi2));
-        let mut pair = [E::ZERO; 2];
-        for s in 0..2 {
-            let (x, inv) = if s == 0 {
-                (xi, inv_xi_n1)
-            } else {
-                (-xi, -inv_xi_n1)
-            };
-            let kz = (z[0] + E::from(x)) * k_rest;
-            let w = E::from(q.y[s]);
-            let h = virtual_value(x, w, q.a[s], kz, v, xi_n, inv);
-            pair[s] = w + beta * q.a[s] + beta2 * h;
-        }
-        // fold checks
-        let mut k = k0; // fibre index at the current level
-        for j in 1..=ell {
-            // level j: fold w_{j-1} over the fibre {k, k + M_j} of L_{j-1}; result at position k of L_j
-            // (2 xi_j)^{-1} = omega^{M - k 2^{j-1}} / 2, with xi_j = omega^{k 2^{j-1}} (no inversion)
-            let inv_2xi = omega.pow((m - (k << (j - 1))) as u64) * inv2;
-            let folded = fold_pair(pair[0], pair[1], inv_2xi, rs[j - 1], inv2);
-            if j < ell {
-                let mj = m >> j;
-                let kn = k % (mj / 2);
-                let (vals, op) = &q.levels[j - 1];
-                if !verify_group(
-                    &proof.roots[j - 1],
-                    kn,
-                    0,
-                    &[pair_bytes(&vals[0], &vals[1])],
-                    op,
-                ) {
-                    return Err("merkle");
-                }
-                let expected = if k < mj / 2 { vals[0] } else { vals[1] };
-                if folded != expected {
-                    return Err("fold");
-                }
-                pair = *vals;
-                k = kn;
-            } else {
-                let eta = omega.pow((k as u64) << ell);
-                if folded != horner(&proof.p, E::from(eta)) {
-                    return Err("fold");
-                }
+    }
+    for (gi, &(_, g)) in groups.iter().enumerate().skip(1) {
+        for o in &proof.levels[gi - 1] {
+            let d: Vec<Vec<u8>> = o.vals.iter().map(|[x, y]| pair_bytes(x, y)).collect();
+            if !verify_group_capped(&proof.caps[gi - 1], o.pos << (g - 1), g - 1, &d, &o.open) {
+                return Err("merkle");
             }
+        }
+    }
+    let find = |list: &[usize], a: usize| list.binary_search(&a).unwrap();
+    let level_pos: Vec<Vec<usize>> = proof
+        .levels
+        .iter()
+        .map(|lv| lv.iter().map(|o| o.pos).collect())
+        .collect();
+    for &i0 in &idx {
+        // level 0: the commitment and w_A on the 2^{g0} points above position a0 of L_{g0}
+        let a0 = i0 % mg0;
+        let o = &proof.level0[find(&pos0, a0)];
+        let (yv, av) = (unpair(&o.y), unpair(&o.a));
+        let w0: Vec<E> = (0..yv.len())
+            .map(|t| {
+                let pos = a0 + t * mg0;
+                // xi = omega^pos, xi^N and xi^{-(N+1)} as powers of omega (no inversion)
+                let xi = omega.pow(pos as u64);
+                let xi_n = omega.pow(((pos * nn) % m) as u64);
+                let inv = omega.pow(((m - (pos * (nn + 1)) % m) % m) as u64);
+                let w = E::from(yv[t]);
+                let h = virtual_value(xi, w, av[t], kernel_eval(z, E::from(xi)), v, xi_n, inv);
+                w + beta * av[t] + beta2 * h
+            })
+            .collect();
+        let mut value = fold_coset(w0, a0, 0, mg0, &rs, m, omega);
+        // committed levels
+        for (gi, &(jc, g)) in groups.iter().enumerate().skip(1) {
+            let mg = m >> (jc + g);
+            let aj = i0 % mg;
+            let o = &proof.levels[gi - 1][find(&level_pos[gi - 1], aj)];
+            let vals = unpair(&o.vals);
+            // the previous group's result is the value at position (i0 mod M_jc) of L_jc
+            let pos = i0 % (m >> jc);
+            if vals[(pos - aj) / mg] != value {
+                return Err("fold");
+            }
+            value = fold_coset(vals, aj, jc, mg, &rs, m, omega);
+        }
+        let pos = i0 % (m >> ell);
+        let eta = omega.pow((pos as u64) << ell);
+        if value != horner(&proof.p, E::from(eta)) {
+            return Err("fold");
         }
     }
     Ok(())
@@ -491,13 +709,21 @@ mod tests {
 
     fn cheats<E: ExtField>() {
         let mut rng = Rng(99);
-        for (n, ell) in [(4, 2), (6, 3), (8, 8), (10, 5)] {
+        for (n, ell, fold_log, cap_log) in [
+            (4, 2, 1, 0),
+            (6, 3, 1, 2),
+            (8, 8, 3, 3),
+            (10, 5, 2, 0),
+            (10, 9, 4, 4),
+        ] {
             let p = Params {
                 n,
                 log_inv_rate: 2,
                 ell,
                 queries: 30,
                 salt_len: 32,
+                fold_log,
+                cap_log,
             };
             let alpha: Vec<Fp> = (0..1 << n).map(|_| rng.fp()).collect();
             let z: Vec<E> = (0..n).map(|_| rng.e()).collect();

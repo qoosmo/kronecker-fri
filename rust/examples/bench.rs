@@ -1,5 +1,5 @@
 //! Benchmarks for Section 10.  Single-threaded.  Usage:
-//!   cargo run --release --example bench -- scaling | breakdown | stop | fields
+//!   cargo run --release --example bench -- scaling | arity | breakdown | stop | params | fields
 use kronecker_fri::field::{ExtField, Field, Fp, Fp2, Fp4};
 use kronecker_fri::merkle::MerkleTree;
 use kronecker_fri::pcs::virtual_value;
@@ -88,9 +88,11 @@ fn breakdown(n: usize) {
     let p = Params {
         n,
         log_inv_rate: 2,
-        ell: n - 4,
+        ell: n - 8,
         queries: 148,
         salt_len: 0,
+        fold_log: 1,
+        cap_log: 0,
     };
     let (nn, m) = (p.big_n(), p.m());
     let mut rng = Rng(5 + n as u64);
@@ -155,18 +157,21 @@ fn breakdown(n: usize) {
         for j in 1..p.ell {
             let r: Fp2 = rng.e();
             w = fold_word(&w, r, &inv_x0, j - 1, inv2);
-            let h2 = w.len() / 2;
-            let tr = MerkleTree::from_fn(
-                h2,
-                |k, b| {
-                    w[k].to_bytes(b);
-                    w[k + h2].to_bytes(b)
-                },
-                &[4u8; 32],
-                b"w",
-                0,
-            );
-            std::hint::black_box(tr.root());
+            if j % 3 == 0 {
+                // committed level (arity 8): one tree over the fibres
+                let h2 = w.len() / 2;
+                let tr = MerkleTree::from_fn(
+                    h2,
+                    |k, b| {
+                        w[k].to_bytes(b);
+                        w[k + h2].to_bytes(b)
+                    },
+                    &[4u8; 32],
+                    b"w",
+                    0,
+                );
+                std::hint::black_box(tr.root());
+            }
         }
         fd.push(ms(t));
     }
@@ -185,21 +190,35 @@ fn main() {
     let mode = std::env::args().nth(1).unwrap_or_else(|| "scaling".into());
     match mode.as_str() {
         "scaling" => {
-            println!("salt,n,ell,queries,commit_ms,open_ms,verify_ms,proof_kib");
+            // v1: binary folding, no caps, l = n - 4 (the setting of the first version)
+            // v2: folding arity 8, caps of height 7, l = n - 8 (the default)
+            println!("config,salt,n,ell,queries,commit_ms,open_ms,verify_ms,proof_kib");
             for n in (12..=22).step_by(2) {
-                for salt_len in [0, 32] {
-                    let p = Params {
-                        n,
-                        log_inv_rate: 2,
-                        ell: n - 4,
-                        queries: 148,
-                        salt_len,
-                    };
-                    let r = run::<Fp2>(&p, reps_for(n), 1 + n as u64);
-                    println!(
-                        "{},{},{},{},{:.2},{:.2},{:.3},{:.1}",
-                        salt_len, n, p.ell, p.queries, r.commit, r.open, r.verify, r.proof_kib
-                    );
+                for (cfg, ell, fold_log, cap_log) in [("v1", n - 4, 1, 0), ("v2", n - 8, 3, 7)] {
+                    for salt_len in [0, 32] {
+                        let p = Params {
+                            n,
+                            log_inv_rate: 2,
+                            ell,
+                            queries: 148,
+                            salt_len,
+                            fold_log,
+                            cap_log,
+                        };
+                        let r = run::<Fp2>(&p, reps_for(n), 1 + n as u64);
+                        println!(
+                            "{},{},{},{},{},{:.2},{:.2},{:.3},{:.1}",
+                            cfg,
+                            salt_len,
+                            n,
+                            p.ell,
+                            p.queries,
+                            r.commit,
+                            r.open,
+                            r.verify,
+                            r.proof_kib
+                        );
+                    }
                 }
             }
         }
@@ -221,6 +240,8 @@ fn main() {
                     ell,
                     queries: 148,
                     salt_len: 0,
+                    fold_log: 3,
+                    cap_log: 7,
                 };
                 let r = run::<Fp2>(&p, 3, 77);
                 println!(
@@ -249,6 +270,8 @@ fn main() {
                     ell: n - 4,
                     queries: q,
                     salt_len: salt,
+                    fold_log: 1,
+                    cap_log: 0,
                 };
                 let r = if e == 2 {
                     run::<Fp2>(&p, 5, 9)
@@ -277,6 +300,8 @@ fn main() {
                     ell: n - 8,
                     queries: q,
                     salt_len: 32,
+                    fold_log: 3,
+                    cap_log: 7,
                 };
                 let row = if e == 2 {
                     run::<Fp2>(&p, 3, 11)
@@ -287,6 +312,30 @@ fn main() {
                     "{},{},{},{},{},32,{:.2},{:.2},{:.3},{:.1}",
                     name, e, r, q, p.ell, row.commit, row.open, row.verify, row.proof_kib
                 );
+            }
+        }
+        "arity" => {
+            println!("n,ell,fold_log,cap_log,salt,commit_ms,open_ms,verify_ms,proof_kib");
+            let n = 20;
+            for ell in [16, 12] {
+                for fold_log in [1, 2, 3, 4] {
+                    for cap_log in [0, 7] {
+                        let p = Params {
+                            n,
+                            log_inv_rate: 2,
+                            ell,
+                            queries: 148,
+                            salt_len: 0,
+                            fold_log,
+                            cap_log,
+                        };
+                        let r = run::<Fp2>(&p, 3, 21);
+                        println!(
+                            "{},{},{},{},0,{:.2},{:.2},{:.3},{:.1}",
+                            n, ell, fold_log, cap_log, r.commit, r.open, r.verify, r.proof_kib
+                        );
+                    }
+                }
             }
         }
         _ => eprintln!("unknown mode"),

@@ -175,7 +175,7 @@ footer .who{color:var(--ink)}
       <a class="btn primary" href="https://github.com/qoosmo/kronecker-fri/blob/main/paper/kronecker-fri.pdf">Read the paper (PDF)</a>
       <a class="btn" href="https://github.com/qoosmo/kronecker-fri">Source on GitHub</a>
       <a class="btn" href="https://github.com/qoosmo/kronecker-fri/tree/main/rust">Rust implementation</a>
-      <a class="btn" href="https://github.com/qoosmo/kronecker-fri/releases/tag/v0.1.0">Release v0.1.0</a>
+      <a class="btn" href="https://github.com/qoosmo/kronecker-fri/releases/tag/v0.2.0">Release v0.2.0</a>
     </div>
   </div>
   <div class="kernel">
@@ -257,33 +257,45 @@ footer .who{color:var(--ink)}
   <div class="sec-head">
     <div class="label">Measurements</div>
     <div>
-      <h2>Same commit and verify cost, slower opening</h2>
-      <p>One core, n = 20, ρ = 1/4, κ = 148, Goldilocks with a quadratic extension, all three schemes run in one session on one machine with shared field, NTT and Merkle code.</p>
+      <h2>Small proofs, fast verification</h2>
+      <p>One core, ρ = 1/4, κ = 148 (100-bit query term), Goldilocks with a quadratic extension, unsalted trees, recommended configuration: folding arity 8, Merkle caps of 128 nodes, ℓ = n − 8. The soundness error is the same as for binary folding (Prop 5.28).</p>
     </div>
   </div>
   <div class="tbl-wrap">
     <table>
-      <thead><tr><th>Scheme</th><th>Commit</th><th>Open</th><th>Verify</th><th>Proof</th></tr></thead>
+      <thead><tr><th>n</th><th>Commit</th><th>Open</th><th>Verify</th><th>Proof</th></tr></thead>
       <tbody>
-        <tr><td><b>Kronecker-FRI</b></td><td class="num">0.98 s</td><td class="num">3.03 s</td><td class="num">6.6 ms</td><td class="num">1173 KiB</td></tr>
-        <tr><td>KBFold (sumcheck + kernel folding)</td><td class="num">1.01 s</td><td class="num">0.83 s</td><td class="num">6.5 ms</td><td class="num">1072 KiB</td></tr>
-        <tr><td>Coefficient-form baseline (BaseFold-style)</td><td class="num">0.98 s</td><td class="num">0.85 s</td><td class="num">6.5 ms</td><td class="num">1072 KiB</td></tr>
+        <tr><td>16</td><td class="num">41 ms</td><td class="num">92 ms</td><td class="num">2.4 ms</td><td class="num">184 KiB</td></tr>
+        <tr><td>18</td><td class="num">160 ms</td><td class="num">388 ms</td><td class="num">3.0 ms</td><td class="num">248 KiB</td></tr>
+        <tr><td>20</td><td class="num">0.73 s</td><td class="num">1.69 s</td><td class="num">3.4 ms</td><td class="num">299 KiB</td></tr>
+        <tr><td>22</td><td class="num">3.18 s</td><td class="num">9.28 s</td><td class="num">4.5 ms</td><td class="num">372 KiB</td></tr>
       </tbody>
     </table>
   </div>
-  <p class="scope">Across n = 12 … 22, proofs are 8–17% larger and opening is 3.0–3.7× slower. The extra opening cost is the commitment to A: the product U<sub>f</sub>K<sub>z</sub>, one NTT, one Merkle tree and the virtual word, each measured in the paper (Table 4).</p>
+  <p class="scope">At identical engineering (n = 20, binary folding, no caps, the configuration of the KBFold code), all measured in one session:</p>
+  <div class="tbl-wrap">
+    <table>
+      <thead><tr><th>Scheme</th><th>Commit</th><th>Open</th><th>Verify</th><th>Proof</th></tr></thead>
+      <tbody>
+        <tr><td><b>Kronecker-FRI</b></td><td class="num">0.73 s</td><td class="num">2.14 s</td><td class="num">6.3 ms</td><td class="num">1117 KiB</td></tr>
+        <tr><td>KBFold (sumcheck + kernel folding)</td><td class="num">0.77 s</td><td class="num">0.71 s</td><td class="num">5.9 ms</td><td class="num">1072 KiB</td></tr>
+        <tr><td>Coefficient-form baseline (BaseFold-style)</td><td class="num">0.74 s</td><td class="num">0.60 s</td><td class="num">5.7 ms</td><td class="num">1072 KiB</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <p class="scope">Commit and verify cost the same across n = 12 … 22, with proofs within 5%. The opening commits to A: the product U<sub>f</sub>K<sub>z</sub>, one NTT, one Merkle tree and the virtual word, each measured in the paper (Table 6).</p>
 </section>
 
 <section id="scope">
   <div class="sec-head">
     <div class="label">Scope</div>
     <div>
-      <h2>What is and is not claimed</h2>
+      <h2>Why Kronecker-FRI</h2>
     </div>
   </div>
   <div class="next">
-    <div><h3>Offered</h3><ul><li>No sumcheck; the verifier is FRI plus local work.</li><li>A one-step soundness argument on top of the folding test.</li><li>Built from components that FRI-based systems already have.</li><li>Transparent and hash-based; no trusted setup.</li></ul></div>
-    <div><h3>Not claimed</h3><ul><li>The identity itself is an inner-product identity; Mercury uses the same tensor structure with KZG.</li><li>Not faster than sumcheck-based Reed–Solomon schemes.</li><li>Unique decoding only: proofs are far larger than WHIR's.</li></ul></div>
+    <div><h3>Offered</h3><ul><li>No sumcheck; the verifier is FRI plus local work.</li><li>A one-step soundness argument on top of the folding test.</li><li>Built from components that FRI-based systems already have, including higher-arity folding and Merkle caps.</li><li>Transparent and hash-based; no trusted setup.</li></ul></div>
+    <div><h3>Parameters</h3><ul><li>100 bits: 𝔽<sub>q²</sub>, ρ = 1/4, κ = 148 — 390 KiB salted at n = 20.</li><li>128 bits: 𝔽<sub>q⁴</sub>, κ = 189 — 586 KiB.</li><li>Post-quantum: 𝔽<sub>q⁴</sub>, κ = 248, salted — 755 KiB.</li></ul></div>
     <div><h3>Next</h3><ul><li>Lean 4 formalisation.</li><li>List-decoding analysis of the batching lemma.</li><li>Post-quantum batched openings; zero knowledge.</li></ul></div>
   </div>
 </section>

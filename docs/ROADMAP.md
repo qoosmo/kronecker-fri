@@ -13,6 +13,6 @@
 ## Engineering
 - Check the transcript and salts against Construction 11.7 of Chiesa–Di–Hu–Zheng, so that the post-quantum corollary applies to the code.
 - Implement batched openings.
-- Merkle multiproofs, parallel NTT and hashing, SIMD field arithmetic.
+- Parallel NTT and hashing, SIMD field arithmetic.
 - Additional fields: BabyBear and KoalaBear (extension degree ≥ 5 for 100 bits).
 - Measure the verifier inside a recursive verification circuit.

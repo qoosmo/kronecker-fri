@@ -36,13 +36,16 @@ fn completeness<E: ExtField>(max_n: usize) {
     for n in 1..=max_n {
         for r in [2, 3, 4] {
             for ell in 1..=n {
-                for salt_len in [0, 32] {
+                for (salt_len, fold_log, cap_log) in [(0, 1, 0), (32, 1, 0), (32, 2, 2), (0, 3, 4)]
+                {
                     let p = Params {
                         n,
                         log_inv_rate: r,
                         ell,
                         queries: 8,
                         salt_len,
+                        fold_log,
+                        cap_log,
                     };
                     let table: Vec<Fp> = (0..1 << n).map(|_| rng.fp()).collect();
                     let z: Vec<E> = (0..n).map(|_| rng.e()).collect();
@@ -52,7 +55,7 @@ fn completeness<E: ExtField>(max_n: usize) {
                     assert_eq!(
                         verify_detail(&p, &root, &z, v, &proof),
                         Ok(()),
-                        "n={n} R={r} l={ell} salt={salt_len}"
+                        "n={n} R={r} l={ell} salt={salt_len} k={fold_log} c={cap_log}"
                     );
                 }
             }
@@ -75,13 +78,21 @@ type Mutation = Box<dyn Fn(&mut kronecker_fri::pcs::Proof<Fp2>)>;
 #[test]
 fn tampering_is_rejected() {
     let mut rng = Rng(12345);
-    for (n, ell) in [(6, 3), (8, 4), (8, 8)] {
+    for (n, ell, fold_log, cap_log) in [
+        (6, 3, 1, 0),
+        (8, 4, 2, 2),
+        (8, 8, 3, 3),
+        (10, 7, 3, 0),
+        (10, 9, 4, 4),
+    ] {
         let p = Params {
             n,
             log_inv_rate: 2,
             ell,
             queries: 20,
             salt_len: 32,
+            fold_log,
+            cap_log,
         };
         let alpha: Vec<Fp> = (0..1 << n).map(|_| rng.fp()).collect();
         let z: Vec<Fp2> = (0..n).map(|_| rng.e()).collect();
@@ -104,30 +115,79 @@ fn tampering_is_rejected() {
         assert!(!verify(&p, &root, &z, v2, &proof2));
 
         let mutations: Vec<Mutation> = vec![
-            Box::new(|pr| pr.queries[0].y[0] = pr.queries[0].y[0] + Fp::ONE),
-            Box::new(|pr| pr.queries[3].a[0] = pr.queries[3].a[0] + Fp2::ONE),
-            Box::new(|pr| pr.queries[5].a[1] = pr.queries[5].a[1] + Fp2::ONE),
+            Box::new(|pr| pr.level0[0].y[0][0] = pr.level0[0].y[0][0] + Fp::ONE),
+            Box::new(|pr| pr.level0[3].a[0][1] = pr.level0[3].a[0][1] + Fp2::ONE),
+            Box::new(|pr| {
+                let last = pr.level0[5].a.len() - 1;
+                pr.level0[5].a[last][0] = pr.level0[5].a[last][0] + Fp2::ONE
+            }),
             Box::new(|pr| pr.p[0] = pr.p[0] + Fp2::ONE),
-            Box::new(|pr| pr.root_a[0] ^= 1),
+            Box::new(|pr| pr.cap_a[0][0] ^= 1),
+            Box::new(|pr| pr.cap_y[0][3] ^= 1),
             Box::new(|pr| pr.round_salts[1][0] ^= 1),
-            Box::new(|pr| pr.queries[2].y_open.salts[0][0] ^= 1),
-            Box::new(|pr| pr.queries[1].a_open.path[0][0] ^= 1),
+            Box::new(|pr| pr.level0[2].y_open.salts[0][0] ^= 1),
+            // non-canonical encodings: wrong salt, cap or path lengths
+            Box::new(|pr| pr.round_salts[0].push(0)),
+            Box::new(|pr| {
+                let d = pr.cap_a[0];
+                pr.cap_a.push(d)
+            }),
+            Box::new(|pr| {
+                let d = [0u8; 32];
+                pr.level0[0].y_open.path.push(d)
+            }),
+            Box::new(|pr| {
+                if pr.level0[1].a_open.path.is_empty() {
+                    pr.level0[1].a_open.salts[0][1] ^= 1
+                } else {
+                    pr.level0[1].a_open.path[0][0] ^= 1
+                }
+            }),
         ];
         for (i, mt) in mutations.iter().enumerate() {
             let mut pr = proof.clone();
             mt(&mut pr);
             assert!(
                 !verify(&p, &root, &z, v, &pr),
-                "mutation {i} accepted (n={n}, l={ell})"
+                "mutation {i} accepted (n={n}, l={ell}, k={fold_log})"
             );
         }
-        if ell >= 2 {
+        if !proof.caps.is_empty() {
             let mut pr = proof.clone();
-            pr.queries[4].levels[0].0[1] = pr.queries[4].levels[0].0[1] + Fp2::ONE;
+            pr.levels[0][0].vals[0][1] = pr.levels[0][0].vals[0][1] + Fp2::ONE;
             assert!(!verify(&p, &root, &z, v, &pr));
             let mut pr = proof.clone();
-            pr.roots[0][5] ^= 1;
+            pr.caps[0][0][5] ^= 1;
             assert!(!verify(&p, &root, &z, v, &pr));
         }
     }
+}
+
+/// Folding arity and caps change the proof, not the statement: every setting accepts honest
+/// proofs and yields the same value.
+#[test]
+fn arity_and_caps_agree() {
+    let mut rng = Rng(77);
+    let n = 10;
+    let alpha: Vec<Fp> = (0..1 << n).map(|_| rng.fp()).collect();
+    let z: Vec<Fp2> = (0..n).map(|_| rng.e()).collect();
+    let mut sizes = Vec::new();
+    for fold_log in 1..=4 {
+        for cap_log in [0, 4] {
+            let p = Params {
+                n,
+                log_inv_rate: 2,
+                ell: 8,
+                queries: 40,
+                salt_len: 0,
+                fold_log,
+                cap_log,
+            };
+            let (root, pd) = commit_coeffs(&p, &alpha, &[1u8; 32]);
+            let (v, proof) = open(&p, &pd, &z, &[2u8; 32]);
+            assert!(verify(&p, &root, &z, v, &proof));
+            sizes.push(((fold_log, cap_log), proof.size_bytes(), v));
+        }
+    }
+    assert!(sizes.iter().all(|s| s.2 == sizes[0].2));
 }

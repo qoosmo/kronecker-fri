@@ -3,15 +3,19 @@
 Kronecker-FRI proves a multilinear evaluation $f(z) = v$ by reading $v$ as the coefficient of $X^{N-1}$ in $U_f K_z$, where $U_f$ is the Kronecker encoding of $f$ and $K_z = \prod_k (X^{2^{k-1}} + z_k)$.
 The prover commits to one opening polynomial; the verifier derives a second one as a virtual word, batches the three words, and runs an FRI-style folding test.
 We proved the scheme complete, sound, round-by-round knowledge sound and evaluation binding in the unique-decoding regime, with the correlated-agreement theorem of~\cite{BCIKS23} as the only external input about codes, and we derived post-quantum knowledge soundness of the compiled scheme from the theorem of~\cite{CDHZ25}.
-The implementation shows the practical price of avoiding the sumcheck: the same commitment and verification cost as a sumcheck-based scheme at identical engineering, proofs $8$--$17\%$ larger, and an opening $3$ to $3.7$ times slower.
+At identical engineering, it commits and verifies at the same cost as a sumcheck-based Reed--Solomon scheme; with arity $8$ and Merkle caps, which the analysis covers with the same error, proofs are $95$ to $372$\,KiB unsalted for $2^{12}$ to $2^{22}$ coefficients at an interactive $100$-bit level (\cref{sec:exp}).
 
+\paragraph{Limitations.}
+The analysis is in the unique-decoding regime. The post-quantum statement covers one opening, relies on the theorem of~\cite{CDHZ25}, and applies to their compiler. Zero knowledge is not treated.
+
+\paragraph{Future work.}
 Several questions remain open.
 \begin{itemize}
   \item \emph{List decoding.} Extend the batching lemma (\cref{lem:batching}) and the folding test (\cref{thm:fpt}) to proximity parameters beyond $(1-\rho)/2$, using correlated agreement up to the Johnson bound~\cite{BCIKS23}. The identity lemma needs $2N < (1-\delta)M$, which still holds for $\rho \le 1/4$ and every $\delta < 1 - 2\rho$; the main work is to replace unique decoding by lists. This would reduce $\kappa$: at $\rho = 1/4$ and $100$ bits, from $148$ to about $100$ queries near the Johnson bound $\delta \to 1/2$, at the price of larger field terms; larger reductions would need proximity-gap results beyond the Johnson bound.
   \item \emph{Rate $1/2$.} The batching lemma needs $\rho < 1/3$ (\cref{rem:where-rate}). Is there an identity of degree less than $(1-\delta)M$ at rate $1/2$?
   \item \emph{Several openings.} Extend \cref{cor:pq} to batched openings (\cref{thm:batch}), which needs correlated agreement for fibre strings (\cref{rem:batch}), to several openings of one commitment, and to several points, for which \cref{cor:several-points} is a starting point.
   \item \emph{Conformance of the implementation.} Check the transcript and the salts of the implementation against~\cite[Construction~11.7]{CDHZ25}, so that \cref{cor:pq} applies to the code, and implement the batched protocol.
-  \item \emph{Opening cost.} The opening pays for the product $U_f K_z$, one NTT, one Merkle tree and the virtual word (\cref{tab:exp-breakdown}). Parallel and SIMD arithmetic and Merkle multiproofs would reduce all of them, as for any FRI-based scheme; whether the product and the NTT can be merged is open.
+  \item \emph{Opening cost.} The opening pays for the product $U_f K_z$, one NTT, one Merkle tree and the virtual word (\cref{tab:exp-breakdown}). Parallel and SIMD arithmetic would reduce all of them, as for any FRI-based scheme; whether the product and the NTT can be merged is open.
   \item \emph{Recursion.} The verifier is an FRI verifier plus $O(n)$ operations per query. Measuring its cost inside a recursive verification circuit is left to future work.
   \item \emph{Formal verification.} A Lean~4 formalisation of \cref{sec:kernel,sec:fold,sec:scheme,sec:sound}, along the lines of the one for~\cite{Mkh26}, is in preparation (\cref{app:verification}).
   \item \emph{Zero knowledge.} Adapt standard masking techniques for FRI-based schemes to the opening polynomial $A$ and the folded words.

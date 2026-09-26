@@ -45,19 +45,19 @@ $\Pi^\Sigma_{\mathrm{KF}}$ is $\Pi_{\mathrm{KF}}$ (\cref{def:pikf}) with stateme
 \begin{enumerate}
   \item Round $1$: the message is $\mathrm{fib}_0(w_A) \in \Sigma^{M/2}$, and the challenge $\mathsf{vr}_1 \in \{0,1\}^{\lambda_{\mathrm{ch}}}$ gives $\beta = \phi(\mathsf{vr}_1)$.
   \item Round $2$: the message is a single symbol, which the verifier never reads (so that every round has a nonempty string to commit to), and $\mathsf{vr}_2$ gives $r_1 = \phi(\mathsf{vr}_2)$.
-  \item Round $j+1$, $j \in \iv{2}{\ell}$: the message is $\mathrm{fib}_{j-1}(w_{j-1}) \in \Sigma^{M_j}$, and $\mathsf{vr}_{j+1}$ gives $r_j = \phi(\mathsf{vr}_{j+1})$.
+  \item Round $j+1$, $j \in \iv{2}{\ell}$: if $j-1 \in C$, the message is $\mathrm{fib}_{j-1}(w_{j-1}) \in \Sigma^{M_j}$; otherwise it is a single symbol that the verifier never reads. The challenge $\mathsf{vr}_{j+1}$ gives $r_j = \phi(\mathsf{vr}_{j+1})$.
   \item Round $\ell+2$: the message is the string of the $N_\ell$ coefficients of $P$, two per symbol and padded with a zero if $N_\ell = 1$, which the verifier reads entirely; and $\mathsf{vr}_{\ell+2} \in \{0,1\}^{\kappa(n+R)}$ gives the query points by $\mathrm{pos}$.
 \end{enumerate}
-On partial strings, the verifier rejects if an entry that it reads is $\bot$; otherwise it runs the verifier of $\Pi_{\mathrm{KF}}$ on the words $w = \mathrm{fib}_0^{-1}(\bar y)$, $w_A = \mathrm{fib}_0^{-1}(\overline{\Pi_1})$, $w_{j-1} = \mathrm{fib}_{j-1}^{-1}(\overline{\Pi_{j+1}})$ and the polynomial read from the filled final message, and outputs $(\top, ())$ if that verifier accepts.
+On partial strings, the verifier rejects if an entry that it reads is $\bot$; otherwise it runs the verifier of $\Pi_{\mathrm{KF}}$ on the words $w = \mathrm{fib}_0^{-1}(\bar y)$, $w_A = \mathrm{fib}_0^{-1}(\overline{\Pi_1})$, $w_{j-1} = \mathrm{fib}_{j-1}^{-1}(\overline{\Pi_{j+1}})$ for $j-1 \in C$ (the other words are the exact folds, \cref{def:fpt-arity}) and the polynomial read from the filled final message, and outputs $(\top, ())$ if that verifier accepts.
 \end{definition}
 
-The query point $\xi$ reads the symbol at position $\xi^2$ of $y$ and of $\Pi_1$ (the fold check of level $1$, through the virtual word, \cref{lem:virtual}(2)), and the symbol at position $\xi^{2^i}$ of $\Pi_{i+1} = \mathrm{fib}_{i-1}(w_{i-1})$ for $i \in \iv{2}{\ell}$ (the fold check of level $i$, which reads $w_{i-1}$ on the fibre over $\xi^{2^i}$); for $i \ge 2$, one of the two values of that symbol is the value $w_{i-1}(\pm\xi^{2^{i-1}})$ compared at level $i-1$. These positions are determined by the challenges.
+Let $0 = j_0 < j_1 < \dots < j_s = \ell$ be the levels of $C \cup \{0, \ell\}$. For each $t \in \iv{1}{s}$, the query point $\xi$ reads the string of $w_{j_{t-1}}$ (that is, $y$ and $\Pi_1$ for $t = 1$, through the virtual word, \cref{lem:virtual}(2), and $\Pi_{j_{t-1}+2} = \mathrm{fib}_{j_{t-1}}(w_{j_{t-1}})$ for $t \ge 2$) at the $2^{j_t - j_{t-1} - 1}$ positions $\eta \in L_{j_{t-1}+1}$ with $\eta^{2^{j_t - j_{t-1} - 1}} = \xi^{2^{j_t}}$; these symbols give $w_{j_{t-1}}$ on the $2^{j_t - j_{t-1}}$ points above $\xi^{2^{j_t}}$, from which the fold check of level $j_t$ is computed (\cref{def:fpt-arity}). For $t \ge 2$ they contain the value $w_{j_{t-1}}(\xi^{2^{j_{t-1}}})$ compared at level $j_{t-1}$. For arity $2$ this is one symbol per string. These positions are determined by the challenges.
 So $\Pi^\Sigma_{\mathrm{KF}}$ is an IOR from $\mathcal{R}_{\mathrm{KF}}$ to $\mathcal{R}_{\mathrm{acc}}$ in the sense of \cref{sec:proofs:bcs}, with $\nu = \ell+2$ rounds, $\lambda_{\min} = \min(\lambda_{\mathrm{ch}}, \kappa(n+R))$ and longest string $l_{\max} = M/2$.
 Every string of the prescribed lengths over $\Sigma$ encodes a message of $\Pi_{\mathrm{KF}}$, and filled strings are such strings; so the objects of \cref{sec:sound} ($h$, $w_0$, $\hat w_j$, $\Bb_j$, $\Ww_j(c)$) are defined for the fillings.
 
 \subsection{Erasures and the knowledge state function}\label{sec:pq:kstate}
 
-For $j \in \iv{0}{\ell}$, let $\mathcal{Z}_j \subseteq L$ be the set of points $\xi$ such that every symbol read by $\xi$ at the levels $1, \dots, \max(j,1)$ is defined: the symbols at position $\xi^2$ of $y$ and $\Pi_1$, and at position $\xi^{2^i}$ of $\Pi_{i+1}$ for $i \in \iv{2}{\max(j,1)}$. The set $\mathcal{Z}_j$ is determined by the statement and the messages $\Pi_1, \Pi_3, \dots, \Pi_{j+1}$, hence by $\tau_{j+1}$.
+For $j \in \iv{0}{\ell}$, let $\mathcal{Z}_j \subseteq L$ be the set of points $\xi$ such that every symbol read by $\xi$ from $y$, $\Pi_1$ and the strings $\Pi_{j_{t-1}+2}$ with $1 \le j_{t-1} < j$ is defined (with the notation above; for $j \le 1$, only $y$ and $\Pi_1$). The set $\mathcal{Z}_j$ is determined by the statement and the messages of $\tau_{j+1}$.
 Then $\mathcal{Z}_0 = \mathcal{Z}_1 \supseteq \mathcal{Z}_2 \supseteq \dots \supseteq \mathcal{Z}_\ell$; every $\mathcal{Z}_j$ is fibre-closed, since it depends on $\xi$ only through $\xi^2$; and $\mathcal{Z}_0 \subseteq Y_y$, where $Y_y = \{\xi \in L : \xi^2 \in \mathrm{Dom}(y)\}$ is the union of the defined fibres of $y$.
 With the notation of \cref{sec:sound:rbr} applied to the fillings, put, for $c \in \Cc_j$,
 \[
@@ -165,7 +165,7 @@ Then $(5/8)^{248} = 2^{-168.16}$ and $2M(1/|\F| + 2^{-320}) < 2^{-222}$, so $\va
 The quantities of \cref{thm:cdhz} satisfy:
 \begin{itemize}
   \item $\nu = \ell + 2 \le 32$, $l_{\max} = M/2 \le 2^{31}$, and $\lambda_{\min} = \min(320, \kappa(n+R)) = 320$, since $\kappa(n+R) \ge 248 \cdot 3$;
-  \item $q_s \le \kappa(\ell+1) + \lceil N_\ell/2 \rceil \le 2^{30}$: one symbol of $y$, one of $\Pi_1$ and one of $\Pi_{i+1}$ at each level $i \in \iv{2}{\ell}$ per query point, and the final symbols;
+  \item $q_s \le \kappa\, 2^{k-1} (\ell + 1) + \lceil N_\ell/2 \rceil \le 2^{30}$ for arity $2^k \le 16$: at most $2^{k-1}$ symbols of $y$, of $\Pi_1$ and of each of the at most $\ell - 1$ committed words per query point, and the final symbols;
   \item $q_{\mathsf{V}} \le \nu + q_s(\lceil \log_2 l_{\max} \rceil + 1) \le 2^{36}$: one challenge query per round, and one authentication path of at most $\lceil \log_2 l_{\max} \rceil + 1$ hashes per position read;
   \item $q_{\widehat{\mathsf{CR}}} \le (M/2)\log_2 M \le 2^{36}$: one leaf hash and $\log_2(M/2)$ internal hashes per position of $y$.
 \end{itemize}
@@ -180,7 +180,8 @@ For the compiled scheme, \cref{thm:cdhz} applies to classical adversaries as wel
 \end{remark}
 
 \begin{remark}[Merkle trees]\label{rem:layout}
-Each string is committed by one Merkle tree with one leaf per symbol, that is, per fibre: a query opens one leaf and one authentication path per string read, and the two values compared by a fold check come from one leaf.
+Each string is committed by one Merkle tree with one leaf per symbol, that is, per fibre: a query opens one leaf and one authentication path per symbol read (one per string for arity $2$), and the two values compared by a fold check come from one leaf.
+Implementations commonly compress the openings: several leaves read by one query share one path when they are adjacent in the tree, the nodes at a fixed depth (a \emph{cap}) are sent once instead of repeated in every path, and a leaf read by several queries is sent once. From such a compressed proof, the full list of individual openings of $\mathsf{BCS}[\Pi^\Sigma_{\mathrm{KF}}]$ is recomputed deterministically by hashing, and the compressed verifier accepts exactly when the recomputed openings are accepted. A prover of the compressed scheme therefore yields a prover of $\mathsf{BCS}[\Pi^\Sigma_{\mathrm{KF}}]$ with the same success probability, using at most $q_{\mathsf{V}}$ further oracle queries; \cref{cor:pq} then applies with $Q + q_{\mathsf{V}}$ in place of $Q$, which for $Q = 2^{64}$ and the parameters of \cref{rem:pq-params} changes the bound by a factor below $1 + 2^{-26}$.
 The commitment $y$ has entries in $\Fq^2 \subseteq \Sigma$ when $f$ has coefficients in $\Fq$, which the implementation uses to halve the size of its leaves (\cref{sec:impl}).
 \end{remark}
 

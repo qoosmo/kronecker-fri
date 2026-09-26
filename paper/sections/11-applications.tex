@@ -8,7 +8,7 @@ This section places Kronecker-FRI in its intended setting, extends it to the ope
 Multilinear polynomial commitments are the cryptographic component of SNARKs built from the sumcheck protocol~\cite{LFKN92}, such as Spartan~\cite{Set20} and HyperPlonk~\cite{CBBZ23}.
 In these systems the prover commits to multilinear polynomials, typically given by their tables on $B_n$, and the sumcheck reduces the statement to claims $f_i(z) = v_i$ at one random point $z \in \F^n$ chosen by the verifier; claims at several points are reduced to one point by a further sumcheck~\cite{CBBZ23}.
 This is exactly the setting of $\Pi_{\mathrm{KF}}$ and of its batched version below: polynomials committed over the base field $\Fq$ (\cref{lem:enc}(3)), and one evaluation point in the extension $\F$.
-A table is converted to the coefficient form of $f$ by the M\"obius transform before the NTT; this costs less than $1/(3 \cdot 2^R)$ of the commitment's arithmetic (\cref{sec:scheme:enc}), and $1$--$3\%$ of the commitment time in the measurements of \cref{sec:exp:scaling}.
+A table is converted to the coefficient form of $f$ by the M\"obius transform before the NTT; this costs less than $1/(3 \cdot 2^R)$ of the commitment's arithmetic (\cref{sec:scheme:enc}), and below $2\%$ of the commitment time in the measurements of \cref{sec:exp:scaling}.
 
 \paragraph{Reuse of univariate FRI.}
 Kronecker-FRI is a univariate low-degree test in disguise: the prover commits to univariate polynomials $U_f$ and $A$ of degree less than $N$, the verifier forms the batched word $w + \beta w_A + \beta^2 h$ pointwise, and the rest is FRI with the kernel fold (or, equivalently, the classical fold, \cref{rem:cfold}).
@@ -100,25 +100,25 @@ We state the batched protocol for the interactive setting. Its relation is fibre
 \toprule
 target & $\F$ & $\rho$ & $\kappa$ & field term & commit (s) & open (s) & verify (ms) & proof (KiB) \\
 \midrule
-$100$ bits & $\mathbb{F}_{q^2}$ & $1/4$ & 148 & $2^{-104.4}$ & 1.28 & 3.97 & 6.8 & 1080 \\
-$100$ bits & $\mathbb{F}_{q^2}$ & $1/8$ & 121 & $2^{-103.4}$ & 2.63 & 7.07 & 5.5 & 933 \\
-$128$ bits & $\mathbb{F}_{q^4}$ & $1/4$ & 189 & $2^{-232.4}$ & 1.26 & 6.74 & 8.5 & 1453 \\
-post-quantum & $\mathbb{F}_{q^4}$ & $1/4$ & 248 & $2^{-232.4}$ & 1.27 & 6.73 & 11.4 & 1904 \\
+$100$ bits & $\mathbb{F}_{q^2}$ & $1/4$ & 148 & $2^{-104.4}$ & 0.96 & 2.18 & 3.6 & 390 \\
+$100$ bits & $\mathbb{F}_{q^2}$ & $1/8$ & 121 & $2^{-103.4}$ & 1.83 & 4.45 & 3.2 & 346 \\
+$128$ bits & $\mathbb{F}_{q^4}$ & $1/4$ & 189 & $2^{-232.4}$ & 0.96 & 3.96 & 9.0 & 586 \\
+post-quantum & $\mathbb{F}_{q^4}$ & $1/4$ & 248 & $2^{-232.4}$ & 0.92 & 3.95 & 9.5 & 755 \\
 \bottomrule
 \end{tabular}
-\caption{Recommended parameter sets, with measurements at $n = 20$, $\ell = n - 8$ (final polynomial of $256$ coefficients), salted trees, on the machine of \cref{sec:exp}. The field term is the bound $3M/|\F|$ of \cref{sec:sound:params}; the query term $(1-\delta^*)^\kappa$ is below $2^{-100}$ in the first two rows, $2^{-128}$ in the third and $2^{-168}$ in the fourth. The last row is a post-quantum level in the sense of \cref{cor:pq}, not a bit-security level comparable to the others.}
+\caption{Recommended parameter sets, with measurements at $n = 20$ in the configuration KF-8 (arity $8$, caps of $128$ nodes, $\ell = n - 8$), salted trees, on the machine of \cref{sec:exp}. The field term is the bound $3M/|\F|$ of \cref{sec:sound:params}; the query term $(1-\delta^*)^\kappa$ is below $2^{-100}$ in the first two rows, $2^{-128}$ in the third and $2^{-168}$ in the fourth. The last row is a post-quantum level in the sense of \cref{cor:pq}, not a bit-security level comparable to the others.}
 \label{tab:apps-params}
 \end{table}
 
 \Cref{tab:apps-params} gives four parameter sets, with $\delta = \delta^* = (1-\rho)/2$ and $\kappa$ from \cref{tab:kappa}.
 \begin{itemize}
   \item \emph{$100$ bits, $\rho = 1/4$} is the default: both terms of $\varepsilon_{\mathrm{KF}}$ are below $2^{-100}$, so $\varepsilon_{\mathrm{KF}} < 2^{-99}$, for $M \le 2^{26}$, that is, $n \le 24$.
-  \item \emph{$100$ bits, $\rho = 1/8$} trades a prover $1.8$--$2.1$ times slower for proofs $14\%$ smaller and a faster verifier; it is preferable when proofs are stored or sent many times.
+  \item \emph{$100$ bits, $\rho = 1/8$} trades a prover about $2$ times slower for proofs $11\%$ smaller and a slightly faster verifier; it is preferable when proofs are stored or sent many times.
   \item \emph{$128$ bits} needs a larger field, since the field term over $\mathbb{F}_{q^2}$ is only about $2^{-104}$ at this size; with $\mathbb{F}_{q^4}$ it is negligible, and $\kappa = 189$.
   \item \emph{Post-quantum} is the set of \cref{rem:pq-params}, for which \cref{cor:pq} gives $\varepsilon_{\mathrm{ext}}(2^{64}) < 2^{-31.8}$ against quantum adversaries making $2^{64}$ oracle queries, for one opening, for the compiler of~\cite{CDHZ25} (\cref{rem:scope}).
 \end{itemize}
 The first three rows are levels of the interactive protocol (\cref{thm:sound}). For the compiled scheme, the loss of the Fiat--Shamir transformation must be accounted for separately (\cref{rem:classical}).
-We choose $\ell = n - 8$ because it is among the fastest settings for verification at $n = 20$ while reducing proof size by $19\%$ with respect to $\ell = n$ (\cref{tab:exp-stop}); proofs shrink further with smaller $\ell$, at the cost of $O(\kappa N_\ell)$ verifier operations.
+We choose arity $8$ with caps of $128$ nodes, whose proofs are within $3\%$ of the smallest and which verifies faster than arity $16$ (\cref{tab:exp-arity}), and $\ell = n - 8$, which gives the smallest proofs at $n = 20$ (\cref{tab:exp-stop}); none of these choices changes the soundness error (\cref{prop:arity}).
 
 \subsection{Comparison with existing schemes}\label{sec:apps:compare}
 
@@ -154,21 +154,21 @@ We do not report timings for schemes that we have not run ourselves: absolute ti
 \paragraph{Pairing-based schemes.}
 Gemini, Zeromorph, Mercury and Samaritan reduce a multilinear evaluation to univariate KZG commitments, and reach logarithmic or constant proof size.
 Mercury is the closest in spirit to Kronecker-FRI: it also expresses $f(z)$ as a coefficient of a product with a tensor-structured polynomial (\cref{sec:kernel:related}).
-These schemes need a universal structured reference string and pairing-friendly curves, and are not post-quantum. Kronecker-FRI is transparent, uses only a hash function, and has the post-quantum guarantee of \cref{cor:pq}, at the price of proofs of about $1$--$2$\,MiB instead of at most a few kilobytes.
+These schemes need a universal structured reference string and pairing-friendly curves, and are not post-quantum. Kronecker-FRI is transparent, uses only a hash function, and has the post-quantum guarantee of \cref{cor:pq}, at the price of proofs of a few hundred kilobytes ($390$\,KiB at $n = 20$ and $100$ bits, salted) instead of at most a few kilobytes.
 
 \paragraph{Hash-based schemes.}
 Among hash-based schemes, Brakedown has a linear-time prover and proofs of size $O(\sqrt N)$; the folding-based schemes have polylogarithmic proofs.
-The closest comparison is with the schemes that combine a sumcheck with Reed--Solomon folding, which we measured at identical engineering in \cref{sec:exp}: Kronecker-FRI commits and verifies at the same speed as KBFold and the coefficient-form (BaseFold-style) baseline, has proofs $8$--$17\%$ larger, and opens $3.0$--$3.7$ times more slowly.
+The closest comparison is with the schemes that combine a sumcheck with Reed--Solomon folding, which we measured at identical engineering in \cref{sec:exp:scaling}: Kronecker-FRI commits and verifies at the same speed as KBFold and the coefficient-form (BaseFold-style) baseline, with proofs within $5\%$ of theirs, and its opening additionally commits to $A$. With arity $8$ and caps, Kronecker-FRI proofs are $95$ to $372$\,KiB for $n = 12, \dots, 22$ and verification takes $1.6$ to $4.5$\,ms, unsalted, with interactive soundness error below $2^{-99}$ (\cref{tab:exp-kf8}); salting adds $41$ to $102$\,KiB; these optimisations apply to the folding phase of the sumcheck-based schemes as well.
 DeepFold and WHIR reduce proof size and verification time substantially below these schemes by working in the list-decoding regime, with fewer queries; WHIR reports $63$\,KiB proofs and $360\,\mu$s verification for degree $2^{22}$ at $100$ bits~\cite{ACFY24}; the main theorem of~\cite{ACFY24} (their Theorem~1) assumes a conjecture on correlated agreement (their Conjecture~1), and the authors note that parameters provable without it are less efficient.
 Part of the difference is the number of queries: our analysis, like that of KBFold, is confined to the unique-decoding regime (\cref{rem:unique-only}), which forces $\kappa = 148$ at $\rho = 1/4$; the other part is that WHIR's proximity test is itself more query-efficient than FRI~\cite{ACFY24}.
 
-\paragraph{What Kronecker-FRI offers.}
-Its advantages are structural rather than in raw speed.
+\paragraph{Positioning.}
+Kronecker-FRI is designed around a simple verifier and a short soundness argument.
 \begin{itemize}
   \item The verifier is an FRI verifier plus an $O(n)$ local computation per query; there is no sumcheck, and no round of the protocol depends on the multilinear structure except the first.
   \item The soundness proof has one algebraic step, the batching lemma, on top of the folding test (\cref{sec:sound}); the folding test itself is independent of the evaluation claim.
   \item The scheme is built from components that already exist in FRI-based systems (\cref{sec:apps:fit}).
+  \item Standard FRI optimisations, higher folding arity and Merkle caps, apply without changing the soundness error (\cref{prop:arity}), and give proofs of $299$\,KiB unsalted and $390$\,KiB salted, and verification in $3.4$ to $3.6$\,ms, at $n = 20$ (\cref{tab:exp-kf8}).
   \item Its interactive soundness is fully proved in the unique-decoding regime, without conjectures, from the correlated-agreement theorem of~\cite{BCIKS23}; its post-quantum guarantee is proved for one opening from the quoted theorem of~\cite{CDHZ25} (\cref{cor:pq}), for their compiler.
 \end{itemize}
-Its costs are an opening $3$--$3.7$ times slower than KBFold's at the same engineering, and the proof sizes of unique-decoding FRI.
 The natural next step is a list-decoding analysis of the batching lemma, which would reduce $\kappa$ and bring proof sizes closer to those of DeepFold and WHIR.

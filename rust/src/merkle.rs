@@ -102,6 +102,21 @@ impl MerkleTree {
     pub fn root(&self) -> Digest {
         self.layers.last().unwrap()[0]
     }
+    /// The cap of height `c`: the 2^c nodes at distance c from the root (the root itself for c = 0).
+    pub fn cap(&self, c: usize) -> Vec<Digest> {
+        let depth = self.layers.len() - 1;
+        self.layers[depth - c.min(depth)].clone()
+    }
+    /// Open the aligned group of 2^g leaves containing leaf `i`, with the path stopping below a
+    /// cap of height `c` (the verifier checks the result against the published cap).
+    /// Requires g + c <= depth, so that the group node lies below the cap.
+    pub fn open_group_capped(&self, i: usize, g: usize, c: usize) -> GroupOpening {
+        let depth = self.layers.len() - 1;
+        let top = depth - c.min(depth);
+        let mut op = self.open_group(i, g);
+        op.path.truncate(top.saturating_sub(g));
+        op
+    }
     /// Open the aligned group of 2^g leaves containing leaf `i`.
     pub fn open_group(&self, i: usize, g: usize) -> GroupOpening {
         let start = (i >> g) << g;
@@ -153,6 +168,57 @@ pub fn verify_group(
         idx >>= 1;
     }
     idx == 0 && &cur == root
+}
+
+/// Root of the tree whose cap (the 2^c nodes at height c below the root) is `cap`.
+pub fn root_from_cap(cap: &[Digest]) -> Digest {
+    let mut level = cap.to_vec();
+    while level.len() > 1 {
+        level = level
+            .as_chunks::<2>()
+            .0
+            .iter()
+            .map(|[l, r]| hash_node(l, r))
+            .collect();
+    }
+    level[0]
+}
+
+/// Check a capped group opening (see `MerkleTree::open_group_capped`) against a cap.
+pub fn verify_group_capped(
+    cap: &[Digest],
+    i: usize,
+    g: usize,
+    data: &[Vec<u8>],
+    op: &GroupOpening,
+) -> bool {
+    if data.len() != 1 << g || op.salts.len() != 1 << g || !cap.len().is_power_of_two() {
+        return false;
+    }
+    let mut level: Vec<Digest> = data
+        .iter()
+        .zip(&op.salts)
+        .map(|(d, s)| hash_leaf(d, s))
+        .collect();
+    while level.len() > 1 {
+        level = level
+            .as_chunks::<2>()
+            .0
+            .iter()
+            .map(|[l, r]| hash_node(l, r))
+            .collect();
+    }
+    let mut cur = level[0];
+    let mut idx = i >> g;
+    for sib in &op.path {
+        cur = if idx & 1 == 0 {
+            hash_node(&cur, sib)
+        } else {
+            hash_node(sib, &cur)
+        };
+        idx >>= 1;
+    }
+    idx < cap.len() && cap[idx] == cur
 }
 
 /// Hash-chain transcript: state_{k+1} = H(state_k || tag || len || data); outputs are
@@ -254,6 +320,28 @@ mod tests {
                     let mut bad = data.clone();
                     bad[0][0] ^= 1;
                     assert!(!verify_group(&t.root(), i, g, &bad, &op));
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn capped_openings() {
+        let leaves: Vec<Vec<u8>> = (0..64u8).map(|i| vec![i, 3 * i]).collect();
+        let t = MerkleTree::new(&leaves, &[5u8; 32], b"c", 32);
+        for c in 0..=6 {
+            let cap = t.cap(c);
+            assert_eq!(cap.len(), 1 << c);
+            assert_eq!(root_from_cap(&cap), t.root());
+            for g in 0..3usize.min(7 - c) {
+                for i in (0..64).step_by(5) {
+                    let op = t.open_group_capped(i, g, c);
+                    let start = (i >> g) << g;
+                    let data = leaves[start..start + (1 << g)].to_vec();
+                    assert!(verify_group_capped(&cap, i, g, &data, &op));
+                    let mut bad = data.clone();
+                    bad[0][1] ^= 1;
+                    assert!(!verify_group_capped(&cap, i, g, &bad, &op));
                 }
             }
         }

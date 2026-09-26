@@ -56,7 +56,7 @@ It rests on the identity $f(z) = [X^{N-1}]\,U_f(X)K_z(X)$, where $U_f$ is the Kr
 The prover commits to $U_f$ as a Reed--Solomon codeword on a smooth multiplicative domain. To open at $z$, it commits to one opening polynomial $A$; the verifier derives a second one from the identity $X U_f K_z = A + vX^N + X^{N+1}H$ as a virtual word, batches the three words with one random challenge, and runs an FRI-style folding test.
 We prove completeness, soundness, round-by-round knowledge soundness and evaluation binding in the unique-decoding regime, using only the correlated-agreement theorem of Ben-Sasson et al.\ for Reed--Solomon codes, and we derive post-quantum knowledge soundness of the compiled scheme in the quantum random oracle model from the theorem of Chiesa, Di, Hu and Zheng.
 We extend the scheme to the opening of several polynomials at one point.
-A Rust implementation over the Goldilocks field shows that, at identical engineering, Kronecker-FRI commits and verifies as fast as a sumcheck-based Reed--Solomon scheme, with proofs $8$--$17\%$ larger and an opening $3$ to $3.7$ times slower; its verifier is an FRI verifier with $O(n)$ extra field operations per query.
+The analysis covers folding of any arity $2^k$ with the same error bound. A Rust implementation over the Goldilocks field shows that, at identical engineering, Kronecker-FRI commits and verifies as fast as a sumcheck-based Reed--Solomon scheme; with arity $8$ and Merkle caps, a $2^{20}$-coefficient polynomial is opened at a $100$-bit interactive soundness level with a proof of $299$\,KiB ($390$\,KiB with salted trees), verified in $3.4$\,ms on one core. The verifier is an FRI verifier with $O(n)$ extra field operations per query.
 \end{abstract}
 
 \tableofcontents

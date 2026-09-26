@@ -11,7 +11,7 @@ The parameters are:
   \item the number of variables $n \ge 1$, and $N = 2^n$;
   \item a base field $\Fq$ of odd characteristic and a challenge field $\F \supseteq \Fq$, both finite;
   \item a rate $\rho = 2^{-R}$ with $R \ge 2$, and a smooth domain $L \le \Fq^\times$ of order $M = N/\rho = 2^{n+R}$, which exists if and only if $2^{n+R} \mid q-1$ (\cref{lem:power}(1));
-  \item a number of folding rounds $\ell \in \iv{1}{n}$ and a number of queries $\kappa \ge 1$.
+  \item a number of folding rounds $\ell \in \iv{1}{n}$, a number of queries $\kappa \ge 1$, and a set $C \subseteq \iv{1}{\ell-1}$ of committed levels, by default $C = C_k$ for a folding arity $2^k$ (\cref{def:fpt-arity}).
 \end{itemize}
 The levels $L_j$, $M_j$, $N_j$ and codes $\Cc_j = \RS_\F[L_j,N_j]$, $j \in \iv{0}{\ell}$, are those of \cref{sec:fold}; in particular $\Cc_0 = \RS_\F[L,N]$.
 The setting of \cref{sec:fold} only requires $R \ge 1$; the stronger condition $R \ge 2$, that is $\rho \le 1/4$, is used by the batching lemma of \cref{sec:sound}, and explained in \cref{rem:rate}.
@@ -104,7 +104,7 @@ The protocol has $\ell + 2$ rounds, numbered as in \cref{def:iop}.
     w_0 \;=\; w + \beta\, w_A + \beta^2\, h \;\in\; \F^L.
   \]
   \item \emph{Round $2$.} The prover sends nothing; the verifier sends $r_1 \in \F$.
-  \item \emph{Round $j+1$, $j \in \iv{2}{\ell}$.} The prover sends an oracle $w_{j-1} \in \F^{L_{j-1}}$; honestly $w_{j-1} = \fold_{r_{j-1}}(w_{j-2})$. The verifier sends $r_j \in \F$.
+  \item \emph{Round $j+1$, $j \in \iv{2}{\ell}$.} If $j - 1 \in C$, the prover sends an oracle $w_{j-1} \in \F^{L_{j-1}}$, honestly $w_{j-1} = \fold_{r_{j-1}}(w_{j-2})$; otherwise it sends nothing, and $w_{j-1} = \fold_{r_{j-1}}(w_{j-2})$ is virtual. The verifier sends $r_j \in \F$.
   \item \emph{Round $\ell+2$ (final).} The prover sends $P \in \F[X]_{<N_\ell}$ by its $N_\ell$ coefficients; honestly $\ev_{L_\ell}(P) = \fold_{r_\ell}(w_{\ell-1})$. The verifier sends $\kappa$ independent uniform points $\xi^{(1)}, \dots, \xi^{(\kappa)} \in L$.
 \end{enumerate}
 Put $w_\ell = \ev_{L_\ell}(P)$ and $\hat w_j = \fold_{r_j}(w_{j-1})$ for $j \in \iv{1}{\ell}$. The verifier accepts if and only if the \emph{fold checks} $\hat w_j(\xi^{2^j}) = w_j(\xi^{2^j})$ hold for every $j \in \iv{1}{\ell}$ at every query point $\xi = \xi^{(i)}$, as in \eqref{eq:fold-check}.
@@ -112,7 +112,7 @@ The values $w_0(\pm\xi)$ needed by the fold check of level $1$ are computed from
 The challenge sets are $\F$ for rounds $1$ to $\ell+1$ and $L^{\times\kappa}$ for round $\ell+2$.
 \end{definition}
 
-Rounds $2$ to $\ell+2$ of $\Pi_{\mathrm{KF}}$ are rounds $1$ to $\ell+1$ of the folding test $\Pi_{\mathrm{FT}}[\ell,\kappa]$ (\cref{def:fpt}) on the instance $w_0$, which is determined after round $1$; the checks of $\Pi_{\mathrm{KF}}$ are exactly those of that test.
+Rounds $2$ to $\ell+2$ of $\Pi_{\mathrm{KF}}$ are rounds $1$ to $\ell+1$ of the folding test $\Pi^C_{\mathrm{FT}}[\ell,\kappa]$ (\cref{def:fpt-arity}) on the instance $w_0$, which is determined after round $1$; the checks of $\Pi_{\mathrm{KF}}$ are exactly those of that test. By \cref{prop:arity} we may, and do, analyse it as $\Pi_{\mathrm{FT}}[\ell,\kappa]$ with virtual words at the levels outside $C$; for $C = \iv{1}{\ell-1}$ (arity $2$) the two coincide.
 The words $w_j$, $\hat w_j$, the sets $\Bb_j$ and $\Ww_j(c)$ of \cref{sec:fold:witness}, and the good challenges of \cref{def:good} are therefore defined for $\Pi_{\mathrm{KF}}$, as functions of $\beta$ and $r$.
 
 \begin{remark}[Design]\label{rem:design}
@@ -131,7 +131,7 @@ On input $f$ (in coefficient form, with $w = \Enc(f)$ already computed) and $z$:
   \item compute $G = U_f K_z$ (\cref{lem:cost}(3)); read off $v = \coef{N-1}{G}$ and the opening polynomials $A = A_{U_f,z}$ and $H = H_{U_f,z}$, whose coefficients are those of $XG$ in degrees $\iv{0}{N-1}$ and $\iv{N+1}{2N}$ (proof of \cref{lem:split});
   \item compute $w_A = \ev_L(A)$ by one NTT of size $M$ over $\F$, and send it;
   \item on receiving $\beta$, compute $\ev_L(K_z)$ (\cref{lem:kernel-domain}), the virtual word $h$, which equals $\ev_L(H)$ (\cref{lem:virtual}(3)), the word $w_0 = w + \beta w_A + \beta^2 h$, and $U_0 = U_f + \beta A + \beta^2 H \in \F[X]_{<N}$;
-  \item on receiving $r_j$ ($j \in \iv{1}{\ell-1}$), compute and send $w_j = \fold_{r_j}(w_{j-1})$ with \eqref{eq:fold-explicit};
+  \item on receiving $r_j$ ($j \in \iv{1}{\ell-1}$), compute $w_j = \fold_{r_j}(w_{j-1})$ with \eqref{eq:fold-explicit}, and send it if $j \in C$;
   \item on receiving $r_\ell$, send $P = \pfold^{(\ell)}_r(U_0)$, computed on coefficients (\cref{lem:iterated}).
 \end{enumerate}
 
@@ -144,7 +144,7 @@ If $w = \Enc(f)$ and $v = f(z)$, the honest prover makes the verifier of $\Pi_{\
 \begin{proof}
 Let $A = A_{U_f,z}$ and $H = H_{U_f,z}$. By \cref{thm:extraction}, $v = f(z) = \coef{N-1}{U_f K_z}$, so \cref{lem:virtual}(3) applies: $h = \ev_L(H)$.
 By linearity of $\ev_L$, $w_0 = \ev_L(U_0)$ with $U_0 = U_f + \beta A + \beta^2 H \in \F[X]_{<N}$.
-The honest messages of rounds $2$ to $\ell+2$ are those of the honest prover of $\Pi_{\mathrm{FT}}[\ell,\kappa]$ for $U_0$, so all fold checks hold at every point, by \cref{lem:fpt-complete}(1).
+The honest messages of rounds $2$ to $\ell+2$ are those of the honest prover of $\Pi^C_{\mathrm{FT}}[\ell,\kappa]$ for $U_0$, whose induced prover of $\Pi_{\mathrm{FT}}[\ell,\kappa]$ (\cref{prop:arity}(1)) is the honest one; so all fold checks hold at every point, by \cref{lem:fpt-complete}(1).
 \end{proof}
 
 \subsection{Costs}\label{sec:scheme:costs}
@@ -155,8 +155,8 @@ We count operations in $\F$ (and note when they are in $\Fq$), with $\mu = n + R
 \begin{enumerate}
   \item \emph{Commit.} One NTT of size $M$: $\tfrac{M}{2}\mu$ multiplications and $M\mu$ additions, in $\Fq$ if $f$ has coefficients in $\Fq$; plus $\tfrac n2 N$ subtractions if $f$ is given in table form.
   \item \emph{Prover, opening.} At most $2nN$ multiplications and $2nN$ additions for $U_f K_z$; one NTT of size $M$ over $\F$; fewer than $4M$ operations for $\ev_L(K_z)$; $6M$ operations for $h$ and $4M$ for $w_0$, given the powers $\xi^{N}$ and $\xi^{-(N+1)}$, $\xi \in L$, which lie in $\Fq$; at most $7M$ operations for the words $w_1, \dots, w_{\ell-1}$ (given the inverses $(2\xi)^{-1}$, which lie in $\Fq$ and are precomputed once per domain); and at most $7N$ operations for $U_0$ and $P$. In total $O(M\mu)$, dominated by the NTT.
-  \item \emph{Verifier.} Per query point $\xi$: $n$ squarings, one multiplication and one inversion in $\Fq$ for $\xi^2, \dots, \xi^{2^n} = \xi^N$ and $\xi^{-(N+1)}$; $2n+1$ operations for $K_z(\xi)$ and $K_z(-\xi)$; $12$ operations for $h(\pm\xi)$ and $8$ for $w_0(\pm\xi)$; at most $7\ell$ operations for the fold checks, besides $\ell$ exponentiations in $\Fq$ for the inverses $(2\xi^{2^{j-1}})^{-1}$ or, alternatively, $\ell$ squarings of $\xi^{-1}$; and $2N_\ell$ operations for $P(\xi^{2^\ell})$. In total $O(\kappa(n + N_\ell))$.
-  \item \emph{Communication, IOP model.} Oracles: $w_A$ of length $M$, and $w_j$ of length $M_j$ for $j \in \iv{1}{\ell-1}$, of total length less than $2M$. Non-oracle messages: the $N_\ell$ coefficients of $P$. Queries: $4$ to $(w, w_A)$ and $2$ to each of $w_1, \dots, w_{\ell-1}$ per point, that is, $\kappa(2\ell + 2)$ in total.
+  \item \emph{Verifier, arity $2$.} Per query point $\xi$: $n$ squarings, one multiplication and one inversion in $\Fq$ for $\xi^2, \dots, \xi^{2^n} = \xi^N$ and $\xi^{-(N+1)}$; $2n+1$ operations for $K_z(\xi)$ and $K_z(-\xi)$; $12$ operations for $h(\pm\xi)$ and $8$ for $w_0(\pm\xi)$; at most $7\ell$ operations for the fold checks, besides $\ell$ exponentiations in $\Fq$ for the inverses $(2\xi^{2^{j-1}})^{-1}$ or, alternatively, $\ell$ squarings of $\xi^{-1}$; and $2N_\ell$ operations for $P(\xi^{2^\ell})$. In total $O(\kappa(n + N_\ell))$.
+  \item \emph{Communication, IOP model.} Oracles: $w_A$ of length $M$, and $w_j$ of length $M_j$ for $j \in C$, of total length less than $2M$ (less than $M + M/(2^k-1)$ for $C = C_k$). Non-oracle messages: the $N_\ell$ coefficients of $P$. Queries, per point: for arity $2$, $4$ to $(w, w_A)$ and $2$ to each of $w_1, \dots, w_{\ell-1}$, that is, $\kappa(2\ell + 2)$ in total; for general $C$, $2^{g}$ values of $w$ and of $w_A$ and $2^{g'}$ values of each committed word, where $g, g'$ are the gaps between consecutive levels of $C \cup \{0,\ell\}$ (\cref{prop:arity}(3)). For arity $2^k$, the verifier's field operations are $O(\kappa(2^k(n + \ell) + N_\ell))$.
 \end{enumerate}
 \end{proposition}
 
@@ -164,11 +164,11 @@ We count operations in $\F$ (and note when they are in $\Fq$), with $\mu = n + R
 (1) \Cref{fact:ntt} and \cref{lem:mobius}.
 (2) The product is \cref{lem:cost}(3); the NTT is \cref{fact:ntt}, over $\F$ since the coefficients of $A$ lie in $\F$; $\ev_L(K_z)$ is \cref{lem:kernel-domain}. Each value $h(\xi) = ((w(\xi)K_z(\xi))\xi - w_A(\xi) - v\xi^N)\,\xi^{-(N+1)}$ costs four multiplications and two subtractions, and each entry of $w_0$ two multiplications and two additions, with $\beta^2$ computed once. For the folds, each value $\fold_r(w)(\xi^2) = (2r-1)w_e(\xi^2) + (1-r)w_o(\xi^2)$ costs one addition and one multiplication by $\tfrac12$ for $w_e$, one subtraction and one multiplication by $(2\xi)^{-1}$ for $w_o$, and two multiplications and one addition for the combination, so $7$ operations; there are $\sum_{j=1}^{\ell-1} M_j < M$ values. For $U_0$, $2N$ multiplications and $2N$ additions; for $P$, $3$ operations per output coefficient and $\sum_{j=1}^{\ell} N_j < N$ outputs.
 (3) The powers $\xi^{2^k}$ for $k \in \iv{1}{n}$ take $n$ squarings; $\xi^{-(N+1)} = (\xi^N \cdot \xi)^{-1}$ one multiplication and one inversion, and $(-\xi)^{N} = \xi^N$, $(-\xi)^{-(N+1)} = -\xi^{-(N+1)}$ since $N$ is even. By \cref{lem:kernel-basic}(2), $K_z(\pm\xi) = (z_1 \pm \xi)\,K_{z'}(\xi^2)$, where $K_{z'}(\xi^2)$ takes $n-1$ additions and $n-2$ multiplications given the powers (\cref{lem:cost}(1)); this gives both values with $2n+1$ operations. The values $h(\pm\xi)$ and $w_0(\pm\xi)$ are as in (2). The fold check of level $j$ needs $(2\xi_{j-1})^{-1}$ for the point $\xi_{j-1} = \pm\xi^{2^{j-1}}$ of its fibre, in $\Fq$; each check then costs $7$ operations as in (2) and one comparison. $P$ is evaluated by Horner's rule.
-(4) $M + \sum_{j=1}^{\ell-1} M_j < 2M$. At the query point $\xi$, the fold check of level $1$ reads $w$ and $w_A$ at $\pm\xi$, and the fold check of level $j \ge 2$ reads $w_{j-1}$ at $\pm\xi^{2^{j-1}}$; the right-hand sides $w_j(\xi^{2^j})$ for $j < \ell$ are among the values read at level $j+1$.
+(4) $M + \sum_{j \in C} M_j < 2M$, and \cref{prop:arity}(3) for arity $2^k$; the virtual word must be computed at the $2^{g}$ points read at level $0$, with $O(n)$ operations each. At the query point $\xi$, the fold check of level $1$ reads $w$ and $w_A$ at $\pm\xi$, and the fold check of level $j \ge 2$ reads $w_{j-1}$ at $\pm\xi^{2^{j-1}}$; the right-hand sides $w_j(\xi^{2^j})$ for $j < \ell$ are among the values read at level $j+1$.
 \end{proof}
 
 \begin{remark}[Choice of $\ell$]\label{rem:ell}
-With $\ell = n$, $P$ is a constant and the verifier's work per point is $O(n)$; with $\ell < n$, the prover sends $N_\ell = 2^{n-\ell}$ coefficients instead of the last $n - \ell$ oracles, which in the compiled scheme removes $n-\ell$ Merkle roots and $\kappa(n-\ell)$ authentication paths at the cost of $2^{n-\ell}$ field elements and $O(\kappa 2^{n-\ell})$ verifier operations. The choice is made in \cref{sec:exp}.
+With $\ell = n$, $P$ is a constant and the verifier's work per point is $O(n)$; with $\ell < n$, the prover sends $N_\ell = 2^{n-\ell}$ coefficients instead of the last $n - \ell$ oracles, which in the compiled scheme with arity $2$ removes $n-\ell$ Merkle roots and $\kappa(n-\ell)$ authentication paths at the cost of $2^{n-\ell}$ field elements and $O(\kappa 2^{n-\ell})$ verifier operations. The choice is made in \cref{sec:exp}.
 \end{remark}
 
 \begin{remark}[Comparison with the kernel-basis scheme]\label{rem:vs-kbfold}

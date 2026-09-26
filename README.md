@@ -10,8 +10,8 @@
 
 | | What | Where |
 |---|---|---|
-| 📄 | A self-contained paper (60 pages): definitions, theorems and full proofs, experiments, comparison | [`paper/kronecker-fri.pdf`](paper/kronecker-fri.pdf) |
-| ⚙️ | A Rust reference implementation (Goldilocks, quadratic and quartic extensions, salted Merkle trees) | [`rust/`](rust/) |
+| 📄 | A self-contained paper (63 pages): definitions, theorems and full proofs, experiments, comparison | [`paper/kronecker-fri.pdf`](paper/kronecker-fri.pdf) |
+| ⚙️ | A Rust reference implementation (Goldilocks, quadratic and quartic extensions, salted Merkle trees, folding arity $2^k$, Merkle caps) | [`rust/`](rust/) |
 | 📊 | Raw benchmark data behind every table of the paper | [`bench/`](bench/) |
 | 🌐 | Project page | [qoosmo.github.io/kronecker-fri](https://qoosmo.github.io/kronecker-fri/) |
 
@@ -35,8 +35,8 @@ To prove $f(z) = v$, the prover splits $X\,U_f K_z = A + v\,X^N + X^{N+1}H$ with
 
 1. **Commit.** $\mathrm{Enc}(f) = \mathrm{ev}_L(U_f)$, a Reed–Solomon codeword of rate $\rho = 2^{-R}$ ($R \ge 2$) on a smooth multiplicative domain $L$ of order $M = N/\rho$. One NTT.
 2. **Round 1.** The prover sends $w_A = \mathrm{ev}_L(A)$; the verifier sends $\beta$. The batched word is $w + \beta w_A + \beta^2 h$, where $h(\xi) = (\xi\,w(\xi)K_z(\xi) - w_A(\xi) - v\xi^N)/\xi^{N+1}$.
-3. **Rounds 2 to ℓ+1.** FRI folding (kernel fold, equivalent to the classical fold up to reparametrisation).
-4. **Round ℓ+2.** Final polynomial of $N/2^\ell$ coefficients, then $\kappa$ queries. Each query reads the commitment and $w_A$ on one fibre $\{\pm\xi\}$ and one fibre per folded word.
+3. **Rounds 2 to ℓ+1.** FRI folding (kernel fold, equivalent to the classical fold up to reparametrisation), of any arity $2^k$: only every $k$-th folded word is committed.
+4. **Round ℓ+2.** Final polynomial of $N/2^\ell$ coefficients, then $\kappa$ queries. Each query reads the commitment, $w_A$ and each committed folded word on one coset of $2^k$ points.
 
 No sumcheck. The verifier is an FRI verifier plus $O(n)$ field operations per query.
 
@@ -47,6 +47,7 @@ No sumcheck. The verifier is an FRI verifier plus $O(n)$ field operations per qu
 | Extraction identity | $f(z) = [X^{N-1}]\,U_f K_z$ | Thm 4.5 |
 | Identity lemma | $X U K_z = A + vX^N + X^{N+1}H$ with $\deg A, H < N$ forces $v = [X^{N-1}] U K_z$ | Lem 4.10, 4.12 |
 | Folding test | soundness for arbitrary words, witness sets, codeword chain | Thm 5.24 |
+| Higher arity | committing to every $k$-th folded word only leaves every error term unchanged | Prop 5.28 |
 | Batching lemma | correlated agreement for curves of degree 2 + identity lemma via the virtual word | Lem 7.4 |
 | Soundness | $\varepsilon_{\mathrm{KF}} < 3M/\lvert\mathbb{F}\rvert + (1-\delta)^\kappa$ for all $\delta \le (1-\rho)/2$ | Thm 7.8 |
 | Knowledge | round-by-round knowledge soundness with a decoding extractor; evaluation binding | Thm 7.11, Cor 7.12 |
@@ -57,24 +58,35 @@ The only external result about codes is the correlated-agreement theorem of Ben-
 
 ## Measurements
 
-One core, $n = 20$, $\rho = 1/4$, $\kappa = 148$, $\mathbb{F} = \mathbb{F}_{q^2}$ (Goldilocks), same machine and session, unsalted trees ([`bench/`](bench/), paper §10):
+One core, $\rho = 1/4$, $\kappa = 148$ (100-bit query term), $\mathbb{F} = \mathbb{F}_{q^2}$ (Goldilocks), unsalted trees, all numbers from one session on one machine ([`bench/`](bench/), paper §10).
+
+**Recommended configuration KF-8** (arity 8, Merkle caps of 128 nodes, $\ell = n-8$):
+
+| $n$ | Commit | Open | Verify | Proof |
+|---:|---:|---:|---:|---:|
+| 16 | 41 ms | 92 ms | 2.4 ms | 184 KiB |
+| 18 | 160 ms | 388 ms | 3.0 ms | 248 KiB |
+| 20 | 0.73 s | 1.69 s | 3.4 ms | 299 KiB |
+| 22 | 3.18 s | 9.28 s | 4.5 ms | 372 KiB |
+
+**At identical engineering** ($n = 20$, arity 2, no caps, $\ell = n-4$, the configuration of the KBFold code):
 
 | Scheme | Commit | Open | Verify | Proof |
 |---|---:|---:|---:|---:|
-| **Kronecker-FRI** | 0.98 s | 3.03 s | 6.6 ms | 1173 KiB |
-| KBFold (sumcheck + kernel folding) | 1.01 s | 0.83 s | 6.5 ms | 1072 KiB |
-| Coefficient-form baseline (BaseFold-style) | 0.98 s | 0.85 s | 6.5 ms | 1072 KiB |
+| **Kronecker-FRI** | 0.73 s | 2.14 s | 6.3 ms | 1117 KiB |
+| KBFold (sumcheck + kernel folding) | 0.77 s | 0.71 s | 5.9 ms | 1072 KiB |
+| Coefficient-form baseline (BaseFold-style) | 0.74 s | 0.60 s | 5.7 ms | 1072 KiB |
 
-Commit and verify cost the same; proofs are 8–17% larger; opening is 3.0–3.7× slower across $n = 12,\dots,22$. The extra opening cost is the commitment to $A$ (product $U_f K_z$, one NTT, one Merkle tree, the virtual word), measured term by term in the paper.
+Commit and verify cost the same across $n = 12,\dots,22$, with proofs within 5%; the opening additionally commits to $A$ (product $U_f K_z$, one NTT, one Merkle tree, the virtual word), measured term by term in the paper. Arity and caps are generic FRI optimisations that would also shrink the proofs of the sumcheck-based schemes; the table above isolates the protocols.
 
-Recommended parameter sets (paper §11.3, salted, $n = 20$, $\ell = n-8$):
+Recommended parameter sets (paper §11.3, KF-8, **salted**, $n = 20$):
 
-| Target | Field | ρ | κ | Open | Verify | Proof |
-|---|---|---|---:|---:|---:|---:|
-| 100 bits | $\mathbb{F}_{q^2}$ | 1/4 | 148 | 3.97 s | 6.8 ms | 1080 KiB |
-| 100 bits | $\mathbb{F}_{q^2}$ | 1/8 | 121 | 7.07 s | 5.5 ms | 933 KiB |
-| 128 bits | $\mathbb{F}_{q^4}$ | 1/4 | 189 | 6.74 s | 8.5 ms | 1453 KiB |
-| post-quantum (ε_ext < 2^-31.8 at 2^64 queries) | $\mathbb{F}_{q^4}$ | 1/4 | 248 | 6.73 s | 11.4 ms | 1904 KiB |
+| Target | Field | ρ | κ | Commit | Open | Verify | Proof |
+|---|---|---|---:|---:|---:|---:|---:|
+| 100 bits | $\mathbb{F}_{q^2}$ | 1/4 | 148 | 0.96 s | 2.18 s | 3.6 ms | 390 KiB |
+| 100 bits | $\mathbb{F}_{q^2}$ | 1/8 | 121 | 1.83 s | 4.45 s | 3.2 ms | 346 KiB |
+| 128 bits | $\mathbb{F}_{q^4}$ | 1/4 | 189 | 0.96 s | 3.96 s | 9.0 ms | 586 KiB |
+| post-quantum (ε_ext < 2^-31.8 at 2^64 queries) | $\mathbb{F}_{q^4}$ | 1/4 | 248 | 0.92 s | 3.95 s | 9.5 ms | 755 KiB |
 
 ## Quick start
 
@@ -84,14 +96,15 @@ cargo test --release                                   # unit and end-to-end tes
 cargo run --release --example quickstart               # commit, open and verify one polynomial
 cargo run --release --example small_field_checks       # independent checks over F_257
 cargo run --release --example pq_params                # exact post-quantum bound (rational arithmetic)
-cargo run --release --example bench -- scaling         # also: breakdown | stop | fields | params
+cargo run --release --example bench -- scaling         # also: arity | breakdown | stop | params
 ```
 
 ```rust
 use kronecker_fri::field::{Fp, Fp2};
 use kronecker_fri::pcs::{commit_table, open, verify, Params};
 
-let p = Params { n: 16, log_inv_rate: 2, ell: 12, queries: 148, salt_len: 32 };
+// rate 1/4, arity 8, Merkle caps, l = n - 8, 148 queries, 32-byte salts
+let p = Params::recommended(16, 148, 32);
 let table: Vec<Fp> = (0..1u64 << 16).map(Fp::new).collect(); // f on {0,1}^16
 let z: Vec<Fp2> = (0..16u64).map(|i| Fp2(Fp::new(3 + i), Fp::new(7 * i))).collect();
 // The seeds derive the Merkle salts: use fresh, secret randomness in practice.
@@ -111,15 +124,13 @@ bench/     raw CSV output of every benchmark reported in the paper
 docs/      project page, verification status, roadmap
 ```
 
-## Scope — what is and is not claimed
+## Scope and future work
 
-- The identity $f(z) = [X^{N-1}]U_fK_z$ is an inner-product-as-coefficient identity; the same tensor structure appears in the pairing-based scheme Mercury. The contribution is the transparent, hash-based scheme built on it and its analysis.
-- Kronecker-FRI is **not** faster than sumcheck-based Reed–Solomon schemes: its opening is 3–3.7× slower at identical engineering.
-- The analysis is in the **unique-decoding** regime; list-decoding schemes (DeepFold, WHIR) have much smaller proofs.
-- The post-quantum statement covers **one opening**, uses the quoted theorem of Chiesa–Di–Hu–Zheng, and applies to their compiler; the code follows its structure (salted trees, round salts, the challenge maps) but has not been checked against it byte by byte.
-- Batched openings are proved for the interactive protocol and are not yet implemented. Zero knowledge is out of scope.
+- Proofs are in the unique-decoding regime; the post-quantum theorem covers one opening, for the compiler of Chiesa–Di–Hu–Zheng.
+- Batched openings are proved for the interactive protocol; zero knowledge is future work.
+- Next: a full Lean 4 formalisation and a list-decoding analysis (fewer queries).
 
-See [`docs/VERIFICATION.md`](docs/VERIFICATION.md) for the status of every result and [`docs/ROADMAP.md`](docs/ROADMAP.md) for what comes next (Lean 4 formalisation, list decoding, batching in the post-quantum setting).
+See [`docs/VERIFICATION.md`](docs/VERIFICATION.md) for the status of every result and [`docs/ROADMAP.md`](docs/ROADMAP.md) for the roadmap.
 
 ## Related work in this series
 

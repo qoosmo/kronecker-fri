@@ -1,5 +1,20 @@
 # Changelog
 
+## v0.2.0 — 2026-09-26
+
+### Paper (63 pages)
+- New §5.7: folding of arity $2^k$ with virtual levels (Definition 5.27, Proposition 5.28): committing to every $k$-th folded word only leaves every error term unchanged.
+- §6–§8 stated for any set of committed levels; §8 justifies compressed openings (shared paths, caps, deduplication) as a re-encoding of the BCS proof.
+- §9–§11 rewritten with new measurements from one session: arity/caps table, recommended configuration KF-8, new parameter sets (390 KiB salted proofs at $n = 20$, 100 bits; 755 KiB post-quantum).
+
+### Code
+- Folding arity $2^k$ (`Params::fold_log`), coset-grouped leaf layout, one path per coset.
+- Merkle caps (`Params::cap_log`), deduplicated openings with a canonical order.
+- `Params::recommended(n, queries, salt_len)`; transcript label `kronecker-fri-v3` (proofs are not compatible with v0.1.0).
+- Tests for arities 2–16 with and without caps; new `bench arity` mode.
+- Clippy clean on Rust 1.98 (`as_chunks`); CI pinned to Rust 1.95.0.
+
+
 ## v0.1.0 — 2026-09-25
 
 First public release.

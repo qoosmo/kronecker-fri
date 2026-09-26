@@ -329,3 +329,33 @@ The scheme of \cref{sec:scheme} runs $\Pi_{\mathrm{FT}}[\ell,\kappa]$ on the bat
 Its analysis (\cref{sec:sound}) needs more than item 3 of \cref{thm:fpt}: it uses item 2, the witness sets of \cref{def:witness}, and \cref{lem:rbr-step} to define the round-by-round state.
 This is why these statements are given for an arbitrary prover and word, and not only for far words.
 \end{remark}
+
+\subsection{Virtual levels and higher folding arity}\label{sec:fold:arity}
+
+The prover of $\Pi_{\mathrm{FT}}$ commits to every folded word. Committing only to some of them reduces the number of Merkle trees and authentication paths, and the analysis above covers this variant without change: an uncommitted word is replaced by the exact fold of the previous one, whose set of failing points is empty.
+
+\begin{definition}[Folding test with committed levels $C$]\label{def:fpt-arity}
+Let $C \subseteq \iv{1}{\ell-1}$. The test $\Pi^{C}_{\mathrm{FT}}[\ell,\kappa]$ is $\Pi_{\mathrm{FT}}[\ell,\kappa]$ (\cref{def:fpt}) in which, in round $j+1$ for $j \in \iv{1}{\ell-1}$, the prover sends the oracle $w_j$ only if $j \in C$; for $j \notin C$ the word $w_j$ is \emph{virtual}, defined as $w_j = \hat w_j = \fold_{r_j}(w_{j-1})$.
+The verifier makes the fold checks \eqref{eq:fold-check} of the levels $j \in C \cup \{\ell\}$. For such a level $j$, let $j' < j$ be the previous level in $C \cup \{0\}$; the verifier computes $\hat w_j(\xi^{2^j})$ from the values of $w_{j'}$ on the $2^{j-j'}$ points $\zeta \in L_{j'}$ with $\zeta^{2^{j-j'}} = \xi^{2^j}$, by $j - j'$ successive folds (\cref{lem:fold-word}(3)).
+For $k \ge 1$, the test of \emph{arity} $2^k$ is $\Pi^{C_k}_{\mathrm{FT}}$ with $C_k = \{k, 2k, 3k, \dots\} \cap \iv{1}{\ell-1}$; arity $2$ is $\Pi_{\mathrm{FT}}$.
+\end{definition}
+
+\begin{proposition}[Virtual levels]\label{prop:arity}
+Let $C \subseteq \iv{1}{\ell-1}$.
+\begin{enumerate}
+  \item Every deterministic prover $\mathsf{P}^C$ of $\Pi^C_{\mathrm{FT}}[\ell,\kappa]$ defines a deterministic prover $\mathsf{P}$ of $\Pi_{\mathrm{FT}}[\ell,\kappa]$, which sends the words of $\mathsf{P}^C$ at the levels of $C$ and the virtual words at the other levels, such that for all challenges the two verifiers accept or reject together.
+  \item Consequently \cref{thm:fpt} holds for $\Pi^C_{\mathrm{FT}}$ with the same bounds, and \cref{def:witness,lem:passing,lem:rbr-step,prop:chain} apply to it with $\Bb_j = \emptyset$ for every virtual level $j$.
+  \item Per query point, the verifier reads $w_{j'}$ on $2^{j-j'}$ points for every pair of consecutive levels $j' < j$ of $C \cup \{0, \ell\}$, that is, $2^{j-j'-1}$ fibres. For arity $2^k$, the oracles have total length $\sum_{j \in C_k} M_j < M/(2^k - 1)$.
+\end{enumerate}
+\end{proposition}
+
+\begin{proof}
+(1) The virtual word $w_j = \fold_{r_j}(w_{j-1})$ is a function of $w_{j-1}$ and $r_j$, hence of the earlier messages and challenges, so $\mathsf{P}$ is a prover of $\Pi_{\mathrm{FT}}$. At a virtual level $j$, $\Bb_j = \{\eta : \hat w_j(\eta) \ne w_j(\eta)\} = \emptyset$, so the fold check of level $j$ holds at every point. At a level $j \in C \cup \{\ell\}$, with $j'$ as in \cref{def:fpt-arity}, the words at the levels between $j'$ and $j$ are the successive folds of $w_{j'}$, so by locality (\cref{lem:fold-word}(3)) the value $\hat w_j(\xi^{2^j})$ computed by the verifier of $\Pi_{\mathrm{FT}}$ is the one computed by the verifier of $\Pi^C_{\mathrm{FT}}$. The two verifiers therefore check the same equations.
+(2) The events of \cref{thm:fpt} are events about the challenges and the transcript of $\mathsf{P}$, and the acceptance events coincide by (1). The other statements are about arbitrary words and provers.
+(3) The $2^{j-j'}$ points above a point of $L_j$ form $2^{j-j'-1}$ fibres of $L_{j'}$. The total length is $\sum_{i \ge 1} M_{ik} = M \sum_{i \ge 1} 2^{-ik} < M/(2^k - 1)$.
+\end{proof}
+
+\begin{remark}[Choice of arity]\label{rem:arity}
+Larger arity removes Merkle trees and authentication paths but increases the number of values read per query, $2^k$ per committed word; the error terms of \cref{thm:fpt} do not change. In our implementation, with Merkle caps, arities $8$ and $16$ give the smallest proofs, within $3\%$ of each other, and arity $8$ verifies faster than arity $16$ (\cref{sec:exp:arity}).
+The same observation applies to any FRI-type test, and folding several levels between commitments is standard practice in FRI implementations; \cref{prop:arity} records that the analysis of this section covers it exactly.
+\end{remark}

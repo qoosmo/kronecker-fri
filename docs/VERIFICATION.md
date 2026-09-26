@@ -17,7 +17,8 @@ No result of this paper is formalised in Lean yet; see [ROADMAP.md](ROADMAP.md).
 | Lemma 5.5 (iterated fold, coefficient formula) | proved (new) | tested (n ≤ 7) |
 | §5.3–5.4: fibre distance, unique decoding, far words, surviving errors, good challenges, one step | proved; from KBFold | — |
 | §5.5–5.6: witness sets, one round, codeword chain, Theorem 5.24 | proved; adapted from KBFold | — |
-| §6: encoding, virtual word, K_z on the domain, completeness | proved | virtual word, K_z on L, completeness tested (n ≤ 9, all ℓ, three rates, both fields) |
+| §5.7: virtual levels, arity $2^k$ (Proposition 5.28) | proved (new) | completeness, tampering and cheating provers tested for arities 2–16, with and without Merkle caps |
+| §6: encoding, virtual word, K_z on the domain, completeness | proved | virtual word, K_z on L, completeness tested (n ≤ 9, all ℓ, three rates, arities 2/4/8, both fields) |
 | Proposition 6.11 (costs) | proved | — |
 | §7: rate condition, value from agreement, batching lemma, fibre-closed witness sets | proved | — |
 | Remark 6.9(1), Remark 4.13 (wrong values, why the factor X) | proved | two cheating provers rejected |

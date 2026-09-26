@@ -1,13 +1,13 @@
 \section{Implementation}\label{sec:impl}
 
 We implemented $\Pi_{\mathrm{KF}}$, compiled with salted Merkle trees and a Fiat--Shamir transcript, as a self-contained Rust library, \texttt{kronecker-fri}, in the companion repository.
-It has about $1{,}650$ lines of library code, including unit tests, and $730$ lines of integration tests, examples and benchmarks (formatted with \texttt{rustfmt}); its only dependency is the BLAKE3 hash function (the parameter check of \cref{rem:pq-params} also uses arbitrary-precision integers, as a development dependency).
+It has about $1{,}900$ lines of library code, including unit tests, and $850$ lines of integration tests, examples and benchmarks (formatted with \texttt{rustfmt}); its only dependency is the BLAKE3 hash function (the parameter check of \cref{rem:pq-params} also uses arbitrary-precision integers, as a development dependency).
 The code follows the paper: every function names the statement it implements, and the test suite (\cref{sec:impl:tests}) checks the algebraic statements listed in \cref{app:verification} against direct computations.
 This section records the concrete choices; \cref{sec:exp} reports measurements.
 
 \paragraph{Index conventions.}
 The paper numbers bits, variables and rounds from $1$; the code numbers them from $0$.
-Bit $a_k$ of the paper is bit $k-1$ of the code, the coordinate $z_k$ is \texttt{z[k-1]}, and the challenge $r_j$ is \texttt{rs[j-1]}; the oracle $w_j$, sent in round $j+2$ for $j \in \iv{1}{\ell-1}$, is \texttt{words[j-1]}.
+Bit $a_k$ of the paper is bit $k-1$ of the code, the coordinate $z_k$ is \texttt{z[k-1]}, and the challenge $r_j$ is \texttt{rs[j-1]}; the oracle $w_j$, sent in round $j+2$ for $j \in C$, is the tree of index $j/k - 1$ when the arity is $2^k$ (\cref{def:fpt-arity}), and the parameter \texttt{fold\_log} is $k$.
 A multilinear polynomial is given by its coefficient form $(\alpha_a)_{a < N}$, which is also the coefficient vector of $U_f$ (\cref{def:kron-enc}), or by its table form, converted with the M\"obius transform.
 
 \subsection{Fields}\label{sec:impl:fields}
@@ -34,7 +34,7 @@ The NTT is generic over the field of the coefficients, with twiddle factors in $
 \paragraph{Domain layout.}
 Position $i$ of a word on $L_j$ is the point $\omega_j^i$, $\omega_j = \omega^{2^j}$.
 Since $\omega_j^{M_{j+1}} = -1$, the fibre over position $k$ of $L_{j+1}$ is the pair of positions $\{k, k + M_{j+1}\}$, and folding reads the two halves of an array and writes one array of half size, with no permutation.
-A query index $i \in \iv{0}{M-1}$ is the point $\xi = \omega^i$; at level $j \in \iv{1}{\ell}$ its fold check reads the fibre over position $i \bmod M_j$ of $L_j$.
+A query index $i \in \iv{0}{M-1}$ is the point $\xi = \omega^i$; at level $j \in \iv{1}{\ell}$ its fold check reads the fibre over position $i \bmod M_j$ of $L_j$. More generally, the $2^g$ points of $L_{j'}$ above position $a$ of $L_{j'+g}$ are the positions $a + t M_{j'+g}$, $t < 2^g$.
 
 \paragraph{Opening polynomials.}
 The prover computes $G = U_f K_z$ as in the proof of \cref{lem:cost}(3): $n$ successive multiplications by the binomials $X^{2^{k-1}} + z_k$, each a pass of one multiplication and one addition per coefficient.
@@ -42,12 +42,13 @@ It reads $v = \coef{N-1}{G}$, $A = (0, \coef{0}{G}, \dots, \coef{N-2}{G})$ and $
 
 \paragraph{Virtual word.}
 After $\beta$, the prover computes $\ev_L(K_z)$ by the recursion of \cref{lem:kernel-domain}, and then $h(\xi)$ and $w_0(\xi)$ in one pass over $L$, carrying the powers $\xi$, $\xi^N$ and $\xi^{-(N+1)}$ multiplicatively; $H$ itself is used only for the coefficients of $U_0$.
-The verifier computes, at each query point, the powers $\xi^2, \dots, \xi^{2^n} = \xi^N$ ($n$ squarings), $K_{z'}(\xi^2)$ from them, and then $K_z(\pm\xi) = (z_1 \pm \xi)K_{z'}(\xi^2)$ (\cref{lem:kernel-basic}(2)), one inversion $\xi^{-(N+1)} = (\xi^N\cdot\xi)^{-1}$ in $\Fq$, and $h(\pm\xi)$ and $w_0(\pm\xi)$ from the four opened values of $y$ and $w_A$ (\cref{prop:costs}(3)); both use the same function for one value of $h$.
+The verifier computes, at each query point, the powers $\xi^2, \dots, \xi^{2^n} = \xi^N$ ($n$ squarings), $K_{z'}(\xi^2)$ from them, and then $K_z(\pm\xi) = (z_1 \pm \xi)K_{z'}(\xi^2)$ (\cref{lem:kernel-basic}(2)), one inversion $\xi^{-(N+1)} = (\xi^N\cdot\xi)^{-1}$ in $\Fq$, and $h(\pm\xi)$ and $w_0(\pm\xi)$ from the four opened values of $y$ and $w_A$ (\cref{prop:costs}(3)); for arity $2^k$, the same computation runs at the $2^{g_0}$ opened points of the first group, $g_0 = \min(k, \ell)$, sharing the powers; both use the same function for one value of $h$.
 
 \paragraph{Fold.}
 Prover and verifier use the same function for one fibre, in line form (\cref{lem:line}): with $a = w(\xi)$ and $b = w(-\xi)$, $w_e = (a+b)/2$, $w_o = (a-b)(2\xi)^{-1}$ and $\fold_r(w)(\xi^2) = (w_o - w_e) + r\,(2w_e - w_o)$; this is the count of $7$ operations of \cref{prop:costs}.
 The prover reads $(2\xi)^{-1}$ from one table of $\omega^{-t}$, $t < M/2$, shared by all levels.
 The verifier obtains $(2\omega_{j-1}^{k})^{-1} = \tfrac12\,\omega^{M - k 2^{j-1}}$ by one exponentiation in $\Fq$, without inversion.
+With arity $2^k$, the verifier folds the $2^{g}$ values of $w_{j'}$ above a point of $L_{j'+g}$, $g = \min(k, \ell - j')$, by $2^g - 1$ calls of this function, level by level ($2^{g-1}$ calls at the first level, then half as many at each next level), which computes the check of \cref{def:fpt-arity}.
 The final polynomial is $P = \pfold^{(\ell)}_r(U_0)$, computed on coefficients (\cref{lem:iterated}), and the verifier evaluates it by Horner's rule.
 
 \subsection{Commitments and transcript}\label{sec:impl:merkle}
@@ -57,25 +58,35 @@ Leaves are hashed as $\mathsf{H}(\mathtt{0x00} \,\|\, \text{data} \,\|\, \gamma)
 The salts of a tree are derived from a $32$-byte seed supplied by the caller, by BLAKE3 in keyed mode; the seed must be fresh and secret for every commitment and every proof, since the salts are what the compiler of~\cite{CDHZ25} requires to be random.
 Setting the salt length to $0$ gives unsalted trees, which we use only to measure the cost of salting (\cref{sec:exp}).
 
-\paragraph{Fibre leaves.}
-As in \cref{rem:layout}, every tree has one leaf per fibre: leaf $k$ of the tree of a word $u$ on $L_j$ holds $(u(\omega_j^k), u(-\omega_j^k))$, $k < M_j/2$, that is, the symbol $\mathrm{fib}_j(u)$ at position $\omega_{j+1}^k$ with the representative $\xi_\eta = \omega_j^k$ (\cref{sec:pq:ior}).
-Leaves of the commitment tree hold two elements of $\Fq$ ($16$ bytes), and the other leaves two elements of $\F$.
-Each query point opens one leaf in the commitment tree, one in the tree of $w_A$, and one in each tree of $w_1, \dots, w_{\ell-1}$, with its salt and authentication path; the value $w_j(\xi^{2^j})$ compared at level $j$ is one of the two values of the leaf opened at level $j+1$.
-The library also supports openings of aligned groups of $2^g$ leaves with one authentication path; the protocol uses $g = 0$.
+\paragraph{Coset leaves.}
+Every tree has leaves of one fibre each, and the leaves are ordered so that the fibres read by one query at one level are contiguous.
+Let the committed levels be $0 = j_0 < j_1 < \dots < j_s$ and, for the tree of $w_{j'}$, $j' = j_{t-1}$, let $g = j_t - j_{t-1}$ with $j_s = \ell$ (so $g = k$, except possibly for the last group).
+A fibre of $w_{j'}$ is a position $\eta = a + t\,M_{j'+g}$ of $L_{j'+1}$, $a < M_{j'+g}$, $t < 2^{g-1}$, and it is stored at leaf $a\,2^{g-1} + t$; this leaf holds $(w_{j'}(\omega_{j'}^{\eta}), w_{j'}(-\omega_{j'}^{\eta}))$, the symbol $\mathrm{fib}_{j'}(w_{j'})$ at $\eta$ with the representative $\omega_{j'}^\eta$ (\cref{sec:pq:ior}).
+The $2^{g-1}$ fibres above position $a$ of $L_{j'+g}$ are then an aligned group of leaves, opened with one authentication path of length $\log_2 M_{j'} - g$.
+For arity $2$ this is the layout of \cref{rem:layout}: one leaf per fibre, in natural order.
+Leaves of the commitment tree hold two elements of $\Fq$ ($16$ bytes), and the other leaves two elements of $\F$; the commitment tree and the tree of $w_A$ have the layout of the first group, of size $g_0 = \min(k, \ell)$, so that a commitment fixes $g_0$.
+
+\paragraph{Merkle caps and deduplication.}
+Instead of a root, the proof contains the $2^c$ nodes at depth $c$ of each tree (its \emph{cap}), with $c$ reduced to the depth of the tree minus $\log_2$ of the group size when the tree is smaller; the verifier recomputes the root from the cap, compares it with the commitment for the commitment tree, and authenticates every group against the cap with a path shortened by $c$.
+The transcript absorbs the root, so a cap is a representation of the same commitment message, and \cref{def:pikf-sigma} and \cref{cor:pq} are unchanged.
+The $\kappa$ query indices can repeat positions at deep levels; the proof opens each distinct group once, in increasing order, and the verifier checks that the list of opened positions is exactly the sorted set of distinct positions derived from the query indices, and that every cap, path and salt has its prescribed length, so that the proof has a unique form.
+Both are standard optimisations of FRI implementations and change only the encoding of openings.
 
 \paragraph{Fiat--Shamir.}
-The transcript is a BLAKE3 hash chain. It absorbs the parameters $(n, R, \ell, \kappa)$, the salt length and $e$, the commitment root, $z$ and $v$.
-In round $1$ it absorbs the root of $w_A$ and a round salt, and derives $\beta$; in round $2$ it absorbs a round salt and derives $r_1$; in round $j+1$, $j \in \iv{2}{\ell}$, it absorbs the root of $w_{j-1}$ and a round salt, and derives $r_j$; in round $\ell+2$ it absorbs the coefficients of $P$ and a round salt, and derives the query indices.
+The transcript is a BLAKE3 hash chain. It absorbs the parameters $(n, R, \ell, \kappa, k, c)$, the salt length and $e$, the commitment root, $z$ and $v$.
+In round $1$ it absorbs the root of $w_A$ and a round salt, and derives $\beta$; in round $2$ it absorbs a round salt and derives $r_1$; in round $j+1$, $j \in \iv{2}{\ell}$, it absorbs the root of $w_{j-1}$ if $j - 1 \in C$, and a round salt, and derives $r_j$; in round $\ell+2$ it absorbs the coefficients of $P$ and a round salt, and derives the query indices.
 A challenge in $\F$ is the image under the map $\phi$ of \cref{sec:pq:ior} of $\lambda_{\mathrm{ch}} = 64(e+1)$ output bits ($192$ for $e = 2$, $320$ for $e = 4$): the bits are read as an integer, whose first $e$ digits in base $q$ are the coordinates.
 The $\kappa$ query indices are $\kappa$ consecutive blocks of $n+R$ output bits (the map $\mathrm{pos}$).
 
 \paragraph{Relation to the compiler of~\cite{CDHZ25}.}
 The implementation has the structure of $\mathsf{BCS}[\Pi^\Sigma_{\mathrm{KF}}]$: salted trees, one round salt per round, challenges derived from the roots and salts of all previous rounds, and the maps $\phi$ and $\mathrm{pos}$.
-It departs from \cref{def:pikf-sigma} in one inessential point: round $2$ sends no string, so no tree is built for the dummy symbol.
-We have not checked the byte-level encoding of the transcript and of the salts against~\cite[Construction~11.7]{CDHZ25}, and we therefore do not claim that \cref{cor:pq} applies to the code as it stands (\cref{rem:scope}).
+It departs from \cref{def:pikf-sigma} in one inessential point: the rounds whose message is the dummy symbol send no string, so no tree is built for it.
+\Cref{cor:pq} is stated for the compiler of~\cite[Construction~11.7]{CDHZ25}; a byte-level conformance check of the transcript and salts of the code against that construction is future work (\cref{sec:concl}).
 
 \paragraph{Proof format.}
-A proof consists of the root of $w_A$, the roots of $w_1, \dots, w_{\ell-1}$, the $\ell + 2$ round salts, the $N_\ell$ coefficients of $P$, and, per query point, the openings described above: $2$ elements of $\Fq$, $2\ell$ elements of $\F$, $\ell+1$ leaf salts, and $\ell + 1$ authentication paths, two of length $\log_2 M - 1$ and one of length $\log_2 M_j - 1$ for each $j \in \iv{1}{\ell-1}$.
+A proof consists of the caps of the commitment tree, of the tree of $w_A$ and of the trees of $w_{j}$, $j \in C \setminus \{0\}$, the $\ell + 2$ round salts, the $N_\ell$ coefficients of $P$, and the openings: for each distinct position of the first group, $2^{g_0-1}$ leaves of the commitment tree ($2^{g_0}$ elements of $\Fq$) and of the tree of $w_A$ ($2^{g_0}$ elements of $\F$) with their salts and two paths; and for each committed level $j'$ and each distinct position, $2^{g}$ elements of $\F$, $2^{g-1}$ leaf salts and one path.
+For arity $2$, without caps, and with distinct query positions, this is $2$ elements of $\Fq$, $2\ell$ elements of $\F$, $\ell + 1$ salts and $\ell + 1$ paths per query point.
+The positions are recomputed by the verifier and are not part of the proof.
 \Cref{sec:exp} reports the measured sizes.
 
 \subsection{Testing}\label{sec:impl:tests}
@@ -85,10 +96,10 @@ The test suite checks each component against a direct definition, and the protoc
   \item \emph{Arithmetic.} Base-field operations against $128$-bit integer arithmetic; the extensions as above; the NTT against Horner evaluation, over $\mathbb{F}_{q^4}$.
   \item \emph{\Cref{sec:kernel}.} For $n \le 8$ and both extensions: the coefficients of $K_z$ against the product of binomials of \cref{def:kernel} (\cref{lem:kernel-basic}(3)); $K_z(\xi)$ against Horner evaluation; the kernel product against schoolbook multiplication; the extraction identity (\cref{thm:extraction}) against $f(z) = \sum_a \alpha_a z^a$; the M\"obius transform against the table; and the split identity \eqref{eq:identity} with $A(0) = 0$ and $\coef{N-1}{H} = 0$ at a random point.
   \item \emph{\Cref{sec:fold}.} For $n \le 7$ and $\ell = n$: the explicit formula \eqref{eq:fold-explicit} against the line form, the consistency of word and polynomial folds (\cref{prop:fold-consistency}), and the coefficient formula of \cref{lem:iterated}, after every fold.
-  \item \emph{Transcript and trees.} Group openings of every size and position, with and without salts, and rejection of a modified leaf; canonical challenge coordinates.
-  \item \emph{Completeness.} Honest proofs verify for all $1 \le n \le 9$ over $\mathbb{F}_{q^2}$ and $1 \le n \le 7$ over $\mathbb{F}_{q^4}$, all $1 \le \ell \le n$, rates $\rho \in \{1/4, 1/8, 1/16\}$, with and without salts; and the returned value equals $f(z)$ computed from the table form by $\sum_b f(b) \prod_k (b_k z_k + (1-b_k)(1-z_k))$, independently of the M\"obius transform and of the kernel product.
+  \item \emph{Transcript and trees.} Group openings of every size and position, with and without salts and caps, and rejection of a modified leaf or cap node; canonical challenge coordinates.
+  \item \emph{Completeness.} Honest proofs verify for all $1 \le n \le 9$ over $\mathbb{F}_{q^2}$ and $1 \le n \le 7$ over $\mathbb{F}_{q^4}$, all $1 \le \ell \le n$, rates $\rho \in \{1/4, 1/8, 1/16\}$, arities $2$, $4$ and $8$, no cap or caps of $4$ and $16$ nodes, with and without salts; and the returned value equals $f(z)$ computed from the table form by $\sum_b f(b) \prod_k (b_k z_k + (1-b_k)(1-z_k))$, independently of the M\"obius transform and of the kernel product.
   \item \emph{Virtual word.} For $n \le 6$ and all $\xi \in L$: the virtual word of honest openings equals $H(\xi)$ (\cref{lem:virtual}(3)), and $\ev_L(K_z)$ computed by \cref{lem:kernel-domain} equals $K_z(\xi)$.
-  \item \emph{Tampering.} Proofs are rejected after changing the claimed value, the point, the commitment, an opened value of $y$, $w_A$ or $w_1$, a coefficient of $P$, a root, a round salt, a leaf salt or an authentication path, and when a proof for another polynomial is checked against the original commitment.
-  \item \emph{Two cheating provers.} Both commit honestly and claim $v + 1$, and both are rejected by a fold check in every tested configuration. The first sends the honest $w_A$; its virtual word is $\ev_L(H) - \ev_L(X^{-1})$, far from $\Cc_0$ (\cref{rem:design}(1)). The second sends $w_A$ for $A - X^N$, so that its virtual word is exactly $\ev_L(H)$; now $w_A$ has degree $N$ and the batched word is far from $\Cc_0$. This is the situation of \cref{rem:why-x}: the degree bound $N$ of the proximity test is what prevents $A$ from absorbing the error in $v$.
+  \item \emph{Tampering.} Proofs are rejected after changing the claimed value, the point, the commitment, an opened value of $y$, $w_A$ or $w_1$, a coefficient of $P$, a root, a round salt, a leaf salt, an authentication path or a cap node, or the length of a salt, a path or a cap, for arities $2$ to $16$, and when a proof for another polynomial is checked against the original commitment.
+  \item \emph{Two cheating provers.} Both commit honestly and claim $v + 1$, and both are rejected by a fold check in every tested configuration (arities $2$ to $16$, with and without caps). The first sends the honest $w_A$; its virtual word is $\ev_L(H) - \ev_L(X^{-1})$, far from $\Cc_0$ (\cref{rem:design}(1)). The second sends $w_A$ for $A - X^N$, so that its virtual word is exactly $\ev_L(H)$; now $w_A$ has degree $N$ and the batched word is far from $\Cc_0$. This is the situation of \cref{rem:why-x}: the degree bound $N$ of the proximity test is what prevents $A$ from absorbing the error in $v$.
 \end{itemize}
 Independently, \texttt{examples/small\_field\_checks.rs} checks the extraction identity, the split lemma, the identity \eqref{eq:identity} at every point of $L$ for honest openings together with the folds, and the root bound $2N$ of \cref{lem:identity} for a wrong value, over $\mathbb{F}_{257}$, with $1 \le n \le 5$ and $20$ random instances each; and \texttt{examples/pq\_params.rs} evaluates the bound of \cref{rem:pq-params} exactly.
