@@ -18,7 +18,7 @@
 \newcommand{\iv}[2]{[#1,#2]}
 \title{Sumcheck-free hypercube inner products\\ from table-form Kronecker encodings}
 \author{Research note (companion to Kronecker-FRI)}
-\date{September 2026 --- version 7 (Section 5: sparse matrix--vector products)}
+\date{September 2026 --- version 8 (Section 5 implemented: R1CS prototype)}
 \emergencystretch=3em
 \begin{document}
 \maketitle
@@ -453,7 +453,24 @@ As in Theorem~\ref{thm:linsound}, with one false statement: if some decoding is 
 
 Every step is a coefficient extraction, a lookup by logarithmic derivatives, or a Hadamard check: an R1CS argument on Kronecker-FRI commitments needs no sumcheck.
 
-\paragraph{Status.} The algebra of $\Pi_{\mathrm{Lin}}$ is checked in the clear by the Rust module \texttt{lincheck}: the closed forms of $V_{\mathbf 1}$, $V_{\mathrm{id}}$, $V_{G_\eta}$; honest runs with padded matrices; a wrong $a$ caught by the weighted sums; a forged $\zeta_k$ or $e_k$ that repairs the weighted sums caught by the column or row lookup. The compiled protocol (Proposition~\ref{prop:affine} in \texttt{batch}) and the Lean formalisation of this section are the next steps.
+\paragraph{Status.} The algebra of $\Pi_{\mathrm{Lin}}$ is checked in the clear by the Rust module \texttt{lincheck} (closed forms of $V_{\mathbf 1}$, $V_{\mathrm{id}}$, $V_{G_\eta}$; honest runs with padded matrices; a wrong $a$ caught by the weighted sums; a forged $\zeta_k$ or $e_k$ that repairs the weighted sums caught by the column or row lookup).
+The compiled protocol is implemented: the module \texttt{affine} runs $\Pi_{\mathrm{Batch}}$ on affine forms (Proposition~\ref{prop:affine}) with committed words grouped in Merkle trees whose leaves hold one value of each word of a group, and the module \texttt{r1cs} implements the indexer, prover and verifier of Theorem~\ref{thm:r1cs} (the three linchecks share their challenges). Its tests accept honest proofs and reject a wrong public input, an unsatisfied constraint, a witness that is nonzero on an input position, a false lincheck alone, and a false lincheck repaired by a forged $\zeta_k$ or $e_k$; removing the two sums of the column (row) lookup from the statements makes the forged $\zeta_k$ ($e_k$) accepted, so each lookup is exercised.
+
+\begin{table}[h]
+\centering\small
+\begin{tabular}{r r r r r r}
+\hline
+$n$ & constraints & index (ms) & prove (ms) & verify (ms) & proof (KiB)\\
+\hline
+10 & 512 & 5.3 & 83.0 & 29.0 & 1134.6\\
+12 & 2048 & 20.9 & 383.7 & 63.0 & 2272.9\\
+14 & 8192 & 85.4 & 1700.3 & 62.6 & 2512.5\\
+16 & 32768 & 413.6 & 7802.2 & 67.8 & 2694.0\\
+\hline
+\end{tabular}
+\caption{The R1CS prototype on the instances of \texttt{r1cs::sample\_instance} ($N/2$ constraints $(Az)_i(Bz)_i=z_{N/2+i}$, two nonzero entries per row of $A$ and $B$, two public inputs); $t+1=179$ words; configuration KF-8 ($\ell=\max(n-8,1)$), $148$ queries, $32$-byte salts, $\F_{p^2}$; one core; medians. Source: \texttt{bench/r1cs.csv}, \texttt{cargo run --release --example r1cs\_bench}.}
+\end{table}
+The prototype is unoptimised: the proof opens eight trees per query (the witness group, three index groups, the two lincheck groups and the two groups of $\Pi_{\mathrm{Batch}}$), each on the coset of $\xi$ and, for five of them, of $\xi^{-1}$, and the verifier evaluates $179$ words per point. Merging the index groups into one tree, opening only the words used, and reducing the number of statements (for instance, one lookup of $z$ for the three matrices) are the obvious next optimisations. The Lean formalisation of this section is the next step.
 
 \section{Relation to known techniques and status}
 
@@ -498,7 +515,7 @@ $n$ & KF & IP & Had & KF & IP & Had & KF & IP & Had\\
 An inner product of two committed tables costs less prover time than one evaluation opening (the round-$1$ work is in the base field), about the same verifier time, and about $20\%$ more proof, the extra openings of $w_b$ on the inverse cosets.
 A Hadamard check costs about $2.2$ evaluation openings of prover time (its polynomials $Q$, $A$, $H$ lie in the extension field) and $1.7$ times the proof, since five oracles are opened per query instead of two; when $a$, $b$, $c$ are committed together, one tree with three values per leaf removes two of the five authentication paths per query.
 
-\paragraph{Next.} The compiled lincheck (Proposition~\ref{prop:affine} in \texttt{batch}), then the Lean formalisation of Section~\ref{sec:lin}.
+\paragraph{Next.} The Lean formalisation of Section~\ref{sec:lin}; optimisation of the R1CS prototype (fewer trees and statements).
 
 \begin{thebibliography}{9}
 \bibitem{KF} A.~Mkhida. Kronecker-FRI: A Hash-Based Multilinear Polynomial Commitment from a Coefficient-Extraction Identity. Preprint, 2026. \url{https://github.com/qoosmo/kronecker-fri}.

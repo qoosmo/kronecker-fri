@@ -1,5 +1,15 @@
 # Changelog
 
+## Unreleased — R1CS prototype without sumcheck
+
+### Code
+- `rust/src/affine.rs`: Π_Batch on affine forms of committed and public tables (Proposition 5.1 of the note): committed words in groups (one Merkle tree per group, one value of each word per leaf), public tables 1, 0, id, η^w and explicit sparse tables.
+- `rust/src/r1cs.rs`: indexer, prover and verifier of the sumcheck-free R1CS argument (Theorem 5.8): three linchecks with LogUp lookups, Had(a, b, c), public input; tests against a wrong input, an unsatisfied constraint, a nonzero input slot of the witness, a false lincheck, and a false lincheck repaired by a forged lookup value (row or column).
+- `examples/r1cs_bench.rs`, `bench/r1cs.csv`: n = 16 (32768 constraints): prove 7.8 s, verify 68 ms, proof 2.6 MiB (unoptimised).
+
+### Note (version 8)
+- §5 status: the compiled protocol, its tests and measurements.
+
 ## Unreleased — sparse matrix–vector products (R1CS) without sumcheck
 
 ### Note (`notes/inner-product/`, version 7, 13 pages)

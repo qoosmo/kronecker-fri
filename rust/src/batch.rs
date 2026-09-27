@@ -181,11 +181,11 @@ fn init_transcript<E: ExtField>(p: &Params, roots: &[Digest], stmts: &[Stmt<E>])
     tr
 }
 
-fn in_base<E: ExtField>(x: &E) -> bool {
+pub(crate) fn in_base<E: ExtField>(x: &E) -> bool {
     x.digits()[1..].iter().all(|d| *d == Fp::ZERO)
 }
 
-fn draw_outside<E: ExtField>(tr: &mut Transcript, gamma: Option<E>) -> E {
+pub(crate) fn draw_outside<E: ExtField>(tr: &mut Transcript, gamma: Option<E>) -> E {
     loop {
         let t: E = tr.challenge();
         if !in_base(&t) && gamma.is_none_or(|g| !in_base(&(g * t))) {
@@ -195,7 +195,7 @@ fn draw_outside<E: ExtField>(tr: &mut Transcript, gamma: Option<E>) -> E {
 }
 
 #[inline(always)]
-fn inv_pos(pos: usize, m: usize) -> usize {
+pub(crate) fn inv_pos(pos: usize, m: usize) -> usize {
     (m - pos) % m
 }
 
@@ -247,7 +247,7 @@ pub fn evalker_on_domain<E: ExtField>(z: &[E], omega: Fp, m: usize) -> Vec<E> {
 }
 
 /// Split of X U K (U K of length 2N - 1): (A, value, H), A and H of length N.
-fn split<E: ExtField>(prod: &[E], nn: usize) -> (Vec<E>, E, Vec<E>) {
+pub(crate) fn split<E: ExtField>(prod: &[E], nn: usize) -> (Vec<E>, E, Vec<E>) {
     let mut a = Vec::with_capacity(nn);
     a.push(E::ZERO);
     a.extend_from_slice(&prod[..nn - 1]);
@@ -256,7 +256,7 @@ fn split<E: ExtField>(prod: &[E], nn: usize) -> (Vec<E>, E, Vec<E>) {
     (a, prod[nn - 1], h)
 }
 
-fn multi_tree<T: Field>(
+pub(crate) fn multi_tree<T: Field>(
     words: &[&[T]],
     g: usize,
     seed: &Digest,
@@ -283,7 +283,7 @@ fn multi_tree<T: Field>(
     )
 }
 
-fn multi_open<T: Field>(
+pub(crate) fn multi_open<T: Field>(
     p: &Params,
     tree: &MerkleTree,
     words: &[&[T]],
@@ -308,7 +308,7 @@ fn multi_open<T: Field>(
         .collect()
 }
 
-fn multi_check<T: Field>(
+pub(crate) fn multi_check<T: Field>(
     p: &Params,
     cap: &[Digest],
     ops: &[MultiOpening<T>],
@@ -345,14 +345,14 @@ fn multi_check<T: Field>(
 }
 
 /// Values of word k on the coset above position a (index t: position a + t M_{g0}).
-fn multi_coset<T: Copy>(ops: &[MultiOpening<T>], a: usize, k: usize) -> Vec<T> {
+pub(crate) fn multi_coset<T: Copy>(ops: &[MultiOpening<T>], a: usize, k: usize) -> Vec<T> {
     let i = ops.binary_search_by_key(&a, |o| o.pos).unwrap();
     let v = &ops[i].vals;
     let h = v.len();
     (0..2 * h).map(|t| v[t % h][k][t / h]).collect()
 }
 
-fn powers<E: ExtField>(beta: E, count: usize) -> Vec<E> {
+pub(crate) fn powers<E: ExtField>(beta: E, count: usize) -> Vec<E> {
     (0..count)
         .scan(E::ONE, |acc, _| {
             let c = *acc;

@@ -10,14 +10,17 @@
 //! - `ip`: prototype of the sumcheck-free inner-product protocol Pi_IP (research note
 //!   `notes/inner-product`, Section 2);
 //! - `had`: prototype of the sumcheck-free Hadamard check Pi_Had (same note, Section 3);
+//! - `affine`: Pi_Batch on affine forms of committed and public tables (same note, Prop. 5.1);
 //! - `batch`: prototype of Pi_Batch, any list of evaluations, inner products and Hadamard checks
 //!   in one folding test (same note, Section 4);
 //! - `lincheck`: clear-text check of the sumcheck-free lincheck reduction (same note, Section 5);
+//! - `r1cs`: prototype of the sumcheck-free R1CS argument (same note, Section 5.3);
 //! - `ft`: the folding test on a batched word and level-0 coset openings, shared by `had` and
 //!   `batch`.
 
 #![allow(clippy::needless_range_loop)] // index loops mirror the formulas of the paper
 
+pub mod affine;
 pub mod batch;
 pub mod field;
 pub mod ft;
@@ -27,3 +30,4 @@ pub mod lincheck;
 pub mod merkle;
 pub mod pcs;
 pub mod poly;
+pub mod r1cs;
