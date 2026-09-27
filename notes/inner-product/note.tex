@@ -18,13 +18,13 @@
 \newcommand{\iv}[2]{[#1,#2]}
 \title{Sumcheck-free hypercube inner products\\ from table-form Kronecker encodings}
 \author{Research note (companion to Kronecker-FRI)}
-\date{September 2026 --- version 13 (the two routes measured on one commitment)}
+\date{September 2026 --- version 14 (self-contained: post-quantum setting stated, outlook trimmed)}
 \emergencystretch=3em
 \begin{document}
 \maketitle
 
 \begin{abstract}
-We encode a multilinear polynomial by its \emph{table}, $V_f(X)=\sum_{w}f(w)X^{w}$, instead of its coefficients.
+All protocols of this note are built on the hash-based commitment Kronecker-FRI and inherit its post-quantum security basis. We encode a multilinear polynomial by its \emph{table}, $V_f(X)=\sum_{w}f(w)X^{w}$, instead of its coefficients.
 Two quantities then become single coefficients of univariate products: the evaluation $\tilde f(z)$, with a product-form kernel, and the hypercube inner product $\sum_{w}a(w)b(w)$ of two committed tables, through the reversal $V_b^\ast(X)=X^{N-1}V_b(1/X)$.
 Because a smooth domain is closed under inversion, the verifier reads $V_b^\ast$ from the commitment to $b$ as a virtual word, and the Kronecker-FRI machinery (opening polynomial, virtual word, one folding test) proves $\sum_w a(w)b(w)=S$ with no sumcheck, with soundness error $3M/|\F|+\varepsilon_{\mathrm{fold}}+(1-\delta)^\kappa$.
 With geometric weights $\gamma^w$ and DEEP quotients as further virtual words, the same method gives a sumcheck-free Hadamard check $a\circ b=c$ for three committed tables, with soundness error $2(N-1)/|\F|+8M/|\F|+\varepsilon_{\mathrm{fold}}+(1-\delta)^\kappa$. Finally, any list of evaluations, inner products and Hadamard checks on the same commitments is proved by one folding test, with soundness error $2(N-1)/|\F|+tM/|\F|+\varepsilon_{\mathrm{fold}}+(1-\delta)^\kappa$ for $t+1$ batched words; the term $2(N-1)/|\F|$ is paid once, whatever the number of Hadamard checks. The results of Sections~1--4 are machine-checked in Lean~4. Section~5 reduces sparse matrix--vector products, and hence R1CS, to the same statements with lookups by logarithmic derivatives, so an R1CS argument needs no sumcheck at all; its soundness and completeness are machine-checked in Lean~4 end to end. Measured on the same Kronecker-FRI commitment and proof engine, a sumcheck-free inner product costs the same as a sumcheck followed by a batched opening, a Hadamard check $1.7$ times more than a zerocheck, and the R1CS argument $19$ times more than the core of Spartan, which proves $2^{15}$ constraints on Kronecker-FRI in $0.29$\,s with $251$\,KiB proofs; the sumcheck-free arguments have a number of rounds independent of $n$ and a verifier that stays succinct.
@@ -485,7 +485,7 @@ $n$ & constraints & index (ms) & prove (ms) & verify (ms) & proof (KiB)\\
 Compared with separate lookups for each matrix and three index trees (version~8 of this note: $179$ words, eight trees), at $n=16$ the prover is $30\%$ faster ($7802\to5469$\,ms), the verifier $36\%$ faster ($67.8\to43.6$\,ms) and the proof $26\%$ smaller ($2694\to1997$\,KiB).
 
 \paragraph{Comparison with a sumcheck-based argument.}
-The Rust module \texttt{spartan} implements the core of Spartan~\cite{Set20} on the same commitment, field, hash, configuration and instances: the prover commits the witness table $w$ only; an outer sumcheck of degree~$3$ proves $\sum_x\mathrm{eq}(\tau,x)\bigl(\tilde{Az}(x)\tilde{Bz}(x)-\tilde{Cz}(x)\bigr)=0$, an inner sumcheck of degree~$2$ reduces the three claims $\tilde{Az}(r_x),\tilde{Bz}(r_x),\tilde{Cz}(r_x)$ to one evaluation of $\tilde z$, and one $\Pi_{\mathrm{KF}}$ opening of $w$ at $r_y$ ends the proof; the verifier evaluates $\tilde{\mathbf M}(r_x,r_y)$ itself, in time linear in the number of nonzero entries (Spartan without SPARK). Its tests accept honest proofs and reject a wrong public input, an unsatisfied constraint, a wrong claim, a wrong opening value and a tampered round polynomial.
+The Rust module \texttt{spartan} implements the core of Spartan~\cite{Set20} on the same commitment, field, hash, configuration and instances: the prover commits the witness table $w$ only; an outer sumcheck of degree~$3$ proves $\sum_x\mathrm{eq}(\tau,x)\bigl(\tilde{Az}(x)\tilde{Bz}(x)-\tilde{Cz}(x)\bigr)=0$, an inner sumcheck of degree~$2$ reduces the three claims $\tilde{Az}(r_x),\tilde{Bz}(r_x),\tilde{Cz}(r_x)$ to one evaluation of $\tilde z$, and one $\Pi_{\mathrm{KF}}$ opening of $w$ at $r_y$ ends the proof; the verifier evaluates $\tilde{\mathbf M}(r_x,r_y)$ itself, in time linear in the number of nonzero entries. Its tests accept honest proofs and reject a wrong public input, an unsatisfied constraint, a wrong claim, a wrong opening value and a tampered round polynomial.
 
 \begin{table}[h]
 \centering\small
@@ -509,15 +509,17 @@ $n$ & prove (ms) & verify (ms) & proof (KiB) & prove (ms) & verify (ms) & proof 
 The measurements say:
 \begin{itemize}[nosep]
 \item \emph{Prover.} The Spartan core is $17$--$20$ times faster ($288$ against $5469$\,ms at $n=16$). A profile of our prover at $n=16$: witness group $0.12$\,s, round-$1$ lincheck words $0.4$\,s, round-$2$ words $0.35$\,s, and $4.4$\,s in $\Pi_{\mathrm{Batch}}$ on affine forms, of which $0.95$\,s for the $21$ products $U_jK_j$, $0.8$\,s for committing the $21$ words $w_A$, $1.06$\,s for the virtual words $h_j$, $0.57$\,s for the batched word, $0.47$\,s for the quotient words, $0.53$\,s for the words $w_Q$ and $0.9$\,s for the openings; the folding test itself takes $0.02$\,s. The cost is spread over the statements: each costs a product of two polynomials of degree $<N$ over $\F_{p^2}$ and words of length $M=4N$, where a sumcheck round costs a linear pass over tables of length $N$.
-\item \emph{SPARK.} Full Spartan replaces the verifier's evaluation of $\tilde{\mathbf M}(r_x,r_y)$ by a committed index and a memory-checking argument; its prover commits at least the read values $\mathrm{eq}(r_x,\mathrm{row}_k)$, $\mathrm{eq}(r_y,\mathrm{col}_k)$ of the three matrices, six tables over $\F_{p^2}$, that is twelve tables over $\F_p$: about $12\times73.5\approx880$\,ms at $n=16$ with this commitment, before their openings and the memory-checking sumchecks, which were not measured. With this floor the Spartan prover takes at least $1.17$\,s, $4.7$ times below ours.
+\item \emph{Baseline.} The measured core is a lower bound for Spartan's prover: full Spartan adds an argument that commits the matrices once and proves the value $\tilde{\mathbf M}(r_x,r_y)$, which the core leaves to the verifier.
 \item \emph{Proof size.} Ours is $8$ times larger at $n=16$ ($1997$ against $251$\,KiB): six trees are opened per query instead of the two trees of one $\Pi_{\mathrm{KF}}$ opening.
-\item \emph{Verifier.} Ours is succinct: $44$\,ms from $n=14$ to $16$, with the index committed once. The verifier of the Spartan core is linear in the number of nonzero entries: $11.7$, $78$ and $417$\,ms at $n=16,18,20$; SPARK makes it succinct at the cost above.
+\item \emph{Verifier.} Ours is succinct: $44$\,ms from $n=14$ to $16$, with the index committed once. The verifier of the Spartan core is linear in the number of nonzero entries: $11.7$, $78$ and $417$\,ms at $n=16,18,20$.
 \end{itemize}
 
 
 \section{Kronecker-FRI in sumcheck-based arguments: the two routes measured}\label{sec:routes}
 
 The protocols of Sections~2--5 are one of two ways to use Kronecker-FRI for statements on committed tables; the other is a sumcheck, which reduces the statement to the values of the tables at one random point, followed by an opening. This section measures both on the same commitment.
+
+\paragraph{Post-quantum setting.} Kronecker-FRI is hash-based: its security rests on the hash function and on the proximity gaps of Reed--Solomon codes, with no discrete-logarithm or pairing assumption. Every argument built on it is post-quantum in this sense, the sumcheck route included, since a sumcheck is an information-theoretic reduction. The sumcheck-free protocols are therefore an alternative to the sumcheck with the same security basis; they change the cost, the number of rounds and the verifier, not the security assumptions.
 
 \paragraph{One statement.} The Rust module \texttt{sumcheck} proves one inner product and one Hadamard check by both routes with the same commitments (one tree per table) and the same proof engine (\texttt{affine}): the \emph{sumcheck-free} route proves $\mathsf{IP}(a,b,S)$ or $\mathsf{Had}(a,b,c)$; the \emph{sumcheck} route runs a sumcheck of degree~$2$ for the inner product, or the zerocheck $\sum_x\mathrm{eq}(\tau,x)(a(x)b(x)-c(x))=0$ of degree~$3$ for the Hadamard check, and then proves \emph{one} evaluation statement on the affine form $\sum_i\rho^iw_i$ at the sumcheck point, a batched opening. Only the reduction differs. Tests accept honest proofs of both routes and reject a wrong sum, a false Hadamard instance and wrong values at the sumcheck point.
 
@@ -597,7 +599,7 @@ $n$ & KF & IP & Had & KF & IP & Had & KF & IP & Had\\
 An inner product of two committed tables costs less prover time than one evaluation opening (the round-$1$ work is in the base field), about the same verifier time, and about $20\%$ more proof, the extra openings of $w_b$ on the inverse cosets.
 A Hadamard check costs about $2.2$ evaluation openings of prover time (its polynomials $Q$, $A$, $H$ lie in the extension field) and $1.7$ times the proof, since five oracles are opened per query instead of two; when $a$, $b$, $c$ are committed together, one tree with three values per leaf removes two of the five authentication paths per query.
 
-\paragraph{Next.} Section~\ref{sec:routes} places Kronecker-FRI as the commitment of sumcheck-based arguments, where its opening is the dominant cost, and the sumcheck-free protocols where a constant number of rounds or a succinct verifier with a committed index matters. Two measurements remain: a full Spartan with SPARK on Kronecker-FRI, and a hybrid in which the sumcheck proves the constraints and the sumcheck-free batch replaces SPARK.
+\paragraph{Next.} On Kronecker-FRI, the cost of a sumcheck-based argument is the cost of its commitment and opening (Section~\ref{sec:routes}); a faster opening therefore benefits both routes. For the sumcheck-free route, the cost to reduce is that of the lookups of Section~\ref{sec:lin}.
 
 \begin{thebibliography}{9}
 \bibitem{KF} A.~Mkhida. Kronecker-FRI: A Hash-Based Multilinear Polynomial Commitment from a Coefficient-Extraction Identity. Preprint, 2026. \url{https://github.com/qoosmo/kronecker-fri}.

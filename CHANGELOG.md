@@ -1,5 +1,10 @@
 # Changelog
 
+## Unreleased — note version 14
+
+### Note
+- Self-contained outlook: the post-quantum setting stated (abstract and §6: all protocols, and the sumcheck route, rest on the hash-based Kronecker-FRI; the sumcheck-free protocols change cost, rounds and verifier, not the security basis); the Spartan core described as a lower bound for Spartan's prover without further outside constructions; Next trimmed.
+
 ## Unreleased — the two routes measured on one commitment
 
 ### Code
