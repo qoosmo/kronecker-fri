@@ -18,7 +18,7 @@
 \newcommand{\iv}[2]{[#1,#2]}
 \title{Sumcheck-free hypercube inner products\\ from table-form Kronecker encodings}
 \author{Research note (companion to Kronecker-FRI)}
-\date{September 2026 --- version 5 (Section 4: one folding test for a batch of statements)}
+\date{September 2026 --- version 6 (Sections 1--4 formalised in Lean~4)}
 \emergencystretch=3em
 \begin{document}
 \maketitle
@@ -27,7 +27,7 @@
 We encode a multilinear polynomial by its \emph{table}, $V_f(X)=\sum_{w}f(w)X^{w}$, instead of its coefficients.
 Two quantities then become single coefficients of univariate products: the evaluation $\tilde f(z)$, with a product-form kernel, and the hypercube inner product $\sum_{w}a(w)b(w)$ of two committed tables, through the reversal $V_b^\ast(X)=X^{N-1}V_b(1/X)$.
 Because a smooth domain is closed under inversion, the verifier reads $V_b^\ast$ from the commitment to $b$ as a virtual word, and the Kronecker-FRI machinery (opening polynomial, virtual word, one folding test) proves $\sum_w a(w)b(w)=S$ with no sumcheck, with soundness error $3M/|\F|+\varepsilon_{\mathrm{fold}}+(1-\delta)^\kappa$.
-With geometric weights $\gamma^w$ and DEEP quotients as further virtual words, the same method gives a sumcheck-free Hadamard check $a\circ b=c$ for three committed tables, with soundness error $2(N-1)/|\F|+8M/|\F|+\varepsilon_{\mathrm{fold}}+(1-\delta)^\kappa$. Finally, any list of evaluations, inner products and Hadamard checks on the same commitments is proved by one folding test, with soundness error $2(N-1)/|\F|+tM/|\F|+\varepsilon_{\mathrm{fold}}+(1-\delta)^\kappa$ for $t+1$ batched words; the term $2(N-1)/|\F|$ is paid once, whatever the number of Hadamard checks. The results of Sections~1--3 are machine-checked in Lean~4.
+With geometric weights $\gamma^w$ and DEEP quotients as further virtual words, the same method gives a sumcheck-free Hadamard check $a\circ b=c$ for three committed tables, with soundness error $2(N-1)/|\F|+8M/|\F|+\varepsilon_{\mathrm{fold}}+(1-\delta)^\kappa$. Finally, any list of evaluations, inner products and Hadamard checks on the same commitments is proved by one folding test, with soundness error $2(N-1)/|\F|+tM/|\F|+\varepsilon_{\mathrm{fold}}+(1-\delta)^\kappa$ for $t+1$ batched words; the term $2(N-1)/|\F|$ is paid once, whatever the number of Hadamard checks. All results are machine-checked in Lean~4.
 \end{abstract}
 
 \paragraph{Setting.}
@@ -304,9 +304,8 @@ The three quotient words of each $j\in\mathcal H$ give the other equalities of (
 \begin{theorem}[Soundness]\label{thm:batch}
 Let $R\ge2$ and $0<\delta\le\delta^\ast$. If $((w_i)_i,\Sigma)$ has no witness in $\mathcal R^\delta_{\mathrm{Batch}}$, every prover is accepted with probability at most
 \[
-\varepsilon_{\mathrm{Batch}}=\frac{2(N-1)}{|\F|}+\frac{tM}{|\F|}+\varepsilon_{\mathrm{fold}}+(1-\delta)^\kappa,
+\varepsilon_{\mathrm{Batch}}=\frac{2(N-1)}{|\F|}+\frac{tM}{|\F|}+\varepsilon_{\mathrm{fold}}+(1-\delta)^\kappa.
 \]
-and the first term can be omitted when $\mathcal H=\emptyset$.
 \end{theorem}
 \begin{proof}
 As for Theorem~\ref{thm:had}: call $(\gamma,\theta)$ good if $|\mathcal G|\le tM$ for all round-$2$ messages; for good $(\gamma,\theta)$ the acceptance probability is at most $tM/|\F|+\varepsilon_{\mathrm{fold}}+(1-\delta)^\kappa$.
@@ -316,6 +315,7 @@ If $\sigma_{j^\ast}$ is an $\mathsf{Eval}$ or $\mathsf{IP}$ statement, Lemma~\re
 If $\sigma_{j^\ast}=\mathsf{Had}(i,i',k)$, the proof of Theorem~\ref{thm:had} applies verbatim to this one check, with Lemma~\ref{lem:batchT}(2) for $j^\ast$ in place of Lemma~\ref{lem:batch8}: the pair is good unless $D_{\hat f_i\circ\hat f_{i'}-\hat f_k}(\gamma)=0$, or $\hat Q_{j^\ast}\ne V_{\hat f_i}(\gamma X)$ and $\hat Q_{j^\ast}(\theta)=V_{\hat f_i}(\gamma\theta)$, events of probability at most $(N-1)/|\F|$ each.
 \end{proof}
 
+When $\mathcal H=\emptyset$ the same proof shows that every pair is good, so the first term can be omitted (this refinement is not in the Lean formalisation).
 Only one false statement is needed in the proof, so the term $2(N-1)/|\F|$ from $\gamma,\theta$ is paid once, not once per Hadamard check; the term $tM/|\F|$ grows linearly in the number of words, by $4M/|\F|$ per Hadamard check and $2M/|\F|$ per other statement. For $|\F|=p^2\approx2^{128}$, $M=2^{22}$ and $t=100$, this term is about $2^{-99}$.
 Knowledge follows as before: if the acceptance probability exceeds $\varepsilon_{\mathrm{Batch}}$, the instance has a witness, obtained by decoding each $w_i$.
 
@@ -356,7 +356,8 @@ Lemma~\ref{lem:eval}: \texttt{eval\_table}; Lemma~\ref{lem:ip}: \texttt{inner\_p
 The common step of KF Lemma~7.4 and Lemma~\ref{lem:batch3}, correlated agreement on one fibre-closed set for a curve of any degree, is the separate theorem \texttt{curve\_agreement}.
 \item \emph{Rust.} The module \texttt{ip} of the Kronecker-FRI crate implements $\Pi_{\mathrm{IP}}$ with Merkle caps, arity $2^k$ and Fiat--Shamir, on the commitments of \texttt{pcs}. Its tests check Lemmas~\ref{lem:ip}, \ref{lem:gen-identity} and~\ref{lem:rev}(1), completeness for $n\le10$, two rates and arities $2$ to $16$, and the rejection of three cheating provers (a wrong $S$; a wrong $S$ absorbed into a polynomial $A$ of degree $N$, as in KF Remark~4.13; opening polynomials computed from a table $b'\ne b$).
 \item \emph{Lean~4, Section~3.} File \texttt{Hadamard.lean}, same axiom, no \texttt{sorry}. Lemma~\ref{lem:deep}: \texttt{deep\_step}, \texttt{deep\_honest}; completeness: \texttt{honestHad\_accepts}, and \texttt{honestHad\_prob} for the bound $1-3M/|\F|$; Lemma~\ref{lem:batch8}: \texttt{batching\_Had}; Theorem~\ref{thm:had}: \texttt{prob\_bad\_le} (the bad pairs $(\gamma,\theta)$), \texttt{soundness\_Had}, and \texttt{soundnessC\_Had} for any folding arity $2^k$; knowledge: \texttt{knowledge\_Had}. The step ``for good $(\gamma,\theta)$, the argument of KF Thm~7.8'' is the separate theorem \texttt{ft\_family\_bound}: for any family of words $w_0(\beta)$, the acceptance probability is at most $|\mathcal G|/|\F|+\varepsilon_{\mathrm{fold}}+(1-\delta)^\kappa$.
-\item \emph{Section~\ref{sec:batch}.} Proofs written out above, not yet in Lean (they combine \texttt{curve\_agreement}, \texttt{identityG}, \texttt{deep\_step} and \texttt{prob\_bad\_le}). The module \texttt{batch} implements $\Pi_{\mathrm{Batch}}$ with one multi-value Merkle tree for all $w_Q$ and one for all $w_A$; its tests check Lemma~\ref{lem:eval} for $E^\ast_z$, completeness for mixed batches (two Hadamard checks sharing a table, an inner product, two evaluations) for $n\le10$ and arities $2$ to $16$, and the rejection of a batch with one false evaluation, one false inner product, or one false Hadamard check (also against a prover that sets $y_3$ to the weighted inner product, which only the quotient word $q[w_c,y_3,\gamma]$ catches).
+\item \emph{Lean~4, Section~\ref{sec:batch}.} File \texttt{BatchStmts.lean}, same axiom, no \texttt{sorry}. Statements: \texttt{BStmt} (\texttt{eval}, \texttt{ip}, \texttt{had}), \texttt{Dset}, \texttt{Bset}, \texttt{RelBatchS}; the words are indexed by the finite type \texttt{BWord} ($D\oplus B\oplus\mathcal H\oplus[J]\oplus[J]\oplus\mathcal H\times[3]$) with a fixed enumeration, and \texttt{curve\_agreement\_idx} is correlated agreement for such an index type. Lemma~\ref{lem:batchT}: \texttt{batching\_B}; Theorem~\ref{thm:batch}: \texttt{prob\_bad\_had} (one false Hadamard check), \texttt{prob\_bad\_B}, \texttt{soundness\_B}, \texttt{soundnessC\_B} (any folding arity); knowledge: \texttt{knowledge\_B}; completeness: \texttt{bwords\_honest}, \texttt{honestB\_accepts}, \texttt{honestB\_prob}.
+\item \emph{Rust, Section~\ref{sec:batch}.} The module \texttt{batch} implements $\Pi_{\mathrm{Batch}}$ with one multi-value Merkle tree for all $w_Q$ and one for all $w_A$; its tests check Lemma~\ref{lem:eval} for $E^\ast_z$, completeness for mixed batches (two Hadamard checks sharing a table, an inner product, two evaluations) for $n\le10$ and arities $2$ to $16$, and the rejection of a batch with one false evaluation, one false inner product, or one false Hadamard check (also against a prover that sets $y_3$ to the weighted inner product, which only the quotient word $q[w_c,y_3,\gamma]$ catches).
 \item \emph{Rust, Section~3.} The module \texttt{had} implements $\Pi_{\mathrm{Had}}$ on the shared folding-test code of module \texttt{ft}, drawing $\gamma$, $\theta$ by rejection sampling outside the base field $\F_p\supseteq L$, so that no pole lies in $L$ and completeness is perfect (the two first terms of $\varepsilon_{\mathrm{Had}}$ become $(N-1)/(|\F|-p)$ each); its tests check completeness for $n\le10$, two rates and arities $2$ to $16$, and the rejection of a wrong $y_1$, of a wrong $Q$ (with $y_1=Q(\theta)$), and of a false instance ($c$ differing from $a\circ b$ in one entry) with three choices of $y_3$. Removing $q[w_c,y_3,\gamma]$ from the batch makes the false instance accepted, and a wrong pole in the verifier breaks completeness, so the tests exercise each part.
 \end{itemize}
 
@@ -380,7 +381,7 @@ $n$ & KF & IP & Had & KF & IP & Had & KF & IP & Had\\
 An inner product of two committed tables costs less prover time than one evaluation opening (the round-$1$ work is in the base field), about the same verifier time, and about $20\%$ more proof, the extra openings of $w_b$ on the inverse cosets.
 A Hadamard check costs about $2.2$ evaluation openings of prover time (its polynomials $Q$, $A$, $H$ lie in the extension field) and $1.7$ times the proof, since five oracles are opened per query instead of two; when $a$, $b$, $c$ are committed together, one tree with three values per leaf removes two of the five authentication paths per query.
 
-\paragraph{Next.} Lean formalisation of Section~\ref{sec:batch}; the sparse products $Az,Bz,Cz$.
+\paragraph{Next.} The sparse products $Az,Bz,Cz$.
 
 \begin{thebibliography}{9}
 \bibitem{KF} A.~Mkhida. Kronecker-FRI: A Hash-Based Multilinear Polynomial Commitment from a Coefficient-Extraction Identity. Preprint, 2026. \url{https://github.com/qoosmo/kronecker-fri}.

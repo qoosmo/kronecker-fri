@@ -12,3 +12,4 @@ import KroneckerFRI.Batch
 import KroneckerFRI.TableForm
 import KroneckerFRI.InnerProduct
 import KroneckerFRI.Hadamard
+import KroneckerFRI.BatchStmts

@@ -1,5 +1,13 @@
 # Changelog
 
+## Unreleased — Lean formalisation of the batched protocol
+
+### Lean (`lean/KroneckerFRI/BatchStmts.lean`)
+- §4 of the note: statements (evaluation, inner product, Hadamard check) on table-form commitments, words indexed by a finite type, degree-t batching lemma, soundness 2(N-1)/|F| + tM/|F| + ε_fold + (1-δ)^κ for any folding arity, knowledge, completeness (probability ≥ 1 - 3M/|F|). Still no `sorry` and one axiom; 11 new entries in `Audit.lean`.
+
+### Note (version 6)
+- All four sections machine-checked; the refinement "no γ,θ term when there is no Hadamard check" is stated as a remark outside Lean.
+
 ## Unreleased — batched statements in one folding test
 
 ### Note (`notes/inner-product/`, version 5, 9 pages)

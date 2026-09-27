@@ -7,7 +7,7 @@ only project-specific assumption.
 -/
 import KroneckerFRI.Generic
 import KroneckerFRI.Batch
-import KroneckerFRI.Hadamard
+import KroneckerFRI.BatchStmts
 
 open KroneckerFRI
 
@@ -67,3 +67,14 @@ open KroneckerFRI
 #print axioms KroneckerFRI.knowledge_Had
 #print axioms KroneckerFRI.honestHad_accepts
 #print axioms KroneckerFRI.honestHad_prob
+#print axioms KroneckerFRI.curve_agreement_idx
+#print axioms KroneckerFRI.virtG_value
+#print axioms KroneckerFRI.batching_B
+#print axioms KroneckerFRI.prob_bad_had
+#print axioms KroneckerFRI.prob_bad_B
+#print axioms KroneckerFRI.soundness_B
+#print axioms KroneckerFRI.soundnessC_B
+#print axioms KroneckerFRI.knowledge_B
+#print axioms KroneckerFRI.bwords_honest
+#print axioms KroneckerFRI.honestB_accepts
+#print axioms KroneckerFRI.honestB_prob

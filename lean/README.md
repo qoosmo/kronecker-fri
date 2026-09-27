@@ -4,8 +4,8 @@ Machine-checked proofs of the results of §4–§7 and §11 of the paper
 [`../paper/kronecker-fri.pdf`](../paper/kronecker-fri.pdf): the extraction identity, the
 folding proximity test with any folding arity, the scheme, completeness, soundness,
 round-by-round knowledge soundness, evaluation binding, and batched openings; and the
-sumcheck-free inner-product protocol `Π_IP` and Hadamard check `Π_Had` of the research note
-[`../notes/inner-product/note.pdf`](../notes/inner-product/note.pdf) (§1–3).
+sumcheck-free inner-product protocol `Π_IP`, Hadamard check `Π_Had` and batched protocol `Π_Batch`
+of the research note [`../notes/inner-product/note.pdf`](../notes/inner-product/note.pdf) (§1–4).
 
 - **Toolchain:** Lean 4.23.0, Mathlib `v4.23.0` (pinned in `lakefile.lean` and `lake-manifest.json`).
 - **No `sorry`.**
@@ -57,7 +57,7 @@ lake env lean KroneckerFRI/Audit.lean
 | **Cor 7.12 (knowledge, soundness, binding)** | `knowledge`, `soundness`, `binding`; framework form `rbr_binding` | `RBR.lean`, `Generic.lean` |
 | Def 11.1, **Thm 11.2, Cor 11.3 (batched openings)** | `wGamma`, `RelBatch`, `accProbBatch`, `wGamma_encode`, `batch_soundness`, `batch_knowledge`, `batch_binding` | `Batch.lean` |
 
-## Research note: sumcheck-free inner products and Hadamard checks (table form)
+## Research note: sumcheck-free inner products, Hadamard checks and batches (table form)
 
 | Note | Lean | File |
 |---|---|---|
@@ -81,6 +81,11 @@ lake env lean KroneckerFRI/Audit.lean
 | **Lemma batch8 (batching, degree 8)** | `batching_Had` | `Hadamard.lean` |
 | KF Thm 7.8 for any family of words `w_0(β)` | `goodSet`, `ft_family_bound` | `Hadamard.lean` |
 | **Thm had (soundness)**, `2(N-1)/\|F\| + 8M/\|F\| + ε_fold + (1-δ)^κ`; knowledge | `prob_bad_le`, `soundness_Had`, `soundnessC_Had` (any set of committed levels), `knowledge_Had` | `Hadamard.lean` |
+| Correlated agreement for words indexed by a finite type | `curve_agreement_idx` | `BatchStmts.lean` |
+| Def (statements, `R^δ_Batch`), the words of `Π_Batch` | `BStmt`, `BStmt.Holds`, `Dset`, `Bset`, `Hpos`, `BWord`, `card_BWord`, `RelBatchS`, `virtG`, `bwords`, `benum`, `wbatB`, `BProver` | `BatchStmts.lean` |
+| **Lemma batchT (batching, degree t)** | `virtG_value`, `batching_B` | `BatchStmts.lean` |
+| **Thm batch (soundness)**, `2(N-1)/\|F\| + tM/\|F\| + ε_fold + (1-δ)^κ`; knowledge | `prob_bad_had`, `prob_bad_B`, `soundness_B`, `soundnessC_B` (any set of committed levels), `knowledge_B` | `BatchStmts.lean` |
+| **Thm (completeness)**: accepted when no pole of a Hadamard check lies in `L`; probability `≥ 1 - 3M/\|F\|` | `bpolys`, `bU0`, `honestB`, `bwords_honest`, `honestB_accepts`, `prob_poles_ge`, `honestB_prob` | `BatchStmts.lean` |
 
 ## Modelling
 
