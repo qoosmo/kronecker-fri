@@ -10,7 +10,7 @@ repository = "https://github.com/qoosmo/kronecker-fri"
 homepage = "https://qoosmo.github.io/kronecker-fri/"
 documentation = "https://docs.rs/kronecker-fri"
 readme = "README.md"
-keywords = ["polynomial-commitment", "fri", "zero-knowledge", "post-quantum", "multilinear"]
+keywords = ["commitment", "fri", "zero-knowledge", "post-quantum", "multilinear"]
 categories = ["cryptography", "mathematics"]
 exclude = ["target/"]
 
