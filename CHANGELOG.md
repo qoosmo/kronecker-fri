@@ -1,164 +1,171 @@
 # Changelog
 
-## Unreleased — optional multithreaded prover
+## v0.4.0 — 2026-09-27
 
-### Code
+First release on crates.io. The paper's scheme (`field`, `poly`, `merkle`, `pcs`) is the stable API; the research prototypes of the note on sumcheck-free inner products are public modules whose API may change.
+
+### Crate
+- Package metadata for crates.io (repository, documentation, keywords, categories, `rust-version = 1.88`), license files in the crate, crate-level documentation with a tested example, `cargo doc` without warnings; CI builds the documentation, checks the minimum Rust version and runs `cargo publish --dry-run`.
+
+### optional multithreaded prover
+
+#### Code
 - Feature `parallel` (optional dependency `rayon`, off by default): the NTT, the Merkle leaves and layers, the kernel product, `K_z` on the domain, the batched word, the folds and the final polynomial run in parallel (`rust/src/par.rs`). The work is split into independent pieces, so the proofs are identical with and without the feature; without it the code runs the same loops serially and the single-threaded benchmarks of the papers are unaffected.
 - `examples/proof_digest.rs`: digest of one proof of each protocol; CI checks equal digests with and without `parallel`, and runs clippy and the tests with it.
 - `Field` requires `Send + Sync` (all field types are plain data).
 - On the 2-vCPU cloud machine (`bench/parallel.csv`): commitment 1.3–1.6× and opening 1.4–1.5× faster at n = 16, 20; more cores give more.
 - Tried and not kept: evaluating a padded polynomial as 2^R NTTs of size N on cosets (saves two butterfly layers, lost to the strided writes; no gain).
 
-## Unreleased — closed forms of the public tables in Lean
+### closed forms of the public tables in Lean
 
-### Lean
+#### Lean
 - `lean/KroneckerFRI/PublicTables.lean` (no `sorry`, standard axioms only): product tables (`kronEnc_prod`); `V_1 = ∏_k (1 + X^{2^k})` (`kronEnc_one`); `V_{G_η}(x) = V_1(ηx)` (`kronEnc_geo`, `eval_kronEnc_geo`); `V_id = X V_1'` (`kronEnc_id`); the recursion `S, T` of the verifier's `v_one`, `v_id` (`recS`, `recT`, `kronEnc_one_eq_recS`, `kronEnc_id_eq_recT`). With this file every mathematical claim of the research note is machine-checked.
 - `Audit.lean`: the new theorems.
 
-### Note (version 15)
+#### Note (version 15)
 - Lean status: the closed forms of the public tables.
 
-## Unreleased — Merkle hashing by BLAKE3 keys
+### Merkle hashing by BLAKE3 keys
 
-### Code
+#### Code
 - `rust/src/merkle.rs`: leaves are H_{K0}(data || salt) and internal nodes H_{K1}(left || right), BLAKE3 in keyed mode with two fixed keys (domain separation), instead of one-byte prefixes; a node and a salted leaf of one fibre over F_{p^2} are 64 bytes, one compression. Same change in [qoosmo/kbfold](https://github.com/qoosmo/kbfold), so that the comparison of §10 stays at identical engineering.
 
-### Paper
+#### Paper
 - §9 (Commitments and transcript): the Merkle format and the salt stream.
 - §10: the recorded tables are stated to use the earlier format of both implementations; new subsection "Merkle hashing" (Table `tab:exp-hash`, `bench/merkle_format.csv`): commit −34 to −45 %, open −21 to −28 %, verify −13 to −24 % at n = 16, 18, 20 (KF-8, salted), on one machine and in one session.
 
-## Unreleased — faster salted Merkle trees
+### faster salted Merkle trees
 
-### Code
+#### Code
 - `rust/src/merkle.rs`: the leaf salts of a tree are read from one BLAKE3 output stream keyed with the prover seed (in bulk when the tree is built, at an offset when a group is opened) instead of one keyed hash per leaf. The tree format, the proofs and the verifier are unchanged; only the prover's private salt values differ. At n = 16 (KF-8, 148 queries, 32-byte salts, F_{p^2}): commitment 70.6 → 54.1 ms, Π_KF opening 159 → 139 ms, Spartan-core prover 258 → 225 ms. The data in `bench/` were recorded before this change.
 - Test `merkle::salt_tests`: opened salts match the hashed leaves; distinct labels give distinct streams.
 
-## Unreleased — note version 14
+### note version 14
 
-### Note
+#### Note
 - Self-contained outlook: the post-quantum setting stated (abstract and §6: all protocols, and the sumcheck route, rest on the hash-based Kronecker-FRI; the sumcheck-free protocols change cost, rounds and verifier, not the security basis); the Spartan core described as a lower bound for Spartan's prover without further outside constructions; Next trimmed.
 
-## Unreleased — the two routes measured on one commitment
+### the two routes measured on one commitment
 
-### Code
+#### Code
 - `rust/src/sumcheck.rs`: one inner product and one Hadamard check by two routes on the same commitments (one group per table) and the same engine (`affine`): the sumcheck-free statement, and a sumcheck (degree 2) or zerocheck (degree 3) followed by one evaluation of a random combination of the tables (a batched opening). Tests for both routes.
 - `rust/src/spartan.rs`: helpers shared with `sumcheck`.
 - `examples/primitives_bench.rs`, `bench/primitives.csv`. At n = 16: inner product 225 ms (sumcheck-free) against 227 ms (sumcheck); Hadamard check 432 ms against 257 ms (zerocheck).
 
-### Note (version 13)
+#### Note (version 13)
 - New §6: Kronecker-FRI in sumcheck-based arguments, the two routes measured (one statement, R1CS, the cost split of the Spartan core, rounds and verifier); abstract and Next updated.
 
-## Unreleased — comparison with a sumcheck-based R1CS argument
+### comparison with a sumcheck-based R1CS argument
 
-### Code
+#### Code
 - `rust/src/spartan.rs`: the core of Spartan (outer sumcheck of degree 3, inner sumcheck of degree 2, one Π_KF opening of the witness; verifier linear in the number of nonzero entries, no SPARK) on the same commitment, field, hash and instances as `r1cs`; tests against a wrong input, an unsatisfied constraint, a wrong claim, a wrong opening value and a tampered round polynomial, and a check of the variable order of `pcs`.
 - `examples/spartan_bench.rs`, `bench/spartan.csv`; `bench/r1cs.csv` re-measured in the same session.
 - At n = 16: Spartan core prove 288 ms, verify 11.7 ms, proof 251 KiB; the argument of the note prove 5469 ms, verify 43.6 ms, proof 1997 KiB.
 
-### Note (version 12)
+#### Note (version 12)
 - §5: the comparison table, a profile of the prover, a floor for SPARK, and the verifier trade-off; Setty (Spartan) cited.
 
-## Unreleased — completeness of the R1CS argument in Lean
+### completeness of the R1CS argument in Lean
 
-### Lean
+#### Lean
 - `lean/KroneckerFRI/R1CS.lean`: the honest prover (`honestR1`: honest lincheck tables `fsH`, sums, and the honest `Π_Batch` prover of Proposition affine); the honest LogUp identity (`logup_honest`); the 21 statements hold when no row or column denominator vanishes (`honest_holds`); `r1cs_completeness`: the honest prover is accepted with probability at least `1 - 2N/|F| - 3M/|F|`.
 - `Audit.lean`: the new theorems (no axiom beyond Lean's three).
 
-### Note (version 11)
+#### Note (version 11)
 - §5 and the Lean status: completeness of the R1CS argument machine-checked.
 
-## Unreleased — R1CS soundness machine-checked end to end
+### R1CS soundness machine-checked end to end
 
-### Lean
+#### Lean
 - `lean/KroneckerFRI/AffineBatch.lean`: `Π_Batch` on affine forms of committed words and public tables (Proposition affine): forms with a declared support, statements on forms, direct checks of the quotient values of public forms; Lemma batchT (`batching_A`), soundness and knowledge (`prob_bad_A`, `soundness_A`, `knowledge_A`), completeness (`awords_honest`, `honestA_accepts`, `honestA_prob`).
 - `lean/KroneckerFRI/Lincheck.lean`: tables indexed by any numbered finite set (`Numbering`), so that the lincheck applies to hypercube tables.
 - `lean/KroneckerFRI/R1CS.lean`: the R1CS argument with its 21 statements; `tA_r1stmts` (127 words for every instance and challenges); `r1_bridge` (a batch witness gives the lincheck statements); `r1cs_soundness`: Theorem r1cs end to end, bound `(13N-3)/|F| + 2(N-1)/|F| + 126M/|F| + ε_fold + (1-δ)^κ`.
 - `Audit.lean`: the new theorems (only the project's single axiom).
 
-### Code
+#### Code
 - `rust/src/affine.rs`: the words of a form are its declared support (zero coefficients included), as in the Lean model; the set of words no longer depends on the challenges. Proof sizes and timings are unchanged.
 - `rust/src/r1cs.rs`: test `word_count_127` (127 words, also at zero challenges).
 
-### Note (version 10)
+#### Note (version 10)
 - Proposition affine with declared supports; the word count of Theorem r1cs; Lean status of §5.
 
-## Unreleased — Lean formalisation of §5; optimised R1CS prototype
+### Lean formalisation of §5; optimised R1CS prototype
 
-### Lean
+#### Lean
 - `lean/KroneckerFRI/Lincheck.lean` (no `sorry`, standard axioms only): LogUp with pairs for any finite index types (`logup_prob`, bound `(K + 2N_t - 1)/|F|`); the lincheck reduction for `J` matrices with combined lookups at the level of tables (`lincheck_reduction`, bound `((2J + 7)N - 3)/|F|`); the two-phase composition (`prob_two_phase`, `lincheck_sound`, `r1cs_sound`). Proposition affine (the batch on affine forms and public tables) is not formalised and enters as a hypothesis.
 - `Audit.lean`: the new theorems.
 
-### Code
+#### Code
 - `rust/src/r1cs.rs`: one index tree (row, col, val of A, B, C and the combined multiplicities); one combined row lookup and one combined column lookup for the three matrices; 21 statements, 127 words (was 179), six trees per query (was eight). Transcript label `kronecker-fri-r1cs-v2`.
 - `bench/r1cs.csv`: n = 16: prove 5.6 s (was 7.8), verify 44 ms (was 68), proof 1.95 MiB (was 2.6).
 
-### Note (version 9)
+#### Note (version 9)
 - §5 for J matrices with combined lookups: Definition lin, Lemma logup (univariate proof, bound `(K + 2N_t - 1)/|F|`, as in Lean), Theorem lin (`((2J + 7)N - 3)/|F|`), Theorem r1cs (`(15N - 5 + tM)/|F| + ε_fold + (1-δ)^κ`, `char F > 3N`); new measurements; Lean status.
 
-## Unreleased — R1CS prototype without sumcheck
+### R1CS prototype without sumcheck
 
-### Code
+#### Code
 - `rust/src/affine.rs`: Π_Batch on affine forms of committed and public tables (Proposition 5.1 of the note): committed words in groups (one Merkle tree per group, one value of each word per leaf), public tables 1, 0, id, η^w and explicit sparse tables.
 - `rust/src/r1cs.rs`: indexer, prover and verifier of the sumcheck-free R1CS argument (Theorem 5.8): three linchecks with LogUp lookups, Had(a, b, c), public input; tests against a wrong input, an unsatisfied constraint, a nonzero input slot of the witness, a false lincheck, and a false lincheck repaired by a forged lookup value (row or column).
 - `examples/r1cs_bench.rs`, `bench/r1cs.csv`: n = 16 (32768 constraints): prove 7.8 s, verify 68 ms, proof 2.6 MiB (unoptimised).
 
-### Note (version 8)
+#### Note (version 8)
 - §5 status: the compiled protocol, its tests and measurements.
 
-## Unreleased — sparse matrix–vector products (R1CS) without sumcheck
+### sparse matrix–vector products (R1CS) without sumcheck
 
-### Note (`notes/inner-product/`, version 7, 13 pages)
+#### Note (`notes/inner-product/`, version 7, 13 pages)
 - New §5: statements on affine forms of committed and public tables (Proposition affine); the lincheck Π_Lin proving a = Mz for a public sparse M by random weights and two LogUp lookups (Lemma logup: LogUp with pairs, error (2N-1)/|F|); reduction and soundness theorems (ε_Lin = (7N-3)/|F|); R1CS without sumcheck with error (9N-5+tM)/|F| + ε_fold + (1-δ)^κ. Proofs written out and refereed; not yet compiled or in Lean.
 
-### Code
+#### Code
 - `rust/src/lincheck.rs`: clear-text check of the lincheck reduction (closed forms of the public tables; honest runs; a wrong a, a forged lookup value of the row or the column side are each caught by the expected statement).
 
-## Unreleased — Lean formalisation of the batched protocol
+### Lean formalisation of the batched protocol
 
-### Lean (`lean/KroneckerFRI/BatchStmts.lean`)
+#### Lean (`lean/KroneckerFRI/BatchStmts.lean`)
 - §4 of the note: statements (evaluation, inner product, Hadamard check) on table-form commitments, words indexed by a finite type, degree-t batching lemma, soundness 2(N-1)/|F| + tM/|F| + ε_fold + (1-δ)^κ for any folding arity, knowledge, completeness (probability ≥ 1 - 3M/|F|). Still no `sorry` and one axiom; 11 new entries in `Audit.lean`.
 
-### Note (version 6)
+#### Note (version 6)
 - All four sections machine-checked; the refinement "no γ,θ term when there is no Hadamard check" is stated as a remark outside Lean.
 
-## Unreleased — batched statements in one folding test
+### batched statements in one folding test
 
-### Note (`notes/inner-product/`, version 5, 9 pages)
+#### Note (`notes/inner-product/`, version 5, 9 pages)
 - New §4: Π_Batch proves any list of evaluations, inner products and Hadamard checks on table-form commitments with one folding test; soundness 2(N-1)/|F| + tM/|F| + ε_fold + (1-δ)^κ for t+1 batched words, with the γ,θ term paid once whatever the number of Hadamard checks. Proofs written out; Lean formalisation next.
 
-### Code
+#### Code
 - `rust/src/batch.rs`: prototype prover and verifier of Π_Batch (label `kronecker-fri-batch-v1`), one multi-value Merkle tree for all w_Q and one for all w_A; table-form evaluation kernel E*_z (coefficients, evaluation, whole domain); tests for mixed batches and for one false statement of each kind.
 - `examples/batch_bench.rs`, `bench/batch.csv`: one batched proof against four separate proofs (n = 20: 805 KiB vs 1958 KiB, verification 11.3 ms vs 25.4 ms).
 
-## Unreleased — Lean formalisation of the Hadamard check
+### Lean formalisation of the Hadamard check
 
-### Lean (`lean/KroneckerFRI/Hadamard.lean`)
+#### Lean (`lean/KroneckerFRI/Hadamard.lean`)
 - §3 of the note: DEEP step on an agreement set, geometric weights, Π_Had with challenges γ, θ, β uniform in F, completeness (accepted when no pole lies in L; probability ≥ 1 - 3M/|F|), degree-8 batching lemma, soundness 2(N-1)/|F| + 8M/|F| + ε_fold + (1-δ)^κ for any folding arity, knowledge. Still no `sorry` and one axiom; 10 new entries in `Audit.lean`.
 - `ft_family_bound`: the argument of Theorem 7.8 for any family of batched words.
 
-### Note (version 4)
+#### Note (version 4)
 - §3 restated for unrestricted challenges, as formalised (a pole in L only affects completeness); Lean names added.
 
-## Unreleased — research note: sumcheck-free Hadamard check
+### research note: sumcheck-free Hadamard check
 
-### Note (`notes/inner-product/`, version 3, 7 pages)
+#### Note (`notes/inner-product/`, version 3, 7 pages)
 - §3: the Hadamard check Π_Had proving a∘b = c for three committed tables with one folding test and no sumcheck (geometric weights γ^w, a committed Q(X) = V_a(γX), DEEP quotient words in the batch); completeness, degree-8 batching lemma and soundness (N-1)/(|F|-M-1) + (N-1)/(|F|-2M) + 8M/|F| + ε_fold + (1-δ)^κ, proofs written out (not yet in Lean).
 
-### Code
+#### Code
 - `rust/src/had.rs`: prototype prover and verifier of Π_Had (label `kronecker-fri-had-v1`); tests for completeness, two cheating provers and a false instance with three strategies.
 - `rust/src/ft.rs`: the folding test on a batched word and level-0 coset openings, factored out of `pcs` for new protocols.
 - `examples/ip_bench.rs` and `bench/ip.csv` gain the Hadamard columns.
 
-## Unreleased — research note: sumcheck-free inner products
+### research note: sumcheck-free inner products
 
-### Note (`notes/inner-product/`, 5 pages)
+#### Note (`notes/inner-product/`, 5 pages)
 - Table-form commitments (the table of values committed as the coefficient vector of V_f; the same Merkle commitment as `pcs`), the evaluation kernel E*_z, and the protocol Π_IP proving `∑_w a(w) b(w) = S` for two committed tables with one folding test and no sumcheck; soundness error 3M/|F| + ε_fold + (1-δ)^κ.
 
-### Lean (`lean/KroneckerFRI/TableForm.lean`, `InnerProduct.lean`)
+#### Lean (`lean/KroneckerFRI/TableForm.lean`, `InnerProduct.lean`)
 - §1–2 of the note: evaluation kernel, reversal, inner-product identity, general split and identity lemmas, reversed words, completeness, degree-3 batching lemma, soundness (any arity), knowledge and binding. Still no `sorry` and one axiom; 13 new entries in `Audit.lean`.
 - `curve_agreement`: correlated agreement on one fibre-closed set for a curve of any degree.
 
-### Code (`rust/src/ip.rs`, `examples/ip_bench.rs`)
+#### Code (`rust/src/ip.rs`, `examples/ip_bench.rs`)
 - Prototype prover and verifier of Π_IP on the commitments of `pcs` (caps, arity 2^k, Fiat–Shamir label `kronecker-fri-ip-v1`); tests for completeness and three cheating provers; `bench/ip.csv`.
 
 ## v0.3.0 — 2026-09-26

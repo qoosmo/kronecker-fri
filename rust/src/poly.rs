@@ -114,7 +114,7 @@ pub fn kernel_eval<F: Field>(z: &[F], xi: F) -> F {
     acc
 }
 
-/// K_z on the whole domain L = <omega> of order m (natural order), by the recursion
+/// K_z on the whole domain L = `<omega>` of order m (natural order), by the recursion
 /// K_z(x) = (x + z_1) K_{z'}(x^2) (Lemma 4.4(2)) along L_0, L_1, ..., L_n (Lemma 6.4):
 /// fewer than 2m multiplications and additions in F, besides the powers of omega.
 pub fn kernel_on_domain<F: Field + Mul<Fp, Output = F> + From<Fp>>(

@@ -33,7 +33,7 @@ pub enum Stmt<E> {
 #[derive(Clone, Debug)]
 pub struct MultiOpening<T> {
     pub pos: usize,
-    /// vals[leaf][word] = [u(x), u(-x)]
+    /// vals\[leaf\]\[word\] = \[u(x), u(-x)\]
     pub vals: Vec<Vec<[T; 2]>>,
     pub open: GroupOpening,
 }
@@ -223,7 +223,7 @@ pub fn evalker_eval<E: ExtField>(z: &[E], x: E) -> E {
     acc
 }
 
-/// E*_z on the whole domain L = <omega> of order m (natural order), by the recursion along the
+/// E*_z on the whole domain L = `<omega>` of order m (natural order), by the recursion along the
 /// levels, as `poly::kernel_on_domain`.
 pub fn evalker_on_domain<E: ExtField>(z: &[E], omega: Fp, m: usize) -> Vec<E> {
     let n = z.len();

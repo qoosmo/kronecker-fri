@@ -1,5 +1,5 @@
-//! Goldilocks field F_p, p = 2^64 - 2^32 + 1, its quadratic extension F_p[u]/(u^2 - 7),
-//! and its quartic extension F_p[i]/(i^4 - 7) = F_{p^2}[v]/(v^2 - u) with v = i, u = i^2.
+//! Goldilocks field F_p, p = 2^64 - 2^32 + 1, its quadratic extension F_p\[u\]/(u^2 - 7),
+//! and its quartic extension F_p\[i\]/(i^4 - 7) = F_{p^2}\[v\]/(v^2 - u) with v = i, u = i^2.
 
 use core::ops::{Add, Mul, Neg, Sub};
 

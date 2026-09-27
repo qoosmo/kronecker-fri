@@ -6,7 +6,7 @@
 //! challenges, the opening word w_A, the virtual word h and all folded words live in the extension
 //! E = F_{p^e} (e = 2 or 4).
 //!
-//! Domain layout: L = <omega>, position i of a word on L_j is omega_j^i with omega_j = omega^{2^j};
+//! Domain layout: L = `<omega>`, position i of a word on L_j is omega_j^i with omega_j = omega^{2^j};
 //! the fibre over position q of L_{j+1} is {q, q + M_{j+1}}.
 //!
 //! Levels. The folding test runs l binary folds. Only the words at levels k, 2k, 3k, ... < l are

@@ -29,9 +29,24 @@ jobs:
           cargo test --release --features parallel
       - name: Same proofs with and without the parallel prover
         run: diff <(cargo run --release --example proof_digest) <(cargo run --release --features parallel --example proof_digest)
+      - name: Documentation
+        run: RUSTDOCFLAGS="-D warnings" cargo doc --no-deps --all-features
+      - name: Package
+        run: cargo publish --dry-run
       - name: Quickstart
         run: cargo run --release --example quickstart
       - name: Small-field checks
         run: cargo run --release --example small_field_checks | tee checks.log && ! grep -q FAIL checks.log
       - name: Post-quantum bound
         run: cargo run --release --example pq_params
+  msrv:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: rust
+    steps:
+      - uses: actions/checkout@v5
+      # rust-version of Cargo.toml
+      - uses: dtolnay/rust-toolchain@1.88.0
+      - name: Build with the minimum supported Rust version
+        run: cargo build --release --all-targets --all-features

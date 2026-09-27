@@ -1,7 +1,29 @@
 //! Kronecker-FRI: a hash-based multilinear polynomial commitment from the coefficient-extraction
 //! identity f(z) = [X^{N-1}] U_f(X) K_z(X).
 //!
-//! Reference implementation of the paper in `paper/`. Module map:
+//! Reference implementation of the paper
+//! <https://github.com/qoosmo/kronecker-fri/blob/main/paper/kronecker-fri.pdf>.
+//!
+//! ```
+//! use kronecker_fri::field::{Fp, Fp2};
+//! use kronecker_fri::pcs::{Params, commit_table, open, verify};
+//!
+//! // n = 10 variables; rate 1/4, arity 8, Merkle caps, 148 queries, 32-byte salts
+//! let p = Params::recommended(10, 148, 32);
+//! let table: Vec<Fp> = (0..1u64 << 10).map(Fp::new).collect(); // f on {0,1}^10
+//! let z: Vec<Fp2> = (0..10u64).map(|i| Fp2(Fp::new(3 + i), Fp::new(7 * i))).collect();
+//! // The seeds derive the Merkle salts: use fresh, secret randomness for every call.
+//! let (root, pd) = commit_table(&p, &table, &[0x11; 32]);
+//! let (v, proof) = open(&p, &pd, &z, &[0x22; 32]); // v = f(z)
+//! assert!(verify(&p, &root, &z, v, &proof));
+//! ```
+//!
+//! The modules `field`, `poly`, `merkle` and `pcs` implement the paper and form the stable API.
+//! The other public modules are research prototypes of the note
+//! <https://github.com/qoosmo/kronecker-fri/blob/main/notes/inner-product/note.pdf>; their API may
+//! change between versions. Feature `parallel`: multithreaded prover, identical proofs.
+//!
+//! Module map:
 //! - `field`: Goldilocks F_p and the extensions F_{p^2}, F_{p^4} (Sections 6.1, 8.4);
 //! - `poly`: Moebius transform, NTT, kernel polynomial and product, opening polynomials, folds
 //!   (Sections 2, 4, 5);

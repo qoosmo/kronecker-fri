@@ -7,8 +7,8 @@ authors:
     affiliation: Algorizk Labs
     email: ali.mkhida@algorizk.xyz
     orcid: "https://orcid.org/0009-0009-2101-9070"
-version: 0.3.0
-date-released: 2026-09-26
+version: 0.4.0
+date-released: 2026-09-27
 repository-code: "https://github.com/qoosmo/kronecker-fri"
 url: "https://qoosmo.github.io/kronecker-fri/"
 license:

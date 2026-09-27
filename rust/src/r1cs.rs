@@ -12,9 +12,9 @@
 //! 2. eta; the prover commits, for each matrix M, e_M = eta^row_M, zeta_M = z(col_M),
 //!    p_M = e_M zeta_M (one group L1);
 //! 3. x_R, y_R, x_C, y_C; the prover commits the group L2 = (phi^R_A, phi^R_B, phi^R_C, psi^R,
-//!    phi^C_A, phi^C_B, phi^C_C, psi^C) with phi^R_M[k] = 1/(x_R - row_M[k] - y_R e_M[k]),
-//!    psi^R[w] = mR[w]/(x_R - w - y_R eta^w), phi^C_M[k] = 1/(x_C - col_M[k] - y_C zeta_M[k]),
-//!    psi^C[w] = mC[w]/(x_C - w - y_C z[w]), and sends s_A, s_B, s_C;
+//!    phi^C_A, phi^C_B, phi^C_C, psi^C) with phi^R_M\[k\] = 1/(x_R - row_M\[k\] - y_R e_M\[k\]),
+//!    psi^R\[w\] = mR\[w\]/(x_R - w - y_R eta^w), phi^C_M\[k\] = 1/(x_C - col_M\[k\] - y_C zeta_M\[k\]),
+//!    psi^C\[w\] = mC\[w\]/(x_C - w - y_C z\[w\]), and sends s_A, s_B, s_C;
 //! 4. the engine `affine` proves, with one folding test, the 21 statements
 //!    - per matrix M: IP(a_M, G_eta) = IP(val_M, p_M) = s_M and Had(e_M, zeta_M, p_M);
 //!    - combined row lookup (all three matrices against one table): Had(phi^R_M,

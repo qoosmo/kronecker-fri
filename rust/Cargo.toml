@@ -1,9 +1,21 @@
 [package]
 name = "kronecker-fri"
-version = "0.2.0"
+version = "0.4.0"
 edition = "2024"
+rust-version = "1.88"
+authors = ["Abdelali Mkhida <ali.mkhida@algorizk.xyz>"]
 description = "Kronecker-FRI: a hash-based multilinear polynomial commitment from a coefficient-extraction identity"
 license = "MIT OR Apache-2.0"
+repository = "https://github.com/qoosmo/kronecker-fri"
+homepage = "https://qoosmo.github.io/kronecker-fri/"
+documentation = "https://docs.rs/kronecker-fri"
+readme = "README.md"
+keywords = ["polynomial-commitment", "fri", "zero-knowledge", "post-quantum", "multilinear"]
+categories = ["cryptography", "mathematics"]
+exclude = ["target/"]
+
+[package.metadata.docs.rs]
+all-features = true
 
 [profile.release]
 codegen-units = 1
