@@ -16,3 +16,4 @@ import KroneckerFRI.BatchStmts
 import KroneckerFRI.Lincheck
 import KroneckerFRI.AffineBatch
 import KroneckerFRI.R1CS
+import KroneckerFRI.PublicTables

@@ -8,6 +8,7 @@ only project-specific assumption.
 import KroneckerFRI.Generic
 import KroneckerFRI.Batch
 import KroneckerFRI.R1CS
+import KroneckerFRI.PublicTables
 
 open KroneckerFRI
 
@@ -98,3 +99,9 @@ open KroneckerFRI
 #print axioms KroneckerFRI.logup_honest
 #print axioms KroneckerFRI.honest_holds
 #print axioms KroneckerFRI.r1cs_completeness
+#print axioms KroneckerFRI.kronEnc_prod
+#print axioms KroneckerFRI.kronEnc_one
+#print axioms KroneckerFRI.eval_kronEnc_geo
+#print axioms KroneckerFRI.kronEnc_id
+#print axioms KroneckerFRI.kronEnc_one_eq_recS
+#print axioms KroneckerFRI.kronEnc_id_eq_recT

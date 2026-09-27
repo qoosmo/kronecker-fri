@@ -100,6 +100,7 @@ lake env lean KroneckerFRI/Audit.lean
 | A batch witness gives the lincheck statements on the decodings | `r1_mem`, `dec`, `decProver`, `r1_bridge` | `R1CS.lean` |
 | **Thm r1cs (end to end)**, `(13N - 3)/\|F\| + 2(N-1)/\|F\| + 126M/\|F\| + ε_fold + (1-δ)^κ` | `r1cs_soundness` | `R1CS.lean` |
 | **Completeness of the R1CS argument**, probability `≥ 1 - 2N/\|F\| - 3M/\|F\|` | `denR`, `denC`, `fsH`, `honestR1`, `logup_honest`, `honest_holds`, `r1cs_completeness` | `R1CS.lean` |
+| Closed forms of the public tables: `V_1 = ∏_k (1 + X^{2^k})`, `V_{G_η}(x) = V_1(ηx)`, `V_id = X V_1'`, and the recursion `S, T` of the verifier (`v_one`, `v_id`) | `kronEnc_prod`, `kronEnc_one`, `kronEnc_geo`, `eval_kronEnc_geo`, `kronEnc_id`, `recS`, `recT`, `kronEnc_one_eq_recS`, `kronEnc_id_eq_recT` | `PublicTables.lean` |
 
 ## Modelling
 
@@ -117,5 +118,5 @@ lake env lean KroneckerFRI/Audit.lean
 - Operation counts: Lem 4.9, Lem 5.9(2)–(3), Lem 6.7, Prop 6.11.
 - The base-field statements: Lem 2.14, Lem 6.3(3), Rem 7.13. There is no separate base field `F_q` in the model.
 - The running time of the extractor.
-- Research note, §5: the closed forms of the public polynomials `V_1`, `V_id`, `V_{G_η}` used by the verifier (checked by the Rust tests; in Lean a public table enters through its polynomial `kronEnc`).
+- Research note, §5: that the Rust loops `v_one`, `v_id` compute the recursion `recS`, `recT` (checked by reading and by the Rust tests; the recursion itself is proved equal to `V_1`, `V_id` in `PublicTables.lean`).
 - The post-quantum analysis of §8. It rests on the BCS theorem of Chiesa, Di, Hu and Zheng (Thm 3.15), which has no Lean formalisation.

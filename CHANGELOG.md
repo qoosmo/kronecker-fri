@@ -1,5 +1,14 @@
 # Changelog
 
+## Unreleased — closed forms of the public tables in Lean
+
+### Lean
+- `lean/KroneckerFRI/PublicTables.lean` (no `sorry`, standard axioms only): product tables (`kronEnc_prod`); `V_1 = ∏_k (1 + X^{2^k})` (`kronEnc_one`); `V_{G_η}(x) = V_1(ηx)` (`kronEnc_geo`, `eval_kronEnc_geo`); `V_id = X V_1'` (`kronEnc_id`); the recursion `S, T` of the verifier's `v_one`, `v_id` (`recS`, `recT`, `kronEnc_one_eq_recS`, `kronEnc_id_eq_recT`). With this file every mathematical claim of the research note is machine-checked.
+- `Audit.lean`: the new theorems.
+
+### Note (version 15)
+- Lean status: the closed forms of the public tables.
+
 ## Unreleased — Merkle hashing by BLAKE3 keys
 
 ### Code
