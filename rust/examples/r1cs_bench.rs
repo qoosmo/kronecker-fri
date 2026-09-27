@@ -42,7 +42,7 @@ fn main() {
             let pr = prove_r1cs::<Fp2>(&p, &r, &idx, &x, &wit, &[2u8; 32]);
             pv.push(ms(t));
             let t = Instant::now();
-            assert_eq!(verify_r1cs(&p, &r, &idx.roots, &x, &pr), Ok(()));
+            assert_eq!(verify_r1cs(&p, &r, &idx.root, &x, &pr), Ok(()));
             vv.push(ms(t));
             size = pr.size_bytes();
         }

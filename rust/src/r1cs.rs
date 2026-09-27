@@ -3,13 +3,28 @@
 //! (committed once by an honest indexer), a public input x at fixed positions, and a committed
 //! witness w (zero on the input positions).
 //!
+//! Index: ONE group (one Merkle tree) holding the 11 base-field words
+//! row_A, col_A, val_A, row_B, col_B, val_B, row_C, col_C, val_C, mR, mC, where
+//! mR = mR_A + mR_B + mR_C and mC = mC_A + mC_B + mC_C are the combined multiplicities.
+//!
 //! Rounds:
 //! 1. the prover commits the group (w, a, b, c), a = Az, b = Bz, c = Cz;
-//! 2. eta; the prover commits, for each matrix, e = eta^row, zeta = z(col), p = e zeta (one group);
-//! 3. x_R, y_R, x_C, y_C (shared by the three matrices); the prover commits, for each matrix,
-//!    phi^R, psi^R, phi^C, psi^C (one group) and sends s, s_R, s_C;
-//! 4. the engine `affine` proves the 11 statements of each lincheck (Definition 5.3),
-//!    Had(a, b, c) and Had(w, chi, 0), with one folding test.
+//! 2. eta; the prover commits, for each matrix M, e_M = eta^row_M, zeta_M = z(col_M),
+//!    p_M = e_M zeta_M (one group L1);
+//! 3. x_R, y_R, x_C, y_C; the prover commits the group L2 = (phi^R_A, phi^R_B, phi^R_C, psi^R,
+//!    phi^C_A, phi^C_B, phi^C_C, psi^C) with phi^R_M[k] = 1/(x_R - row_M[k] - y_R e_M[k]),
+//!    psi^R[w] = mR[w]/(x_R - w - y_R eta^w), phi^C_M[k] = 1/(x_C - col_M[k] - y_C zeta_M[k]),
+//!    psi^C[w] = mC[w]/(x_C - w - y_C z[w]), and sends s_A, s_B, s_C;
+//! 4. the engine `affine` proves, with one folding test, the 21 statements
+//!    - per matrix M: IP(a_M, G_eta) = IP(val_M, p_M) = s_M and Had(e_M, zeta_M, p_M);
+//!    - combined row lookup (all three matrices against one table): Had(phi^R_M,
+//!      x_R 1 - row_M - y_R e_M, 1) for each M, Had(psi^R, x_R 1 - id - y_R G_eta, mR), and
+//!      IP(phi^R_A + phi^R_B + phi^R_C - psi^R, 1) = 0;
+//!    - combined column lookup: the same with (col_M, zeta_M), (id, z = x_hat + w), psi^C, mC;
+//!    - Had(a, b, c) and Had(w, chi, 0).
+//!
+//! The combined lookups are LogUp (note, Lemma logup) with 3N looked-up pairs against N table
+//! pairs: they need char F > 3N, and each costs (4N - 1)/|F| instead of (2N - 1)/|F|.
 
 use crate::affine::{
     AStmt, AffineProof, Form, GData, GroupData, OId, Pub, Shape, commit_group, prove_affine,
@@ -29,31 +44,34 @@ pub struct R1cs {
     pub inputs: Vec<usize>,
 }
 
-/// The index: one group (row, col, val, mR, mC) per matrix.
+/// The index: one group (row_M, col_M, val_M for M = A, B, C, then mR, mC).
 pub struct Index {
-    pub groups: Vec<GroupData<Fp>>,
-    pub roots: Vec<Digest>,
+    pub group: GroupData<Fp>,
+    pub root: Digest,
 }
 
+/// Number of words of the index group.
+const IDX_WORDS: usize = 11;
+
 pub fn index(p: &Params, r: &R1cs, seed: &Digest) -> Index {
-    let groups: Vec<GroupData<Fp>> = r
-        .mats
-        .iter()
-        .enumerate()
-        .map(|(i, mt)| {
-            let (mr, mc) = mt.multiplicities();
-            let words = vec![
-                mt.row.iter().map(|&x| Fp::new(x as u64)).collect(),
-                mt.col.iter().map(|&x| Fp::new(x as u64)).collect(),
-                mt.val.clone(),
-                mr,
-                mc,
-            ];
-            commit_group(p, words, seed, format!("index-{i}").as_bytes())
-        })
-        .collect();
-    let roots = groups.iter().map(|g| g.tree.root()).collect();
-    Index { groups, roots }
+    let nn = 1usize << r.n;
+    let mut words: Vec<Vec<Fp>> = Vec::with_capacity(IDX_WORDS);
+    let (mut mr, mut mc) = (vec![Fp::ZERO; nn], vec![Fp::ZERO; nn]);
+    for mt in &r.mats {
+        let (r_m, c_m) = mt.multiplicities();
+        for w in 0..nn {
+            mr[w] = mr[w] + r_m[w];
+            mc[w] = mc[w] + c_m[w];
+        }
+        words.push(mt.row.iter().map(|&x| Fp::new(x as u64)).collect());
+        words.push(mt.col.iter().map(|&x| Fp::new(x as u64)).collect());
+        words.push(mt.val.clone());
+    }
+    words.push(mr);
+    words.push(mc);
+    let group = commit_group(p, words, seed, b"index");
+    let root = group.tree.root();
+    Index { group, root }
 }
 
 #[derive(Clone, Debug)]
@@ -62,27 +80,29 @@ pub struct R1csProof<E> {
     pub root_l1: Digest,
     pub root_l2: Digest,
     pub salts: Vec<Vec<u8>>,
-    /// (s, s_R, s_C) for A, B, C
-    pub sums: Vec<[E; 3]>,
+    /// s_A, s_B, s_C
+    pub sums: [E; 3],
     pub engine: AffineProof<E>,
 }
 
 impl<E: ExtField> R1csProof<E> {
-    /// Size in bytes (the index roots are known to the verifier).
+    /// Size in bytes (the index root is known to the verifier).
     pub fn size_bytes(&self) -> usize {
         let e = 8 * E::DEGREE;
-        let caps_wit_l: usize =
-            self.engine.gcaps[0].len() + self.engine.gcaps[4].len() + self.engine.gcaps[5].len();
+        let caps_wit_l: usize = self.engine.gcaps[G_WIT].len()
+            + self.engine.gcaps[G_L1].len()
+            + self.engine.gcaps[G_L2].len();
         32 * caps_wit_l
             + self.salts.iter().map(|s| s.len()).sum::<usize>()
-            + 3 * e * self.sums.len()
+            + e * self.sums.len()
             + self.engine.size_bytes(false)
     }
 }
 
 const G_WIT: usize = 0;
-const G_L1: usize = 4;
-const G_L2: usize = 5;
+const G_IDX: usize = 1;
+const G_L1: usize = 2;
+const G_L2: usize = 3;
 
 fn o(group: usize, word: usize) -> OId {
     OId { group, word }
@@ -98,72 +118,105 @@ fn x_hat<E: ExtField>(r: &R1cs, x: &[Fp]) -> Pub<E> {
     )
 }
 
+/// Word of L2: phi^R_M (M = 0, 1, 2), psi^R, phi^C_M, psi^C.
+fn phi_r(mi: usize) -> OId {
+    o(G_L2, mi)
+}
+const PSI_R: usize = 3;
+fn phi_c(mi: usize) -> OId {
+    o(G_L2, 4 + mi)
+}
+const PSI_C: usize = 7;
+
 /// The statements of step 4.
-fn statements<E: ExtField>(
-    r: &R1cs,
-    x: &[Fp],
-    eta: E,
-    ch: [E; 4],
-    sums: &[[E; 3]],
-) -> Vec<AStmt<E>> {
+fn statements<E: ExtField>(r: &R1cs, x: &[Fp], eta: E, ch: [E; 4], sums: &[E; 3]) -> Vec<AStmt<E>> {
     let [xr, yr, xc, yc] = ch;
     let one = E::ONE;
     let w = |k: usize| Form::word(o(G_WIT, k));
     let pubf = |pb: Pub<E>| Form::public(pb);
+    let row = |mi: usize| o(G_IDX, 3 * mi);
+    let col = |mi: usize| o(G_IDX, 3 * mi + 1);
+    let val = |mi: usize| o(G_IDX, 3 * mi + 2);
+    let (mr, mc) = (o(G_IDX, 9), o(G_IDX, 10));
+    let e = |mi: usize| o(G_L1, 3 * mi);
+    let zeta = |mi: usize| o(G_L1, 3 * mi + 1);
+    let pp = |mi: usize| o(G_L1, 3 * mi + 2);
     let mut st = Vec::new();
+    // the weighted sums of each lincheck
     for mi in 0..3 {
-        let gi = 1 + mi;
-        let (row, col, val, mr, mc) = (o(gi, 0), o(gi, 1), o(gi, 2), o(gi, 3), o(gi, 4));
-        let (e, zeta, pp) = (o(G_L1, 3 * mi), o(G_L1, 3 * mi + 1), o(G_L1, 3 * mi + 2));
-        let (phr, psr, phc, psc) = (
-            o(G_L2, 4 * mi),
-            o(G_L2, 4 * mi + 1),
-            o(G_L2, 4 * mi + 2),
-            o(G_L2, 4 * mi + 3),
-        );
-        let [s, sr, sc] = sums[mi];
+        let s = sums[mi];
         st.push(AStmt::Ip(w(1 + mi), pubf(Pub::Geo(eta)), s));
-        st.push(AStmt::Ip(Form::word(val), Form::word(pp), s));
-        st.push(AStmt::Had(Form::word(e), Form::word(zeta), Form::word(pp)));
-        // row lookup
+        st.push(AStmt::Ip(Form::word(val(mi)), Form::word(pp(mi)), s));
         st.push(AStmt::Had(
-            Form::word(phr),
+            Form::word(e(mi)),
+            Form::word(zeta(mi)),
+            Form::word(pp(mi)),
+        ));
+    }
+    // combined row lookup: (row_M[k], e_M[k]) in {(w, eta^w)} for the three matrices
+    for mi in 0..3 {
+        st.push(AStmt::Had(
+            Form::word(phi_r(mi)),
             Form {
-                com: vec![(row, -one), (e, -yr)],
+                com: vec![(row(mi), -one), (e(mi), -yr)],
                 pubs: vec![(Pub::One, xr)],
             },
             pubf(Pub::One),
         ));
+    }
+    st.push(AStmt::Had(
+        Form::word(o(G_L2, PSI_R)),
+        Form {
+            com: vec![],
+            pubs: vec![(Pub::One, xr), (Pub::Id, -one), (Pub::Geo(eta), -yr)],
+        },
+        Form::word(mr),
+    ));
+    st.push(AStmt::Ip(
+        Form {
+            com: vec![
+                (phi_r(0), one),
+                (phi_r(1), one),
+                (phi_r(2), one),
+                (o(G_L2, PSI_R), -one),
+            ],
+            pubs: vec![],
+        },
+        pubf(Pub::One),
+        E::ZERO,
+    ));
+    // combined column lookup: (col_M[k], zeta_M[k]) in {(w, z(w))}, z = x_hat + w
+    for mi in 0..3 {
         st.push(AStmt::Had(
-            Form::word(psr),
+            Form::word(phi_c(mi)),
             Form {
-                com: vec![],
-                pubs: vec![(Pub::One, xr), (Pub::Id, -one), (Pub::Geo(eta), -yr)],
-            },
-            Form::word(mr),
-        ));
-        st.push(AStmt::Ip(Form::word(phr), pubf(Pub::One), sr));
-        st.push(AStmt::Ip(Form::word(psr), pubf(Pub::One), sr));
-        // column lookup (z = x_hat + w)
-        st.push(AStmt::Had(
-            Form::word(phc),
-            Form {
-                com: vec![(col, -one), (zeta, -yc)],
+                com: vec![(col(mi), -one), (zeta(mi), -yc)],
                 pubs: vec![(Pub::One, xc)],
             },
             pubf(Pub::One),
         ));
-        st.push(AStmt::Had(
-            Form::word(psc),
-            Form {
-                com: vec![(o(G_WIT, 0), -yc)],
-                pubs: vec![(Pub::One, xc), (Pub::Id, -one), (x_hat(r, x), -yc)],
-            },
-            Form::word(mc),
-        ));
-        st.push(AStmt::Ip(Form::word(phc), pubf(Pub::One), sc));
-        st.push(AStmt::Ip(Form::word(psc), pubf(Pub::One), sc));
     }
+    st.push(AStmt::Had(
+        Form::word(o(G_L2, PSI_C)),
+        Form {
+            com: vec![(o(G_WIT, 0), -yc)],
+            pubs: vec![(Pub::One, xc), (Pub::Id, -one), (x_hat(r, x), -yc)],
+        },
+        Form::word(mc),
+    ));
+    st.push(AStmt::Ip(
+        Form {
+            com: vec![
+                (phi_c(0), one),
+                (phi_c(1), one),
+                (phi_c(2), one),
+                (o(G_L2, PSI_C), -one),
+            ],
+            pubs: vec![],
+        },
+        pubf(Pub::One),
+        E::ZERO,
+    ));
     st.push(AStmt::Had(w(1), w(2), w(3)));
     let chi = Pub::Sparse(r.inputs.iter().map(|&i| (i, E::ONE)).collect());
     st.push(AStmt::Had(w(0), pubf(chi), pubf(Pub::Zero)));
@@ -173,16 +226,11 @@ fn statements<E: ExtField>(
 /// The statements of step 4 with arbitrary challenges and sums, for counting the words.
 pub fn statements_for_count<E: ExtField>(r: &R1cs, x: &[Fp]) -> Vec<AStmt<E>> {
     let one = E::ONE;
-    statements(r, x, one + one, [one; 4], &[[one; 3]; 3])
+    statements(r, x, one + one, [one; 4], &[one; 3])
 }
 
-fn init_transcript<E: ExtField>(
-    p: &Params,
-    idx_roots: &[Digest],
-    r: &R1cs,
-    x: &[Fp],
-) -> Transcript {
-    let mut tr = Transcript::new(b"kronecker-fri-r1cs-v1");
+fn init_transcript<E: ExtField>(p: &Params, idx_root: &Digest, r: &R1cs, x: &[Fp]) -> Transcript {
+    let mut tr = Transcript::new(b"kronecker-fri-r1cs-v2");
     let params = [
         p.n,
         p.log_inv_rate,
@@ -198,9 +246,7 @@ fn init_transcript<E: ExtField>(
         .flat_map(|&v| (v as u64).to_le_bytes())
         .collect();
     tr.absorb(b"params", &pb);
-    for rt in idx_roots {
-        tr.absorb(b"index", rt);
-    }
+    tr.absorb(b"index", idx_root);
     let mut ib = Vec::new();
     for (&i, v) in r.inputs.iter().zip(x) {
         ib.extend((i as u64).to_le_bytes());
@@ -218,9 +264,9 @@ pub enum R1csCheat {
     /// holds): only the lincheck of A is false
     WrongA,
     /// WrongA, and zeta of A forged at one nonzero entry so that the weighted sums agree: only the
-    /// column lookup of A fails
+    /// (combined) column lookup fails
     WrongAForgeZeta,
-    /// WrongA, and e of A forged instead: only the row lookup of A fails
+    /// WrongA, and e of A forged instead: only the (combined) row lookup fails
     WrongAForgeE,
 }
 
@@ -257,7 +303,7 @@ pub fn prove_r1cs_with<E: ExtField>(
     if cheat != R1csCheat::None {
         abc[0][nn - 1] = abc[0][nn - 1] + Fp::ONE;
     }
-    let mut tr = init_transcript::<E>(p, &idx.roots, r, x);
+    let mut tr = init_transcript::<E>(p, &idx.root, r, x);
     let mut salts = Vec::new();
     // round 1: (w, a, b, c)
     let g_wit = commit_group(
@@ -297,7 +343,7 @@ pub fn prove_r1cs_with<E: ExtField>(
     tr.absorb(b"root", &g_l1.tree.root());
     salts.push(round_salt(seed, 102, p.salt_len));
     tr.absorb(b"salt", salts.last().unwrap());
-    // round 3: x_R, y_R, x_C, y_C; phi, psi for each matrix, and the sums
+    // round 3: x_R, y_R, x_C, y_C; phi^R_M, psi^R, phi^C_M, psi^C, and the sums s_M
     let ch: [E; 4] = [
         tr.challenge(),
         tr.challenge(),
@@ -313,53 +359,50 @@ pub fn prove_r1cs_with<E: ExtField>(
             Some(c)
         })
         .collect();
-    let mut l2 = Vec::new();
-    let mut sums = Vec::new();
+    let (mr, mc) = (&idx.group.coeffs[9], &idx.group.coeffs[10]);
+    let mut phr = Vec::new();
+    let mut phc = Vec::new();
+    let mut sums = [E::ZERO; 3];
     for (mi, m) in r.mats.iter().enumerate() {
-        let (mr, mc) = m.multiplicities();
         let (e, zeta, pp) = (&l1[3 * mi], &l1[3 * mi + 1], &l1[3 * mi + 2]);
-        let phr = batch_inv(
+        phr.push(batch_inv(
             &(0..nn)
                 .map(|k| xr - fe(m.row[k]) - yr * e[k])
                 .collect::<Vec<_>>(),
-        );
-        let psr: Vec<E> = batch_inv(
-            &(0..nn)
-                .map(|w| xr - fe(w) - yr * geo[w])
-                .collect::<Vec<_>>(),
-        )
-        .into_iter()
-        .zip(&mr)
-        .map(|(d, &mm)| d * mm)
-        .collect();
-        let phc = batch_inv(
+        ));
+        phc.push(batch_inv(
             &(0..nn)
                 .map(|k| xc - fe(m.col[k]) - yc * zeta[k])
                 .collect::<Vec<_>>(),
-        );
-        let psc: Vec<E> = batch_inv(
-            &(0..nn)
-                .map(|w| xc - fe(w) - yc * E::from(z[w]))
-                .collect::<Vec<_>>(),
-        )
-        .into_iter()
-        .zip(&mc)
-        .map(|(d, &mm)| d * mm)
-        .collect();
-        let sum = |v: &[E]| v.iter().fold(E::ZERO, |s, &a| s + a);
-        let s = (0..nn).fold(E::ZERO, |acc, k| acc + pp[k] * m.val[k]);
-        sums.push([s, sum(&phr), sum(&phc)]);
-        l2.push(phr);
-        l2.push(psr);
-        l2.push(phc);
-        l2.push(psc);
+        ));
+        sums[mi] = (0..nn).fold(E::ZERO, |acc, k| acc + pp[k] * m.val[k]);
     }
+    let psr: Vec<E> = batch_inv(
+        &(0..nn)
+            .map(|w| xr - fe(w) - yr * geo[w])
+            .collect::<Vec<_>>(),
+    )
+    .into_iter()
+    .zip(mr)
+    .map(|(d, &mm)| d * mm)
+    .collect();
+    let psc: Vec<E> = batch_inv(
+        &(0..nn)
+            .map(|w| xc - fe(w) - yc * E::from(z[w]))
+            .collect::<Vec<_>>(),
+    )
+    .into_iter()
+    .zip(mc)
+    .map(|(d, &mm)| d * mm)
+    .collect();
+    let mut l2 = phr;
+    l2.push(psr);
+    l2.extend(phc);
+    l2.push(psc);
     let g_l2 = commit_group(p, l2, seed, b"r1cs-L2");
     tr.absorb(b"root", &g_l2.tree.root());
-    for s3 in &sums {
-        for v in s3 {
-            tr.absorb(b"sum", &e_bytes(v));
-        }
+    for v in &sums {
+        tr.absorb(b"sum", &e_bytes(v));
     }
     salts.push(round_salt(seed, 103, p.salt_len));
     tr.absorb(b"salt", salts.last().unwrap());
@@ -367,9 +410,7 @@ pub fn prove_r1cs_with<E: ExtField>(
     let stmts = statements(r, x, eta, ch, &sums);
     let groups = [
         GData::Base(&g_wit),
-        GData::Base(&idx.groups[0]),
-        GData::Base(&idx.groups[1]),
-        GData::Base(&idx.groups[2]),
+        GData::Base(&idx.group),
         GData::Ext(&g_l1),
         GData::Ext(&g_l2),
     ];
@@ -387,20 +428,18 @@ pub fn prove_r1cs_with<E: ExtField>(
 pub fn verify_r1cs<E: ExtField>(
     p: &Params,
     r: &R1cs,
-    idx_roots: &[Digest],
+    idx_root: &Digest,
     x: &[Fp],
     proof: &R1csProof<E>,
 ) -> Result<(), &'static str> {
-    if idx_roots.len() != 3
-        || x.len() != r.inputs.len()
+    if x.len() != r.inputs.len()
         || proof.salts.len() != 3
         || proof.salts.iter().any(|s| s.len() != p.salt_len)
-        || proof.sums.len() != 3
         || p.n != r.n
     {
         return Err("shape");
     }
-    let mut tr = init_transcript::<E>(p, idx_roots, r, x);
+    let mut tr = init_transcript::<E>(p, idx_root, r, x);
     tr.absorb(b"root", &proof.root_wit);
     tr.absorb(b"salt", &proof.salts[0]);
     let eta: E = tr.challenge();
@@ -413,21 +452,12 @@ pub fn verify_r1cs<E: ExtField>(
         tr.challenge(),
     ];
     tr.absorb(b"root", &proof.root_l2);
-    for s3 in &proof.sums {
-        for v in s3 {
-            tr.absorb(b"sum", &e_bytes(v));
-        }
+    for v in &proof.sums {
+        tr.absorb(b"sum", &e_bytes(v));
     }
     tr.absorb(b"salt", &proof.salts[2]);
     let stmts = statements(r, x, eta, ch, &proof.sums);
-    let roots = [
-        proof.root_wit,
-        idx_roots[0],
-        idx_roots[1],
-        idx_roots[2],
-        proof.root_l1,
-        proof.root_l2,
-    ];
+    let roots = [proof.root_wit, *idx_root, proof.root_l1, proof.root_l2];
     let shapes = [
         Shape {
             base: true,
@@ -435,15 +465,7 @@ pub fn verify_r1cs<E: ExtField>(
         },
         Shape {
             base: true,
-            words: 5,
-        },
-        Shape {
-            base: true,
-            words: 5,
-        },
-        Shape {
-            base: true,
-            words: 5,
+            words: IDX_WORDS,
         },
         Shape {
             base: false,
@@ -451,7 +473,7 @@ pub fn verify_r1cs<E: ExtField>(
         },
         Shape {
             base: false,
-            words: 12,
+            words: 8,
         },
     ];
     verify_affine(p, &mut tr, &roots, &shapes, &stmts, &proof.engine)
@@ -536,18 +558,18 @@ mod tests {
             let (r, x, wit) = sample_instance(n, 2, 2, 7 + n as u64);
             let idx = index(&p, &r, &[1u8; 32]);
             let pr = prove_r1cs::<E>(&p, &r, &idx, &x, &wit, &[2u8; 32]);
-            assert_eq!(verify_r1cs(&p, &r, &idx.roots, &x, &pr), Ok(()), "n={n}");
+            assert_eq!(verify_r1cs(&p, &r, &idx.root, &x, &pr), Ok(()), "n={n}");
             // a wrong public input
             let mut x2 = x.clone();
             x2[0] = x2[0] + Fp::ONE;
-            assert!(verify_r1cs(&p, &r, &idx.roots, &x2, &pr).is_err());
+            assert!(verify_r1cs(&p, &r, &idx.root, &x2, &pr).is_err());
             // an unsatisfied constraint: change one product slot of the witness
             let mut w2 = wit.clone();
             let slot = (1usize << n) / 2;
             w2[slot] = w2[slot] + Fp::ONE;
             let pr2 = prove_r1cs::<E>(&p, &r, &idx, &x, &w2, &[3u8; 32]);
             assert_eq!(
-                verify_r1cs(&p, &r, &idx.roots, &x, &pr2),
+                verify_r1cs(&p, &r, &idx.root, &x, &pr2),
                 Err("fold"),
                 "n={n}"
             );
@@ -559,7 +581,7 @@ mod tests {
             ] {
                 let pr = prove_r1cs_with::<E>(&p, &r, &idx, &x, &wit, &[5u8; 32], cheat);
                 assert_eq!(
-                    verify_r1cs(&p, &r, &idx.roots, &x, &pr),
+                    verify_r1cs(&p, &r, &idx.root, &x, &pr),
                     Err("fold"),
                     "n={n} {cheat:?}"
                 );
@@ -568,7 +590,7 @@ mod tests {
             let mut w3 = wit.clone();
             w3[0] = w3[0] + Fp::ONE;
             let pr3 = prove_r1cs::<E>(&p, &r, &idx, &x, &w3, &[4u8; 32]);
-            assert!(verify_r1cs(&p, &r, &idx.roots, &x, &pr3).is_err(), "n={n}");
+            assert!(verify_r1cs(&p, &r, &idx.root, &x, &pr3).is_err(), "n={n}");
         }
     }
 
