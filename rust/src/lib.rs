@@ -10,10 +10,14 @@
 //! - `ip`: prototype of the sumcheck-free inner-product protocol Pi_IP (research note
 //!   `notes/inner-product`, Section 2);
 //! - `had`: prototype of the sumcheck-free Hadamard check Pi_Had (same note, Section 3);
-//! - `ft`: the folding test on a batched word and level-0 coset openings, shared by `had`.
+//! - `batch`: prototype of Pi_Batch, any list of evaluations, inner products and Hadamard checks
+//!   in one folding test (same note, Section 4);
+//! - `ft`: the folding test on a batched word and level-0 coset openings, shared by `had` and
+//!   `batch`.
 
 #![allow(clippy::needless_range_loop)] // index loops mirror the formulas of the paper
 
+pub mod batch;
 pub mod field;
 pub mod ft;
 pub mod had;

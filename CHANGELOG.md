@@ -1,5 +1,14 @@
 # Changelog
 
+## Unreleased — batched statements in one folding test
+
+### Note (`notes/inner-product/`, version 5, 9 pages)
+- New §4: Π_Batch proves any list of evaluations, inner products and Hadamard checks on table-form commitments with one folding test; soundness 2(N-1)/|F| + tM/|F| + ε_fold + (1-δ)^κ for t+1 batched words, with the γ,θ term paid once whatever the number of Hadamard checks. Proofs written out; Lean formalisation next.
+
+### Code
+- `rust/src/batch.rs`: prototype prover and verifier of Π_Batch (label `kronecker-fri-batch-v1`), one multi-value Merkle tree for all w_Q and one for all w_A; table-form evaluation kernel E*_z (coefficients, evaluation, whole domain); tests for mixed batches and for one false statement of each kind.
+- `examples/batch_bench.rs`, `bench/batch.csv`: one batched proof against four separate proofs (n = 20: 805 KiB vs 1958 KiB, verification 11.3 ms vs 25.4 ms).
+
 ## Unreleased — Lean formalisation of the Hadamard check
 
 ### Lean (`lean/KroneckerFRI/Hadamard.lean`)

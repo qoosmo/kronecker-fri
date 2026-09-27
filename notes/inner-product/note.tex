@@ -18,7 +18,7 @@
 \newcommand{\iv}[2]{[#1,#2]}
 \title{Sumcheck-free hypercube inner products\\ from table-form Kronecker encodings}
 \author{Research note (companion to Kronecker-FRI)}
-\date{September 2026 --- version 4 (Sections 1--3 formalised in Lean~4; Rust prototypes of Sections 2 and 3)}
+\date{September 2026 --- version 5 (Section 4: one folding test for a batch of statements)}
 \emergencystretch=3em
 \begin{document}
 \maketitle
@@ -27,7 +27,7 @@
 We encode a multilinear polynomial by its \emph{table}, $V_f(X)=\sum_{w}f(w)X^{w}$, instead of its coefficients.
 Two quantities then become single coefficients of univariate products: the evaluation $\tilde f(z)$, with a product-form kernel, and the hypercube inner product $\sum_{w}a(w)b(w)$ of two committed tables, through the reversal $V_b^\ast(X)=X^{N-1}V_b(1/X)$.
 Because a smooth domain is closed under inversion, the verifier reads $V_b^\ast$ from the commitment to $b$ as a virtual word, and the Kronecker-FRI machinery (opening polynomial, virtual word, one folding test) proves $\sum_w a(w)b(w)=S$ with no sumcheck, with soundness error $3M/|\F|+\varepsilon_{\mathrm{fold}}+(1-\delta)^\kappa$.
-With geometric weights $\gamma^w$ and DEEP quotients as further virtual words, the same method gives a sumcheck-free Hadamard check $a\circ b=c$ for three committed tables, with soundness error $2(N-1)/|\F|+8M/|\F|+\varepsilon_{\mathrm{fold}}+(1-\delta)^\kappa$. All results are machine-checked in Lean~4.
+With geometric weights $\gamma^w$ and DEEP quotients as further virtual words, the same method gives a sumcheck-free Hadamard check $a\circ b=c$ for three committed tables, with soundness error $2(N-1)/|\F|+8M/|\F|+\varepsilon_{\mathrm{fold}}+(1-\delta)^\kappa$. Finally, any list of evaluations, inner products and Hadamard checks on the same commitments is proved by one folding test, with soundness error $2(N-1)/|\F|+tM/|\F|+\varepsilon_{\mathrm{fold}}+(1-\delta)^\kappa$ for $t+1$ batched words; the term $2(N-1)/|\F|$ is paid once, whatever the number of Hadamard checks. The results of Sections~1--3 are machine-checked in Lean~4.
 \end{abstract}
 
 \paragraph{Setting.}
@@ -245,6 +245,99 @@ Linear functionals (evaluations, with the kernel $E^\ast_z$), inner products ($\
 For R1CS-type SNARKs what remains is the sparse matrix--vector products $Az,Bz,Cz$, which Spartan handles with its own sparse-polynomial commitment; whether those admit a coefficient-extraction form is the next question.
 \end{remark}
 
+\section{One folding test for a batch of statements}\label{sec:batch}
+
+A SNARK needs many statements at once on the same commitments: Hadamard checks, inner products and evaluations.
+Since every statement of Sections~1--3 is checked by words in one curve, all of them can share one curve and one folding test.
+
+\begin{definition}[Statements]
+Let $w_1,\dots,w_r\in\F^L$ be commitments. A \emph{statement} is one of the following, with indices in $\{1,\dots,r\}$:
+\begin{itemize}[nosep]
+\item $\mathsf{Eval}(i,z,v)$ with $z\in\F^n$, $v\in\F$: the table $f_i$ of $w_i$ has $\tilde f_i(z)=v$;
+\item $\mathsf{IP}(i,i',S)$ with $S\in\F$: $\sum_wf_i(w)f_{i'}(w)=S$;
+\item $\mathsf{Had}(i,i',k)$: $f_i\circ f_{i'}=f_k$.
+\end{itemize}
+For a list $\Sigma=(\sigma_1,\dots,\sigma_J)$ of $J\ge1$ statements, let $D$ be the set of commitment indices read directly ($i$ in $\mathsf{Eval}$ and $\mathsf{IP}$; $i,k$ in $\mathsf{Had}$), $B$ the set of indices read reversed ($i'$ in $\mathsf{IP}$ and $\mathsf{Had}$), and $\mathcal H\subseteq\{1,\dots,J\}$ the positions of the Hadamard checks. A table may play several roles.
+The relation $\mathcal R^\delta_{\mathrm{Batch}}$ holds for $((w_i)_i,\Sigma)$ and tables $(f_i)_{i\in D\cup B}$ if $\Delta^{\mathrm{fib}}_0(w_i,\mathrm{Enc}^{\mathrm T}(f_i))\le\delta$ for all $i\in D\cup B$ and every statement of $\Sigma$ holds for these tables.
+\end{definition}
+
+For each statement $\sigma_j$ the protocol uses a triple $(U_j,K_j,v_j)$, with $U_j,K_j\in\F[X]_{<N}$, and the identity $XU_jK_j=A_j+v_jX^N+X^{N+1}H_j$ of Lemma~\ref{lem:gen-identity}:
+$(V_{f_i},E^\ast_z,v)$ for $\mathsf{Eval}(i,z,v)$ (Lemma~\ref{lem:eval});
+$(V_{f_i},V_{f_{i'}}^\ast,S)$ for $\mathsf{IP}(i,i',S)$ (Lemma~\ref{lem:ip});
+$(Q_j,V_{f_{i'}}^\ast,y_3^{(j)})$ with $Q_j(X)=V_{f_i}(\gamma X)$ for $\sigma_j=\mathsf{Had}(i,i',k)$ (Section~3).
+The verifier reads $U_j(\xi)$ and $K_j(\xi)$ as $w_i(\xi)$ and $E^\ast_z(\xi)$, as $w_i(\xi)$ and $w_{i'}^\ast(\xi)$, or as $w_Q^{(j)}(\xi)$ and $w_{i'}^\ast(\xi)$.
+
+\begin{definition}[$\Pi_{\mathrm{Batch}}$]
+Instance: $(w_i)_i$ and $\Sigma$.
+\begin{enumerate}[nosep]
+\item The verifier sends $\gamma$, uniform in $\F$. For each $j\in\mathcal H$ the prover sends $w_Q^{(j)}=\ev_L(Q_j)$.
+\item The verifier sends $\theta$, uniform in $\F$. For each $j\in\mathcal H$, with $\sigma_j=\mathsf{Had}(i,i',k)$, the prover sends $y_1^{(j)}=V_{f_i}(\gamma\theta)$ and $y_3^{(j)}=V_{f_k}(\gamma)$; for each $j\le J$ it sends $w_A^{(j)}=\ev_L(A_j)$.
+\item The verifier sends $\beta$, uniform in $\F$. The words are, in a fixed order: $w_i$ for $i\in D$; $w_i^\ast$ for $i\in B$; $w_Q^{(j)}$ for $j\in\mathcal H$; $w_A^{(j)}$ and $h_j(\xi)=\bigl(\xi\,U_j(\xi)K_j(\xi)-w_A^{(j)}(\xi)-v_j\xi^N\bigr)/\xi^{N+1}$ for $j\le J$; and $q[w_i,y_1^{(j)},\gamma\theta]$, $q[w_Q^{(j)},y_1^{(j)},\theta]$, $q[w_k,y_3^{(j)},\gamma]$ for $j\in\mathcal H$, $\sigma_j=\mathsf{Had}(i,i',k)$.
+They are $t+1=|D|+|B|+2J+4|\mathcal H|$ words $u_0,\dots,u_t$; put $w_0=\sum_{s=0}^t\beta^su_s$.
+\item Run $\Pi_{\mathrm{FT}}[\ell,\kappa]$ (or $\Pi^C_{\mathrm{FT}}$) on $w_0$.
+\end{enumerate}
+\end{definition}
+$\gamma$ and $\theta$ are shared by all Hadamard checks. All $w_Q^{(j)}$ can be committed in one Merkle tree whose leaves hold one value of each, and likewise all $w_A^{(j)}$; a query then opens, beyond the folding test, one path per commitment in $D$, one per commitment in $B$ (on the inverse coset), and at most two paths for the prover's oracles (one if $\mathcal H=\emptyset$), whatever $J$.
+
+\begin{theorem}[Completeness]
+If $w_i=\mathrm{Enc}^{\mathrm T}(f_i)$ and every statement holds, the honest prover is accepted whenever $\mathcal H=\emptyset$ or $\gamma\theta,\theta,\gamma\notin L$; so with probability at least $1-3M/|\F|$.
+\end{theorem}
+\begin{proof}
+Each $w_A^{(j)}$, $h_j$ and quotient word is a codeword, by the completeness proofs of Sections~2 and~3 and Lemma~\ref{lem:eval} for $\mathsf{Eval}$ (where $E^\ast_z$ is a public polynomial of degree $<N$).
+\end{proof}
+
+\begin{lemma}[Batching, degree $t$]\label{lem:batchT}
+Fix $\gamma,\theta$ and the prover's messages, and let $\mathcal G$ be the set of $\beta$ for which $w_0$ agrees with some $c'\in\Cc_0$ on a fibre-closed $T\subseteq L$ with $|T|\ge(1-\delta)M$.
+Let $R\ge2$ and $0<\delta\le\delta^\ast$. If $|\mathcal G|>tM$, there are tables $(f_i)_{i\in D\cup B}$ and polynomials $\hat Q_j\in\F[X]_{<N}$ ($j\in\mathcal H$) such that $\Delta^{\mathrm{fib}}_0(w_i,\mathrm{Enc}^{\mathrm T}(f_i))\le\delta$, $\Delta^{\mathrm{fib}}_0(w^{(j)}_Q,\ev_L(\hat Q_j))\le\delta$, and
+\begin{enumerate}[nosep]
+\item every $\mathsf{Eval}$ and $\mathsf{IP}$ statement of $\Sigma$ holds for the $f_i$;
+\item for every $j\in\mathcal H$ with $\sigma_j=\mathsf{Had}(i,i',k)$: $V_{f_i}(\gamma\theta)=y_1^{(j)}=\hat Q_j(\theta)$ and $V_{f_k}(\gamma)=y_3^{(j)}=\coef{N-1}{\hat Q_jV_{f_{i'}}^\ast}$.
+\end{enumerate}
+\end{lemma}
+\begin{proof}
+Correlated agreement on one fibre-closed set (\texttt{curve\_agreement} with this $t$) gives polynomials of degree $<N$ for all the words and a fibre-closed $T$ with $|T|\ge(1-\delta)M>2N$ on which all words agree with them.
+Tables: $V_{f_i}$ is the polynomial of $w_i$ for $i\in D$; for $i\in B$, $V_{f_i}$ is the reversal of the polynomial of $w_i^\ast$, and $w_i$ agrees with $\mathrm{Enc}^{\mathrm T}(f_i)$ on $T^{-1}$ (Lemma~\ref{lem:rev}). If $i\in D\cap B$, both give tables within fibre distance $\delta$ of $w_i$, which coincide by unique decoding.
+For each $j$, the identity of $h_j$ on $T$ and Lemma~\ref{lem:gen-identity}(2) give $v_j=\coef{N-1}{U_jK_j}$ with the polynomials of the words; for $\mathsf{Eval}$ this is $v=\tilde f_i(z)$ by Lemma~\ref{lem:eval}, for $\mathsf{IP}$ it is $S=\sum_wf_i(w)f_j(w)$ by Lemma~\ref{lem:ip}, and for $\mathsf{Had}$ it is the second equality of (2) with $\hat Q_j$ the polynomial of $w_Q^{(j)}$.
+The three quotient words of each $j\in\mathcal H$ give the other equalities of (2) by Lemma~\ref{lem:deep}, as in Lemma~\ref{lem:batch8}.
+\end{proof}
+
+\begin{theorem}[Soundness]\label{thm:batch}
+Let $R\ge2$ and $0<\delta\le\delta^\ast$. If $((w_i)_i,\Sigma)$ has no witness in $\mathcal R^\delta_{\mathrm{Batch}}$, every prover is accepted with probability at most
+\[
+\varepsilon_{\mathrm{Batch}}=\frac{2(N-1)}{|\F|}+\frac{tM}{|\F|}+\varepsilon_{\mathrm{fold}}+(1-\delta)^\kappa,
+\]
+and the first term can be omitted when $\mathcal H=\emptyset$.
+\end{theorem}
+\begin{proof}
+As for Theorem~\ref{thm:had}: call $(\gamma,\theta)$ good if $|\mathcal G|\le tM$ for all round-$2$ messages; for good $(\gamma,\theta)$ the acceptance probability is at most $tM/|\F|+\varepsilon_{\mathrm{fold}}+(1-\delta)^\kappa$.
+If some $w_i$, $i\in D\cup B$, has no table within fibre distance $\delta$, every pair is good by Lemma~\ref{lem:batchT}.
+Otherwise let $\hat f_i$ be the decodings; some statement $\sigma_{j^\ast}$ is false for them, and $j^\ast$ depends only on the instance.
+If $\sigma_{j^\ast}$ is an $\mathsf{Eval}$ or $\mathsf{IP}$ statement, Lemma~\ref{lem:batchT}(1) fails, so every pair is good.
+If $\sigma_{j^\ast}=\mathsf{Had}(i,i',k)$, the proof of Theorem~\ref{thm:had} applies verbatim to this one check, with Lemma~\ref{lem:batchT}(2) for $j^\ast$ in place of Lemma~\ref{lem:batch8}: the pair is good unless $D_{\hat f_i\circ\hat f_{i'}-\hat f_k}(\gamma)=0$, or $\hat Q_{j^\ast}\ne V_{\hat f_i}(\gamma X)$ and $\hat Q_{j^\ast}(\theta)=V_{\hat f_i}(\gamma\theta)$, events of probability at most $(N-1)/|\F|$ each.
+\end{proof}
+
+Only one false statement is needed in the proof, so the term $2(N-1)/|\F|$ from $\gamma,\theta$ is paid once, not once per Hadamard check; the term $tM/|\F|$ grows linearly in the number of words, by $4M/|\F|$ per Hadamard check and $2M/|\F|$ per other statement. For $|\F|=p^2\approx2^{128}$, $M=2^{22}$ and $t=100$, this term is about $2^{-99}$.
+Knowledge follows as before: if the acceptance probability exceeds $\varepsilon_{\mathrm{Batch}}$, the instance has a witness, obtained by decoding each $w_i$.
+
+\begin{table}[h]
+\centering\small
+\setlength{\tabcolsep}{5pt}
+\begin{tabular}{r rrr rrr}
+\hline
+& \multicolumn{3}{c}{one batched proof ($t+1=16$)} & \multicolumn{3}{c}{four separate proofs}\\
+$n$ & prove (ms) & verify (ms) & proof (KiB) & prove (ms) & verify (ms) & proof (KiB)\\
+\hline
+12 & 38.2 & 7.21 & 397.9 & 54.3 & 13.85 & 795.4\\
+14 & 165.2 & 8.20 & 479.5 & 224.9 & 16.17 & 1017.2\\
+16 & 716.2 & 8.90 & 587.5 & 959.8 & 18.70 & 1315.3\\
+18 & 3154.6 & 10.22 & 701.2 & 4116.7 & 22.59 & 1658.7\\
+20 & 13187.4 & 11.32 & 804.5 & 18012.6 & 25.43 & 1957.9\\
+\hline
+\end{tabular}
+\caption{The statements $\mathsf{Had}(a,b,c)$, $\mathsf{IP}(a,d,S)$, $\mathsf{Eval}(a,z_1,v_1)$, $\mathsf{Eval}(c,z_2,v_2)$ on four table-form commitments, proved by one $\Pi_{\mathrm{Batch}}$ proof or by four (each a $\Pi_{\mathrm{Batch}}$ proof of one statement). Configuration KF-8, $148$ queries, $32$-byte salts, $\F_{p^2}$; one core; medians. Source: \texttt{bench/batch.csv}, \texttt{cargo run --release --example batch\_bench}. The prototype prover is not optimised.}
+\end{table}
+One proof for the four statements is $2.0$ to $2.4$ times smaller and $1.9$ to $2.2$ times faster to verify than four proofs ($2.4$ and $2.2$ at $n=20$), and its prover takes $23$ to $30\%$ less time.
+
 \section{Relation to known techniques and status}
 
 Writing an inner product as the middle coefficient of a product with a reversed polynomial is classical, and appears in pairing-based multilinear commitments (Mercury~\cite{EG25} uses the table form with KZG).
@@ -263,6 +356,7 @@ Lemma~\ref{lem:eval}: \texttt{eval\_table}; Lemma~\ref{lem:ip}: \texttt{inner\_p
 The common step of KF Lemma~7.4 and Lemma~\ref{lem:batch3}, correlated agreement on one fibre-closed set for a curve of any degree, is the separate theorem \texttt{curve\_agreement}.
 \item \emph{Rust.} The module \texttt{ip} of the Kronecker-FRI crate implements $\Pi_{\mathrm{IP}}$ with Merkle caps, arity $2^k$ and Fiat--Shamir, on the commitments of \texttt{pcs}. Its tests check Lemmas~\ref{lem:ip}, \ref{lem:gen-identity} and~\ref{lem:rev}(1), completeness for $n\le10$, two rates and arities $2$ to $16$, and the rejection of three cheating provers (a wrong $S$; a wrong $S$ absorbed into a polynomial $A$ of degree $N$, as in KF Remark~4.13; opening polynomials computed from a table $b'\ne b$).
 \item \emph{Lean~4, Section~3.} File \texttt{Hadamard.lean}, same axiom, no \texttt{sorry}. Lemma~\ref{lem:deep}: \texttt{deep\_step}, \texttt{deep\_honest}; completeness: \texttt{honestHad\_accepts}, and \texttt{honestHad\_prob} for the bound $1-3M/|\F|$; Lemma~\ref{lem:batch8}: \texttt{batching\_Had}; Theorem~\ref{thm:had}: \texttt{prob\_bad\_le} (the bad pairs $(\gamma,\theta)$), \texttt{soundness\_Had}, and \texttt{soundnessC\_Had} for any folding arity $2^k$; knowledge: \texttt{knowledge\_Had}. The step ``for good $(\gamma,\theta)$, the argument of KF Thm~7.8'' is the separate theorem \texttt{ft\_family\_bound}: for any family of words $w_0(\beta)$, the acceptance probability is at most $|\mathcal G|/|\F|+\varepsilon_{\mathrm{fold}}+(1-\delta)^\kappa$.
+\item \emph{Section~\ref{sec:batch}.} Proofs written out above, not yet in Lean (they combine \texttt{curve\_agreement}, \texttt{identityG}, \texttt{deep\_step} and \texttt{prob\_bad\_le}). The module \texttt{batch} implements $\Pi_{\mathrm{Batch}}$ with one multi-value Merkle tree for all $w_Q$ and one for all $w_A$; its tests check Lemma~\ref{lem:eval} for $E^\ast_z$, completeness for mixed batches (two Hadamard checks sharing a table, an inner product, two evaluations) for $n\le10$ and arities $2$ to $16$, and the rejection of a batch with one false evaluation, one false inner product, or one false Hadamard check (also against a prover that sets $y_3$ to the weighted inner product, which only the quotient word $q[w_c,y_3,\gamma]$ catches).
 \item \emph{Rust, Section~3.} The module \texttt{had} implements $\Pi_{\mathrm{Had}}$ on the shared folding-test code of module \texttt{ft}, drawing $\gamma$, $\theta$ by rejection sampling outside the base field $\F_p\supseteq L$, so that no pole lies in $L$ and completeness is perfect (the two first terms of $\varepsilon_{\mathrm{Had}}$ become $(N-1)/(|\F|-p)$ each); its tests check completeness for $n\le10$, two rates and arities $2$ to $16$, and the rejection of a wrong $y_1$, of a wrong $Q$ (with $y_1=Q(\theta)$), and of a false instance ($c$ differing from $a\circ b$ in one entry) with three choices of $y_3$. Removing $q[w_c,y_3,\gamma]$ from the batch makes the false instance accepted, and a wrong pole in the verifier breaks completeness, so the tests exercise each part.
 \end{itemize}
 
@@ -286,7 +380,7 @@ $n$ & KF & IP & Had & KF & IP & Had & KF & IP & Had\\
 An inner product of two committed tables costs less prover time than one evaluation opening (the round-$1$ work is in the base field), about the same verifier time, and about $20\%$ more proof, the extra openings of $w_b$ on the inverse cosets.
 A Hadamard check costs about $2.2$ evaluation openings of prover time (its polynomials $Q$, $A$, $H$ lie in the extension field) and $1.7$ times the proof, since five oracles are opened per query instead of two; when $a$, $b$, $c$ are committed together, one tree with three values per leaf removes two of the five authentication paths per query.
 
-\paragraph{Next.} Batching $\Pi_{\mathrm{IP}}$, $\Pi_{\mathrm{Had}}$ and evaluation openings (KF Thm~11.2) in one folding test; the sparse products $Az,Bz,Cz$.
+\paragraph{Next.} Lean formalisation of Section~\ref{sec:batch}; the sparse products $Az,Bz,Cz$.
 
 \begin{thebibliography}{9}
 \bibitem{KF} A.~Mkhida. Kronecker-FRI: A Hash-Based Multilinear Polynomial Commitment from a Coefficient-Extraction Identity. Preprint, 2026. \url{https://github.com/qoosmo/kronecker-fri}.
