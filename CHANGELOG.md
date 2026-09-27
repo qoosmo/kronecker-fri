@@ -1,5 +1,14 @@
 # Changelog
 
+## Unreleased — optional multithreaded prover
+
+### Code
+- Feature `parallel` (optional dependency `rayon`, off by default): the NTT, the Merkle leaves and layers, the kernel product, `K_z` on the domain, the batched word, the folds and the final polynomial run in parallel (`rust/src/par.rs`). The work is split into independent pieces, so the proofs are identical with and without the feature; without it the code runs the same loops serially and the single-threaded benchmarks of the papers are unaffected.
+- `examples/proof_digest.rs`: digest of one proof of each protocol; CI checks equal digests with and without `parallel`, and runs clippy and the tests with it.
+- `Field` requires `Send + Sync` (all field types are plain data).
+- On the 2-vCPU cloud machine (`bench/parallel.csv`): commitment 1.3–1.6× and opening 1.4–1.5× faster at n = 16, 20; more cores give more.
+- Tried and not kept: evaluating a padded polynomial as 2^R NTTs of size N on cosets (saves two butterfly layers, lost to the strided writes; no gain).
+
 ## Unreleased — closed forms of the public tables in Lean
 
 ### Lean

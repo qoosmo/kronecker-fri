@@ -73,14 +73,29 @@ pub fn ntt<F: Field + Mul<Fp, Output = F>>(v: &mut [F], omega: Fp) {
             tw.push(w);
             w = w * w_len;
         }
-        for block in v.chunks_exact_mut(len) {
-            let (lo, hi) = block.split_at_mut(half);
-            for k in 0..half {
-                let u = lo[k];
-                let t = hi[k] * tw[k];
-                lo[k] = u + t;
-                hi[k] = u - t;
+        if half >= crate::par::GRAIN {
+            // few large blocks: split each block's butterflies
+            for block in v.chunks_exact_mut(len) {
+                let (lo, hi) = block.split_at_mut(half);
+                crate::par::zip_chunks(lo, hi, |s, a, b| {
+                    for k in 0..a.len() {
+                        let u = a[k];
+                        let t = b[k] * tw[s + k];
+                        a[k] = u + t;
+                        b[k] = u - t;
+                    }
+                });
             }
+        } else {
+            crate::par::for_blocks(v, len, |block| {
+                let (lo, hi) = block.split_at_mut(half);
+                for k in 0..half {
+                    let u = lo[k];
+                    let t = hi[k] * tw[k];
+                    lo[k] = u + t;
+                    hi[k] = u - t;
+                }
+            });
         }
         len *= 2;
     }
@@ -115,14 +130,18 @@ pub fn kernel_on_domain<F: Field + Mul<Fp, Output = F> + From<Fp>>(
         let half = mk / 2;
         let om = omega.pow(1u64 << (k - 1));
         let mut next = vec![F::ZERO; mk];
-        let mut x = Fp::ONE;
+        let zk = z[k - 1];
         // positions i and i + half of L_{k-1} are x and -x, both squaring to position i of L_k
-        for i in 0..half {
-            let xf = F::from(x);
-            next[i] = (z[k - 1] + xf) * cur[i];
-            next[i + half] = (z[k - 1] - xf) * cur[i];
-            x = x * om;
-        }
+        let (lo, hi) = next.split_at_mut(half);
+        crate::par::zip_chunks(lo, hi, |s, a, b| {
+            let mut x = om.pow(s as u64);
+            for t in 0..a.len() {
+                let xf = F::from(x);
+                a[t] = (zk + xf) * cur[s + t];
+                b[t] = (zk - xf) * cur[s + t];
+                x = x * om;
+            }
+        });
         cur = next;
     }
     cur
@@ -149,11 +168,11 @@ pub fn kernel_product<F: Field>(u: &[F], z: &[F]) -> Vec<F> {
     let mut shift = 1usize;
     for &zk in z {
         let len = q.len();
-        let mut next = vec![F::ZERO; len + shift];
-        for j in 0..len {
-            next[j] = next[j] + zk * q[j];
-            next[j + shift] = next[j + shift] + q[j];
-        }
+        // multiply by (X^shift + z_k)
+        let next = crate::par::map_range(len + shift, |j| {
+            let own = if j < len { zk * q[j] } else { F::ZERO };
+            if j >= shift { q[j - shift] + own } else { own }
+        });
         q = next;
         shift <<= 1;
     }
@@ -179,11 +198,7 @@ pub fn opening_polys<F: Field>(u: &[F], z: &[F]) -> (Vec<F>, F, Vec<F>) {
 pub fn pfold<F: Field>(c: &[F], r: F) -> Vec<F> {
     let a = r.double() - F::ONE;
     let b = F::ONE - r;
-    c.as_chunks::<2>()
-        .0
-        .iter()
-        .map(|[e, o]| a * *e + b * *o)
-        .collect()
+    crate::par::map_range(c.len() / 2, |i| a * c[2 * i] + b * c[2 * i + 1])
 }
 
 /// Kernel fold of one fibre in line form (Lemma 5.3): with a = w(xi), b = w(-xi),
@@ -205,12 +220,10 @@ pub fn fold_word<F: Field + Mul<Fp, Output = F>>(
     inv2: Fp,
 ) -> Vec<F> {
     let h = w.len() / 2;
-    (0..h)
-        .map(|k| {
-            let inv_2xi = inv_x0[k << level] * inv2;
-            fold_pair(w[k], w[k + h], inv_2xi, r, inv2)
-        })
-        .collect()
+    crate::par::map_range(h, |k| {
+        let inv_2xi = inv_x0[k << level] * inv2;
+        fold_pair(w[k], w[k + h], inv_2xi, r, inv2)
+    })
 }
 
 #[cfg(test)]

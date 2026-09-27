@@ -1,0 +1,5 @@
+n,build,commit_ms,kf_open_ms,kf_verify_ms
+16,serial,40.1,108.4,3.03
+16,parallel,30.2,78.9,3.04
+20,serial,920.2,2544.6,4.19
+20,parallel,580.5,1709.2,4.32

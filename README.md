@@ -105,6 +105,7 @@ cargo run --release --example quickstart               # commit, open and verify
 cargo run --release --example small_field_checks       # independent checks over F_257
 cargo run --release --example pq_params                # exact post-quantum bound (rational arithmetic)
 cargo run --release --example bench -- scaling         # also: arity | breakdown | stop | params
+cargo run --release --features parallel --example ip_bench   # multithreaded prover (same proofs)
 ```
 
 ```rust

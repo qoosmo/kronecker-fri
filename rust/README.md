@@ -17,6 +17,7 @@ cargo run --release --example quickstart              # commit / open / verify
 cargo run --release --example small_field_checks      # independent checks over F_257
 cargo run --release --example pq_params               # exact evaluation of the post-quantum bound
 cargo run --release --example bench -- scaling        # tables of paper §10 (also: breakdown, stop, fields, params)
+cargo run --release --features parallel --example ip_bench  # multithreaded prover
 ```
 
 ## Conventions

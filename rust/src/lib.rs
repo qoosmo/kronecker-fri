@@ -19,6 +19,8 @@
 //!   Pi_KF opening) on the same commitment, for the comparison of the same note, Section 5.3;
 //! - `sumcheck`: baselines, one inner product and one Hadamard check by sumcheck, closed by a
 //!   batched opening (same note, Section 6);
+//! - `par` (internal): the optional multithreaded prover (feature `parallel`, rayon); proofs
+//!   are identical with and without it;
 //! - `ft`: the folding test on a batched word and level-0 coset openings, shared by `had` and
 //!   `batch`.
 
@@ -32,6 +34,7 @@ pub mod had;
 pub mod ip;
 pub mod lincheck;
 pub mod merkle;
+mod par;
 pub mod pcs;
 pub mod poly;
 pub mod r1cs;

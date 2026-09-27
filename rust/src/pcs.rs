@@ -401,18 +401,25 @@ pub fn open_with<E: ExtField>(
     let kz = kernel_on_domain(z, omega, m);
     let step_n = omega.pow(nn as u64);
     let step_inv = omega.pow((m - nn - 1) as u64); // omega^{-(N+1)}
-    let (mut x, mut xn, mut xinv) = (Fp::ONE, Fp::ONE, Fp::ONE);
-    let mut w0 = Vec::with_capacity(m);
-    for i in 0..m {
-        let yi = E::from(pd.y[i]);
-        let hi = virtual_value(x, yi, wa[i], kz[i], v, xn, xinv);
-        w0.push(yi + beta * wa[i] + beta2 * hi);
-        x = x * omega;
-        xn = xn * step_n;
-        xinv = xinv * step_inv;
-    }
+    let mut w0 = vec![E::ZERO; m];
+    crate::par::fill_chunks(&mut w0, |s, out| {
+        let (mut x, mut xn, mut xinv) = (
+            omega.pow(s as u64),
+            step_n.pow(s as u64),
+            step_inv.pow(s as u64),
+        );
+        for (t, o) in out.iter_mut().enumerate() {
+            let i = s + t;
+            let yi = E::from(pd.y[i]);
+            let hi = virtual_value(x, yi, wa[i], kz[i], v, xn, xinv);
+            *o = yi + beta * wa[i] + beta2 * hi;
+            x = x * omega;
+            xn = xn * step_n;
+            xinv = xinv * step_inv;
+        }
+    });
     drop(kz);
-    let u0: Vec<E> = (0..nn).map(|i| u[i] + beta * a[i] + beta2 * h[i]).collect();
+    let u0: Vec<E> = crate::par::map_range(nn, |i| u[i] + beta * a[i] + beta2 * h[i]);
 
     // rounds 2 .. l+1: challenges r_1 .. r_l; the word of every committed level (a group start
     // jc >= 1) is sent before r_{jc+1}

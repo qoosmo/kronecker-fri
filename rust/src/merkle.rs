@@ -72,33 +72,27 @@ impl MerkleTree {
     /// Tree over `count` leaves; `leaf(i, buf)` writes the data of leaf i into `buf`.
     pub fn from_fn(
         count: usize,
-        leaf: impl Fn(usize, &mut Vec<u8>),
+        leaf: impl Fn(usize, &mut Vec<u8>) + Sync,
         seed: &Digest,
         label: &[u8],
         salt_len: usize,
     ) -> Self {
         assert!(count.is_power_of_two());
-        let mut buf = Vec::with_capacity(64);
         let mut salts = vec![0u8; count * salt_len];
         if salt_len > 0 {
             salt_stream(seed, label).fill(&mut salts);
         }
-        let hashes: Vec<Digest> = (0..count)
-            .map(|i| {
-                buf.clear();
-                leaf(i, &mut buf);
-                hash_leaf(&buf, &salts[i * salt_len..(i + 1) * salt_len])
-            })
-            .collect();
+        let hashes: Vec<Digest> = crate::par::map_range_buf(count, |buf, i| {
+            buf.clear();
+            leaf(i, buf);
+            hash_leaf(buf, &salts[i * salt_len..(i + 1) * salt_len])
+        });
         let mut layers = vec![hashes];
         while layers.last().unwrap().len() > 1 {
             let prev = layers.last().unwrap();
-            let next: Vec<Digest> = prev
-                .as_chunks::<2>()
-                .0
-                .iter()
-                .map(|[l, r]| hash_node(l, r))
-                .collect();
+            let next: Vec<Digest> = crate::par::map_range(prev.len() / 2, |i| {
+                hash_node(&prev[2 * i], &prev[2 * i + 1])
+            });
             layers.push(next);
         }
         MerkleTree {

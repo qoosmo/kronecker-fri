@@ -13,6 +13,8 @@ pub const TWO_ADICITY: u32 = 32;
 
 pub trait Field:
     Copy
+    + Send
+    + Sync
     + Clone
     + PartialEq
     + Eq
