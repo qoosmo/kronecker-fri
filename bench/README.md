@@ -20,4 +20,6 @@ Configurations: **KF-2** = arity 2, no caps, ℓ = n − 4 (`config = v1`); **KF
 | `primitives.csv` | `cargo run --release --example primitives_bench` (one inner product and one Hadamard check, sumcheck-free (`sf`) and sumcheck + batched opening (`sc`), same commitments and engine; same configuration) | research note `notes/inner-product`, §6 (the two routes) |
 | `kbfold_scaling.csv` | `cargo run --release --example bench -- scaling` in [qoosmo/kbfold](https://github.com/qoosmo/kbfold) `rust/` | Table 3 (KBFold and baseline columns) |
 
+The salted Merkle trees were made faster after these recordings (bulk salt streams, see CHANGELOG): current code commits and opens 10–25% faster than these files show; proof sizes are unaffected.
+
 Timings of identical work vary by about 10–20% between runs on this shared machine; proof sizes are exact.

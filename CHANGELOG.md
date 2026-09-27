@@ -1,5 +1,11 @@
 # Changelog
 
+## Unreleased — faster salted Merkle trees
+
+### Code
+- `rust/src/merkle.rs`: the leaf salts of a tree are read from one BLAKE3 output stream keyed with the prover seed (in bulk when the tree is built, at an offset when a group is opened) instead of one keyed hash per leaf. The tree format, the proofs and the verifier are unchanged; only the prover's private salt values differ. At n = 16 (KF-8, 148 queries, 32-byte salts, F_{p^2}): commitment 70.6 → 54.1 ms, Π_KF opening 159 → 139 ms, Spartan-core prover 258 → 225 ms. The data in `bench/` were recorded before this change.
+- Test `merkle::salt_tests`: opened salts match the hashed leaves; distinct labels give distinct streams.
+
 ## Unreleased — note version 14
 
 ### Note

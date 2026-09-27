@@ -24,21 +24,31 @@ fn hash_node(l: &Digest, r: &Digest) -> Digest {
     *h.finalize().as_bytes()
 }
 
-/// Deterministic salt stream from a prover seed (the seed must be fresh and secret for each tree).
+/// The salt stream of one tree: the extendable output of BLAKE3 keyed with the prover seed on the
+/// tree label; leaf i gets the bytes [i len, (i+1) len) of the stream (the seed must be fresh and
+/// secret for each tree). One stream per tree, read in bulk when the tree is built and at an
+/// offset when a group is opened.
+fn salt_stream(seed: &Digest, label: &[u8]) -> blake3::OutputReader {
+    let mut h = blake3::Hasher::new_keyed(seed);
+    h.update(b"leaf-salts");
+    h.update(&(label.len() as u64).to_le_bytes());
+    h.update(label);
+    h.finalize_xof()
+}
+
 fn salt(seed: &Digest, label: &[u8], index: usize, len: usize) -> Vec<u8> {
     if len == 0 {
         return Vec::new();
     }
-    let mut h = blake3::Hasher::new_keyed(seed);
-    h.update(label);
-    h.update(&(index as u64).to_le_bytes());
+    let mut r = salt_stream(seed, label);
+    r.set_position((index * len) as u64);
     let mut out = vec![0u8; len];
-    h.finalize_xof().fill(&mut out);
+    r.fill(&mut out);
     out
 }
 
-/// A salted Merkle tree over T = 2^t leaves.  Salts are recomputed from the seed when a group
-/// is opened, so that only the hash layers are stored.
+/// A salted Merkle tree over T = 2^t leaves.  Salts are recomputed from the seed (at an offset of
+/// the salt stream) when a group is opened, so that only the hash layers are stored.
 pub struct MerkleTree {
     layers: Vec<Vec<Digest>>, // layers[0] = leaf hashes, last = [root]
     seed: Digest,
@@ -65,11 +75,15 @@ impl MerkleTree {
     ) -> Self {
         assert!(count.is_power_of_two());
         let mut buf = Vec::with_capacity(64);
+        let mut salts = vec![0u8; count * salt_len];
+        if salt_len > 0 {
+            salt_stream(seed, label).fill(&mut salts);
+        }
         let hashes: Vec<Digest> = (0..count)
             .map(|i| {
                 buf.clear();
                 leaf(i, &mut buf);
-                hash_leaf(&buf, &salt(seed, label, i, salt_len))
+                hash_leaf(&buf, &salts[i * salt_len..(i + 1) * salt_len])
             })
             .collect();
         let mut layers = vec![hashes];
@@ -358,5 +372,23 @@ mod tests {
         }
         let idx = tr.query_indices(50, 13);
         assert!(idx.iter().all(|&i| i < 1 << 13));
+    }
+}
+
+#[cfg(test)]
+mod salt_tests {
+    use super::*;
+
+    #[test]
+    fn opened_salts_match_the_tree() {
+        // the salts of an opened group are those hashed into the tree
+        let leaves: Vec<Vec<u8>> = (0..16u8).map(|i| vec![i; 5]).collect();
+        let t = MerkleTree::new(&leaves, &[9u8; 32], b"lbl", 32);
+        for i in 0..16 {
+            let op = t.open_group(i, 0);
+            assert_eq!(hash_leaf(&leaves[i], &op.salts[0]), t.layers[0][i]);
+        }
+        // distinct labels give distinct streams
+        assert_ne!(salt(&[9u8; 32], b"a", 0, 32), salt(&[9u8; 32], b"b", 0, 32));
     }
 }
