@@ -18,7 +18,7 @@
 \newcommand{\iv}[2]{[#1,#2]}
 \title{Sumcheck-free hypercube inner products\\ from table-form Kronecker encodings}
 \author{Research note (companion to Kronecker-FRI)}
-\date{September 2026 --- version 11 (R1CS soundness and completeness machine-checked)}
+\date{September 2026 --- version 12 (comparison with a Spartan-style argument)}
 \emergencystretch=3em
 \begin{document}
 \maketitle
@@ -474,15 +474,46 @@ The Lean formalisation of this section is described in Section~\ref{sec:status}.
 \hline
 $n$ & constraints & index (ms) & prove (ms) & verify (ms) & proof (KiB)\\
 \hline
-10 & 512 & 3.1 & 58.4 & 20.5 & 890.0\\
-12 & 2048 & 12.7 & 265.1 & 40.2 & 1701.1\\
-14 & 8192 & 53.0 & 1176.4 & 42.0 & 1843.8\\
-16 & 32768 & 267.7 & 5619.1 & 44.4 & 1997.1\\
+10 & 512 & 3.1 & 59.6 & 20.8 & 890.0\\
+12 & 2048 & 12.1 & 272.0 & 39.2 & 1701.1\\
+14 & 8192 & 54.1 & 1223.0 & 43.4 & 1843.8\\
+16 & 32768 & 259.3 & 5469.1 & 43.6 & 1997.1\\
 \hline
 \end{tabular}
 \caption{The R1CS prototype on the instances of \texttt{r1cs::sample\_instance} ($N/2$ constraints $(Az)_i(Bz)_i=z_{N/2+i}$, two nonzero entries per row of $A$ and $B$, two public inputs); $t+1=127$ words; configuration KF-8 ($\ell=\max(n-8,1)$), $148$ queries, $32$-byte salts, $\F_{p^2}$; one core; medians. Source: \texttt{bench/r1cs.csv}, \texttt{cargo run --release --example r1cs\_bench}.}
 \end{table}
-Compared with separate lookups for each matrix and three index trees (version~8 of this note: $179$ words, eight trees), at $n=16$ the prover is $28\%$ faster ($7802\to5619$\,ms), the verifier $35\%$ faster ($67.8\to44.4$\,ms) and the proof $26\%$ smaller ($2694\to1997$\,KiB).
+Compared with separate lookups for each matrix and three index trees (version~8 of this note: $179$ words, eight trees), at $n=16$ the prover is $30\%$ faster ($7802\to5469$\,ms), the verifier $36\%$ faster ($67.8\to43.6$\,ms) and the proof $26\%$ smaller ($2694\to1997$\,KiB).
+
+\paragraph{Comparison with a sumcheck-based argument.}
+The Rust module \texttt{spartan} implements the core of Spartan~\cite{Set20} on the same commitment, field, hash, configuration and instances: the prover commits the witness table $w$ only; an outer sumcheck of degree~$3$ proves $\sum_x\mathrm{eq}(\tau,x)\bigl(\tilde{Az}(x)\tilde{Bz}(x)-\tilde{Cz}(x)\bigr)=0$, an inner sumcheck of degree~$2$ reduces the three claims $\tilde{Az}(r_x),\tilde{Bz}(r_x),\tilde{Cz}(r_x)$ to one evaluation of $\tilde z$, and one $\Pi_{\mathrm{KF}}$ opening of $w$ at $r_y$ ends the proof; the verifier evaluates $\tilde{\mathbf M}(r_x,r_y)$ itself, in time linear in the number of nonzero entries (Spartan without SPARK). Its tests accept honest proofs and reject a wrong public input, an unsatisfied constraint, a wrong claim, a wrong opening value and a tampered round polynomial.
+
+\begin{table}[h]
+\centering\small
+\setlength{\tabcolsep}{4pt}
+\begin{tabular}{r rrr rrr}
+\hline
+& \multicolumn{3}{c}{this note (Theorem~\ref{thm:r1cs})} & \multicolumn{3}{c}{Spartan core}\\
+$n$ & prove (ms) & verify (ms) & proof (KiB) & prove (ms) & verify (ms) & proof (KiB)\\
+\hline
+10 & 59.6 & 20.8 & 890.0 & 3.4 & 1.4 & 67.8\\
+12 & 272.0 & 39.2 & 1701.1 & 14.7 & 2.7 & 135.6\\
+14 & 1223.0 & 43.4 & 1843.8 & 60.8 & 4.2 & 182.3\\
+16 & 5469.1 & 43.6 & 1997.1 & 288.1 & 11.7 & 251.1\\
+18 & & & & 1163.8 & 78.0 & 327.0\\
+20 & & & & 5269.2 & 416.8 & 390.1\\
+\hline
+\end{tabular}
+\caption{The R1CS argument of this note and the Spartan core on the instances of \texttt{r1cs::sample\_instance}; KF-8, $148$ queries, $32$-byte salts, $\F_{p^2}$; one core, same session; medians. The index of this note ($259$\,ms at $n=16$) is computed once and not included. Source: \texttt{bench/r1cs.csv}, \texttt{bench/spartan.csv}, \texttt{cargo run --release --example spartan\_bench}.}
+\end{table}
+
+The measurements say:
+\begin{itemize}[nosep]
+\item \emph{Prover.} The Spartan core is $17$--$20$ times faster ($288$ against $5469$\,ms at $n=16$). A profile of our prover at $n=16$: witness group $0.12$\,s, round-$1$ lincheck words $0.4$\,s, round-$2$ words $0.35$\,s, and $4.4$\,s in $\Pi_{\mathrm{Batch}}$ on affine forms, of which $0.95$\,s for the $21$ products $U_jK_j$, $0.8$\,s for committing the $21$ words $w_A$, $1.06$\,s for the virtual words $h_j$, $0.57$\,s for the batched word, $0.47$\,s for the quotient words, $0.53$\,s for the words $w_Q$ and $0.9$\,s for the openings; the folding test itself takes $0.02$\,s. The cost is spread over the statements: each costs a product of two polynomials of degree $<N$ over $\F_{p^2}$ and words of length $M=4N$, where a sumcheck round costs a linear pass over tables of length $N$.
+\item \emph{SPARK.} Full Spartan replaces the verifier's evaluation of $\tilde{\mathbf M}(r_x,r_y)$ by a committed index and a memory-checking argument; its prover commits at least the read values $\mathrm{eq}(r_x,\mathrm{row}_k)$, $\mathrm{eq}(r_y,\mathrm{col}_k)$ of the three matrices, six tables over $\F_{p^2}$, that is twelve tables over $\F_p$: about $12\times73.5\approx880$\,ms at $n=16$ with this commitment, before their openings and the memory-checking sumchecks, which were not measured. With this floor the Spartan prover takes at least $1.17$\,s, $4.7$ times below ours.
+\item \emph{Proof size.} Ours is $8$ times larger at $n=16$ ($1997$ against $251$\,KiB): six trees are opened per query instead of the two trees of one $\Pi_{\mathrm{KF}}$ opening.
+\item \emph{Verifier.} Ours is succinct: $44$\,ms from $n=14$ to $16$, with the index committed once. The verifier of the Spartan core is linear in the number of nonzero entries: $11.7$, $78$ and $417$\,ms at $n=16,18,20$; SPARK makes it succinct at the cost above.
+\end{itemize}
+
 
 \section{Relation to known techniques and status}\label{sec:status}
 
@@ -533,13 +564,14 @@ $n$ & KF & IP & Had & KF & IP & Had & KF & IP & Had\\
 An inner product of two committed tables costs less prover time than one evaluation opening (the round-$1$ work is in the base field), about the same verifier time, and about $20\%$ more proof, the extra openings of $w_b$ on the inverse cosets.
 A Hadamard check costs about $2.2$ evaluation openings of prover time (its polynomials $Q$, $A$, $H$ lie in the extension field) and $1.7$ times the proof, since five oracles are opened per query instead of two; when $a$, $b$, $c$ are committed together, one tree with three values per leaf removes two of the five authentication paths per query.
 
-\paragraph{Next.} A comparison with a sumcheck-based R1CS argument (Spartan-style) at equal soundness.
+\paragraph{Next.} The per-statement cost measured in Section~\ref{sec:lin} (one product of polynomials of degree $<N$ over $\F_{p^2}$ and words of length $M$ per statement) is what separates this argument from a sumcheck-based one; reducing the number of statements and words, or their cost, is the direction that bears on the prover.
 
 \begin{thebibliography}{9}
 \bibitem{KF} A.~Mkhida. Kronecker-FRI: A Hash-Based Multilinear Polynomial Commitment from a Coefficient-Extraction Identity. Preprint, 2026. \url{https://github.com/qoosmo/kronecker-fri}.
 \bibitem{BCIKS23} E.~Ben-Sasson, D.~Carmon, Y.~Ishai, S.~Kopparty, S.~Saraf. Proximity gaps for Reed--Solomon codes. J.~ACM 70(5), 2023.
 \bibitem{EG25} L.~Eagen, A.~Gabizon. MERCURY: a multilinear polynomial commitment scheme with constant proof size and no prover FFTs. IACR ePrint 2025/385.
 \bibitem{Hab22} U.~Hab\"ock. Multivariate lookups based on logarithmic derivatives. IACR ePrint 2022/1530.
+\bibitem{Set20} S.~Setty. Spartan: Efficient and general-purpose zkSNARKs without trusted setup. CRYPTO 2020; IACR ePrint 2019/550.
 \bibitem{MI26} A.~Mkhida, A.~Iguider. Multilinear polynomials via tree-based circuit and the sumcheck protocol. IACR ePrint 2026/1469.
 \end{thebibliography}
 

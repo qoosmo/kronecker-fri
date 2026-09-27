@@ -1,5 +1,15 @@
 # Changelog
 
+## Unreleased — comparison with a sumcheck-based R1CS argument
+
+### Code
+- `rust/src/spartan.rs`: the core of Spartan (outer sumcheck of degree 3, inner sumcheck of degree 2, one Π_KF opening of the witness; verifier linear in the number of nonzero entries, no SPARK) on the same commitment, field, hash and instances as `r1cs`; tests against a wrong input, an unsatisfied constraint, a wrong claim, a wrong opening value and a tampered round polynomial, and a check of the variable order of `pcs`.
+- `examples/spartan_bench.rs`, `bench/spartan.csv`; `bench/r1cs.csv` re-measured in the same session.
+- At n = 16: Spartan core prove 288 ms, verify 11.7 ms, proof 251 KiB; the argument of the note prove 5469 ms, verify 43.6 ms, proof 1997 KiB.
+
+### Note (version 12)
+- §5: the comparison table, a profile of the prover, a floor for SPARK, and the verifier trade-off; Setty (Spartan) cited.
+
 ## Unreleased — completeness of the R1CS argument in Lean
 
 ### Lean
