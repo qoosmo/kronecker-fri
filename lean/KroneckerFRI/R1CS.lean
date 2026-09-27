@@ -543,6 +543,259 @@ theorem r1cs_soundness [Fintype F] [DecidableEq F] [Fintype L] {m ℓ R : ℕ}
   rw [hW] at this
   exact this
 
+/-! ### Completeness -/
+
+section Complete
+
+/-- The honest LogUp identity: `∑_{(j,k)} f(idx_j k) = ∑_w m(w) f(w)`. -/
+lemma logup_honest {W : Type*} [Fintype W] [DecidableEq W] (idx : Fin 3 → W → W) (f : W → F) :
+    ∑ jk : Fin 3 × W, f (idx jk.1 jk.2) = ∑ w, mult idx w * f w := by
+  rw [← Finset.sum_fiberwise' univ (fun jk : Fin 3 × W => idx jk.1 jk.2) f]
+  refine sum_congr rfl (fun w _ => ?_)
+  rw [sum_const, nsmul_eq_mul]
+  rfl
+
+variable (inst : R1CSInst F n) (wt : Table F n) (atab : Fin 3 → Table F n)
+
+/-- The row denominators `x_R - w - y_R η^w` and the column denominators `x_C - w - y_C z(w)`,
+`z = x̂ + w`. -/
+def denR (τ : F × ((F × F) × (F × F))) (w : Fin n → Bool) : F :=
+  τ.2.1.2 - bitsToNat w - τ.2.1.1 * τ.1 ^ bitsToNat w
+def denC (τ : F × ((F × F) × (F × F))) (w : Fin n → Bool) : F :=
+  τ.2.2.2 - bitsToNat w - τ.2.2.1 * (inst.x + wt) w
+
+/-- The honest tables of all the committed words at `τ`. -/
+noncomputable def fsH (τ : F × ((F × F) × (F × F))) : RW → Table F n
+  | .w => wt
+  | .a j => atab j
+  | .row j => rowTab inst j
+  | .col j => colTab inst j
+  | .val j => inst.val j
+  | .mR => mult inst.row
+  | .mC => mult inst.col
+  | .e j => fun k => τ.1 ^ bitsToNat (inst.row j k)
+  | .ζ j => fun k => (inst.x + wt) (inst.col j k)
+  | .p j => fun k => τ.1 ^ bitsToNat (inst.row j k) * (inst.x + wt) (inst.col j k)
+  | .φR j => fun k => (denR τ (inst.row j k))⁻¹
+  | .ψR => fun w => mult inst.row w * (denR τ w)⁻¹
+  | .φC j => fun k => (denC inst wt τ (inst.col j k))⁻¹
+  | .ψC => fun w => mult inst.col w * (denC inst wt τ w)⁻¹
+
+/-- A dummy `Π_Batch` prover (replaced in `honestR1`). -/
+noncomputable def dummyB : BProver F L 21 :=
+  ⟨fun _ _ _ => 0, fun _ _ _ => 0, fun _ _ _ => 0, fun _ _ _ _ => 0, fun _ _ _ => honestFT 0 0⟩
+
+/-- The honest prover without its batch prover. -/
+noncomputable def honestR1₀ : R1Prover F L where
+  ww := encode L wt
+  wa j := encode L (atab j)
+  we η j := encode L (fsH inst wt atab (η, (0, 0), (0, 0)) (.e j))
+  wz η j := encode L (fsH inst wt atab (η, (0, 0), (0, 0)) (.ζ j))
+  wp η j := encode L (fsH inst wt atab (η, (0, 0), (0, 0)) (.p j))
+  wφR η cR cC j := encode L (fsH inst wt atab (η, cR, cC) (.φR j))
+  wψR η cR cC := encode L (fsH inst wt atab (η, cR, cC) .ψR)
+  wφC η cR cC j := encode L (fsH inst wt atab (η, cR, cC) (.φC j))
+  wψC η cR cC := encode L (fsH inst wt atab (η, cR, cC) .ψC)
+  s η _ _ j := ∑ w, atab j w * η ^ bitsToNat w
+  batch _ _ _ := dummyB
+
+/-- **The honest prover of the R1CS argument** (`ℓ` folding rounds). -/
+noncomputable def honestR1 (ℓ : ℕ) : R1Prover F L :=
+  { honestR1₀ (L := L) inst wt atab with
+    batch := fun η cR cC => honestA (L := L) (fsH inst wt atab (η, cR, cC))
+      (r1stmts inst (honestR1₀ (L := L) inst wt atab) (η, cR, cC)) (by norm_num) ℓ }
+
+lemma honestR1_ws (ℓ : ℕ) (τ : F × ((F × F) × (F × F))) :
+    r1ws inst (honestR1 (L := L) inst wt atab ℓ) τ = fun i => encode L (fsH inst wt atab τ i) := by
+  funext i
+  cases i <;> rfl
+
+lemma honestR1_stmts (ℓ : ℕ) (τ : F × ((F × F) × (F × F))) :
+    r1stmts inst (honestR1 (L := L) inst wt atab ℓ) τ =
+      r1stmts inst (honestR1₀ (L := L) inst wt atab) τ := rfl
+
+lemma inv_mul_eq_one' {d e : F} (hd : d ≠ 0) (h : e = d) : d⁻¹ * e = 1 := by
+  rw [h]; exact inv_mul_cancel₀ hd
+
+/-- On good challenges (no vanishing denominator), the honest tables satisfy the 21
+statements. -/
+theorem honest_holds (hw : ∀ u ∈ inst.I, wt u = 0)
+    (ha : ∀ j, atab j = matVec inst.row inst.col inst.val (inst.x + wt) j)
+    (hab : ∀ u, atab 0 u * atab 1 u = atab 2 u) (τ : F × ((F × F) × (F × F)))
+    (hR : ∀ w : Fin n → Bool, denR τ w ≠ 0) (hC : ∀ w : Fin n → Bool, denC inst wt τ w ≠ 0) (j : Fin 21) :
+    (r1stmts inst (honestR1₀ (L := L) inst wt atab) τ j).Holds (fsH inst wt atab τ) := by
+  set fs := fsH inst wt atab τ
+  obtain ⟨η, ⟨yR, xR⟩, ⟨yC, xC⟩⟩ := τ
+  have hB : ∀ jj q, (r1blk (honestR1₀ (L := L) inst wt atab) (η, (yR, xR), yC, xC) jj q).Holds fs := by
+    intro jj q
+    fin_cases q
+    · show (AStmt.ip (cf (RW.a jj)) (pubF (geoT η)) (∑ w, atab jj w * η ^ bitsToNat w) :
+          AStmt F RW n).Holds fs
+      simp only [AStmt.Holds, table_cf, table_pubF, geoT]
+      rfl
+    · show (AStmt.ip (cf (RW.val jj)) (cf (RW.p jj)) (∑ w, atab jj w * η ^ bitsToNat w) :
+          AStmt F RW n).Holds fs
+      simp only [AStmt.Holds, table_cf]
+      rw [ha jj]
+      exact (weighted_matVec (hcNum n) inst.row inst.col inst.val (inst.x + wt) jj η).symm
+    · show (AStmt.had (cf (RW.e jj)) (cf (RW.ζ jj)) (cf (RW.p jj)) : AStmt F RW n).Holds fs
+      simp only [AStmt.Holds, table_cf]
+      intro k; rfl
+    · show (AStmt.had (cf (RW.φR jj)) (lin2 (RW.row jj) (-1) (RW.e jj) (-yR) (fun _ => xR))
+          (pubF oneT) : AStmt F RW n).Holds fs
+      simp only [AStmt.Holds]
+      intro k
+      rw [table_cf, table_lin2 _ (by simp), table_pubF]
+      exact inv_mul_eq_one' (hR _) (by simp only [fs, fsH, rowTab, denR]; ring)
+    · show (AStmt.had (cf (RW.φC jj)) (lin2 (RW.col jj) (-1) (RW.ζ jj) (-yC) (fun _ => xC))
+          (pubF oneT) : AStmt F RW n).Holds fs
+      simp only [AStmt.Holds]
+      intro k
+      rw [table_cf, table_lin2 _ (by simp), table_pubF]
+      exact inv_mul_eq_one' (hC _) (by simp only [fs, fsH, colTab, denC]; ring)
+  have hsum : ∀ (φ : Fin 3 → RW) (ψ : RW) (idx : Fin 3 → (Fin n → Bool) → (Fin n → Bool))
+      (d : (Fin n → Bool) → F), (∀ j, φ j ≠ ψ) → (∀ j j', j ≠ j' → φ j ≠ φ j') →
+      (∀ j k, fs (φ j) k = (d (idx j k))⁻¹) → (∀ w, fs ψ w = mult idx w * (d w)⁻¹) →
+      (AStmt.ip (sumF φ ψ) (pubF oneT) 0 : AStmt F RW n).Holds fs := by
+    intro φ ψ idx d hψ hφ hφd hψd
+    simp only [AStmt.Holds]
+    rw [table_sumF _ _ _ (hφ 0 1 (by decide)) (hφ 0 2 (by decide)) (hφ 1 2 (by decide)) (hψ 0)
+      (hψ 1) (hψ 2), table_pubF]
+    simp only [oneT, mul_one, sum_sub_distrib, sum_add_distrib, hφd, hψd]
+    have := logup_honest idx (fun w => (d w)⁻¹)
+    rw [Fintype.sum_prod_type, Fin.sum_univ_three] at this
+    rw [this, sub_self]
+  have hO : ∀ q, (r1once inst (η, (yR, xR), yC, xC) q).Holds fs := by
+    intro q
+    fin_cases q
+    · show (AStmt.had (cf RW.ψR) (pubF (fun w => xR - bitsToNat w - yR * η ^ bitsToNat w))
+          (cf RW.mR) : AStmt F RW n).Holds fs
+      simp only [AStmt.Holds, table_cf, table_pubF]
+      intro w
+      have := hR w
+      simp only [denR] at this
+      simp only [fs, fsH, denR]
+      rw [mul_assoc, inv_mul_cancel₀ this, mul_one]
+    · exact hsum RW.φR RW.ψR inst.row (denR (η, (yR, xR), yC, xC)) (fun j => by simp)
+        (fun j j' h => by simpa using h) (fun j k => rfl) (fun w => rfl)
+    · show (AStmt.had (cf RW.ψC) (lin1 RW.w (-yC) (fun w => xC - bitsToNat w - yC * inst.x w))
+          (cf RW.mC) : AStmt F RW n).Holds fs
+      simp only [AStmt.Holds]
+      intro w
+      rw [table_cf, table_lin1, table_cf]
+      have := hC w
+      simp only [fs, fsH]
+      rw [mul_assoc, show (-yC * wt w + (xC - bitsToNat w - yC * inst.x w)) =
+        denC inst wt (η, (yR, xR), yC, xC) w by simp only [denC, Pi.add_apply]; ring,
+        inv_mul_cancel₀ this, mul_one]
+    · exact hsum RW.φC RW.ψC inst.col (denC inst wt (η, (yR, xR), yC, xC)) (fun j => by simp)
+        (fun j j' h => by simpa using h) (fun j k => rfl) (fun w => rfl)
+    · show (AStmt.had (cf (RW.a 0)) (cf (RW.a 1)) (cf (RW.a 2)) : AStmt F RW n).Holds fs
+      simp only [AStmt.Holds, table_cf]
+      exact hab
+    · show (AStmt.had (cf RW.w) (pubF inst.chi) (pubF 0) : AStmt F RW n).Holds fs
+      simp only [AStmt.Holds, table_cf, table_pubF]
+      intro u
+      by_cases hu : u ∈ inst.I
+      · simp [fs, fsH, hw u hu]
+      · simp [R1CSInst.chi, hu]
+  unfold r1stmts
+  split_ifs with h
+  · exact hB _ _
+  · exact hO _
+
+/-- **Completeness of the R1CS argument.** If `w_w = Enc^T(w)`, `w_{a_j} = Enc^T(a_j)` with `w = 0`
+on `I`, `a_j = M_j z` (`z = x̂ + w`) and `a_0 ∘ a_1 = a_2`, the honest prover is accepted with
+probability at least `1 - 2N/|F| - 3M/|F|`: the challenges at which a row or column denominator
+vanishes have probability at most `2N/|F|`, and Proposition affine does the rest. -/
+theorem r1cs_completeness [Fintype F] [DecidableEq F] [Fintype L] {m ℓ R : ℕ}
+    (hL : IsSmoothDomain L (m + ℓ + R)) (inst : R1CSInst F (m + ℓ)) (wt : Table F (m + ℓ))
+    (atab : Fin 3 → Table F (m + ℓ)) (hw : ∀ u ∈ inst.I, wt u = 0)
+    (ha : ∀ j, atab j = matVec inst.row inst.col inst.val (inst.x + wt) j)
+    (hab : ∀ u, atab 0 u * atab 1 u = atab 2 u) (κ : ℕ) :
+    1 - 2 * (2 ^ (m + ℓ) : ℚ) / Fintype.card F - 3 * (Nat.card L : ℚ) / Fintype.card F ≤
+      prob (fun q : (F × ((F × F) × (F × F))) × ((F × F) × ((F × (Fin ℓ → F)) × (Fin κ → L))) =>
+        (honestR1 (L := L) inst wt atab ℓ).Acc inst ℓ κ q.1 q.2) := by
+  classical
+  haveI : Nonempty F := ⟨0⟩
+  haveI : Nonempty L := ⟨1⟩
+  set Ω := (F × ((F × F) × (F × F))) × ((F × F) × ((F × (Fin ℓ → F)) × (Fin κ → L)))
+  set Good : Ω → Prop := fun q => (∀ w : Fin (m + ℓ) → Bool, denR q.1 w ≠ 0) ∧ (∀ w, denC inst wt q.1 w ≠ 0) ∧
+    ∀ ξ : L, xv' ξ ≠ q.2.1.1 * q.2.1.2 ∧ xv' ξ ≠ q.2.1.2 ∧ xv' ξ ≠ q.2.1.1
+  have hacc : ∀ q, Good q → (honestR1 (L := L) inst wt atab ℓ).Acc inst ℓ κ q.1 q.2 := by
+    rintro ⟨τ, ω⟩ ⟨hR, hC, hp⟩
+    unfold R1Prover.Acc
+    rw [honestR1_ws, honestR1_stmts]
+    exact honestA_accepts hL (fsH inst wt atab τ) _ (by norm_num)
+      (honest_holds inst wt atab hw ha hab τ hR hC) _ _ _ (fun _ => hp) _ _
+  have hW : Fintype.card (Fin (m + ℓ) → Bool) = 2 ^ (m + ℓ) := by simp
+  -- the bad events
+  have pR : prob (fun q : Ω => ¬ ∀ w : Fin (m + ℓ) → Bool, denR q.1 w ≠ 0) ≤ (2 ^ (m + ℓ) : ℚ) / Fintype.card F := by
+    rw [prob_fst (fun τ : F × ((F × F) × (F × F)) => ¬ ∀ w : Fin (m + ℓ) → Bool, denR τ w ≠ 0)]
+    rw [prob_prod_eq_expect (fun η (c : (F × F) × (F × F)) => ¬ ∀ w : Fin (m + ℓ) → Bool, denR (η, c) w ≠ 0)]
+    refine expect_le_of_le _ _ (fun η => ?_)
+    refine le_trans (le_of_eq (prob_fst (B := F × F) (fun p : F × F => ¬ ∀ w : Fin (m + ℓ) → Bool,
+      denR (η, p, ((0 : F), (0 : F))) w ≠ 0))) ?_
+    have := prob_den_bad (hcNum (m + ℓ)) (fun w => η ^ bitsToNat w)
+    rw [hW] at this
+    push_cast at this
+    refine (prob_mono (fun c hc => ?_)).trans this
+    push_neg at hc
+    obtain ⟨w, hw0⟩ := hc
+    exact ⟨w, by simpa [denR, hcNum] using hw0⟩
+  have pC : prob (fun q : Ω => ¬ ∀ w, denC inst wt q.1 w ≠ 0) ≤
+      (2 ^ (m + ℓ) : ℚ) / Fintype.card F := by
+    rw [prob_fst (fun τ : F × ((F × F) × (F × F)) => ¬ ∀ w, denC inst wt τ w ≠ 0)]
+    rw [prob_prod_eq_expect (fun η (c : (F × F) × (F × F)) => ¬ ∀ w, denC inst wt (η, c) w ≠ 0)]
+    refine expect_le_of_le _ _ (fun η => ?_)
+    refine le_trans (le_of_eq (prob_snd (A := F × F) (fun p : F × F => ¬ ∀ w : Fin (m + ℓ) → Bool,
+      denC inst wt (η, ((0 : F), (0 : F)), p) w ≠ 0))) ?_
+    have := prob_den_bad (hcNum (m + ℓ)) (inst.x + wt)
+    rw [hW] at this
+    push_cast at this
+    refine (prob_mono (fun c hc => ?_)).trans this
+    push_neg at hc
+    obtain ⟨w, hw0⟩ := hc
+    exact ⟨w, by simpa [denC, hcNum] using hw0⟩
+  have pP : prob (fun q : Ω => ¬ ∀ ξ : L, xv' ξ ≠ q.2.1.1 * q.2.1.2 ∧ xv' ξ ≠ q.2.1.2 ∧
+      xv' ξ ≠ q.2.1.1) ≤ 3 * (Nat.card L : ℚ) / Fintype.card F := by
+    rw [prob_snd (fun ω : (F × F) × ((F × (Fin ℓ → F)) × (Fin κ → L)) =>
+      ¬ ∀ ξ : L, xv' ξ ≠ ω.1.1 * ω.1.2 ∧ xv' ξ ≠ ω.1.2 ∧ xv' ξ ≠ ω.1.1)]
+    rw [prob_fst (fun p : F × F => ¬ ∀ ξ : L, xv' ξ ≠ p.1 * p.2 ∧ xv' ξ ≠ p.2 ∧ xv' ξ ≠ p.1)]
+    have h1 := prob_poles_ge (F := F) (L := L)
+    rcases prob_add_prob_not (fun p : F × F => ∀ ξ : L, xv' ξ ≠ p.1 * p.2 ∧ xv' ξ ≠ p.2 ∧
+      xv' ξ ≠ p.1) with h | h
+    · linarith
+    · exact absurd h Fintype.card_ne_zero
+  have pNot : prob (fun q : Ω => ¬ Good q) ≤ 2 * (2 ^ (m + ℓ) : ℚ) / Fintype.card F +
+      3 * (Nat.card L : ℚ) / Fintype.card F := by
+    have hsub : ∀ q : Ω, ¬ Good q → ((¬ ∀ w : Fin (m + ℓ) → Bool, denR q.1 w ≠ 0) ∨ (¬ ∀ w, denC inst wt q.1 w ≠ 0)) ∨
+        ¬ ∀ ξ : L, xv' ξ ≠ q.2.1.1 * q.2.1.2 ∧ xv' ξ ≠ q.2.1.2 ∧ xv' ξ ≠ q.2.1.1 := by
+      intro q hq
+      by_cases h1 : ∀ w : Fin (m + ℓ) → Bool, denR q.1 w ≠ 0
+      · by_cases h2 : ∀ w, denC inst wt q.1 w ≠ 0
+        · exact Or.inr (fun h3 => hq ⟨h1, h2, h3⟩)
+        · exact Or.inl (Or.inr h2)
+      · exact Or.inl (Or.inl h1)
+    calc prob (fun q : Ω => ¬ Good q) ≤ _ := prob_mono hsub
+      _ ≤ _ := prob_or_le _ _
+      _ ≤ _ := add_le_add (prob_or_le _ _) le_rfl
+      _ ≤ (2 ^ (m + ℓ) : ℚ) / Fintype.card F + (2 ^ (m + ℓ) : ℚ) / Fintype.card F +
+            3 * (Nat.card L : ℚ) / Fintype.card F := add_le_add (add_le_add pR pC) pP
+      _ = _ := by ring
+  have hG : 1 - (2 * (2 ^ (m + ℓ) : ℚ) / Fintype.card F + 3 * (Nat.card L : ℚ) / Fintype.card F) ≤
+      prob Good := by
+    rcases prob_add_prob_not Good with h | h
+    · linarith
+    · exact absurd h Fintype.card_ne_zero
+  calc _ = 1 - (2 * (2 ^ (m + ℓ) : ℚ) / Fintype.card F +
+        3 * (Nat.card L : ℚ) / Fintype.card F) := by ring
+    _ ≤ prob Good := hG
+    _ ≤ _ := prob_mono hacc
+
+end Complete
+
+
 end R1CS
 
 end KroneckerFRI

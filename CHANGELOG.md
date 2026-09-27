@@ -1,5 +1,14 @@
 # Changelog
 
+## Unreleased — completeness of the R1CS argument in Lean
+
+### Lean
+- `lean/KroneckerFRI/R1CS.lean`: the honest prover (`honestR1`: honest lincheck tables `fsH`, sums, and the honest `Π_Batch` prover of Proposition affine); the honest LogUp identity (`logup_honest`); the 21 statements hold when no row or column denominator vanishes (`honest_holds`); `r1cs_completeness`: the honest prover is accepted with probability at least `1 - 2N/|F| - 3M/|F|`.
+- `Audit.lean`: the new theorems (no axiom beyond Lean's three).
+
+### Note (version 11)
+- §5 and the Lean status: completeness of the R1CS argument machine-checked.
+
 ## Unreleased — R1CS soundness machine-checked end to end
 
 ### Lean

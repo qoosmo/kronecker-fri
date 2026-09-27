@@ -95,3 +95,6 @@ open KroneckerFRI
 #print axioms KroneckerFRI.r1_bridge
 #print axioms KroneckerFRI.tA_r1stmts
 #print axioms KroneckerFRI.r1cs_soundness
+#print axioms KroneckerFRI.logup_honest
+#print axioms KroneckerFRI.honest_holds
+#print axioms KroneckerFRI.r1cs_completeness

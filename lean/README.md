@@ -7,7 +7,7 @@ round-by-round knowledge soundness, evaluation binding, and batched openings; an
 sumcheck-free inner-product protocol `Π_IP`, Hadamard check `Π_Had` and batched protocol `Π_Batch`
 of the research note [`../notes/inner-product/note.pdf`](../notes/inner-product/note.pdf) (§1–4),
 and its §5: `Π_Batch` on affine forms of committed words and public tables, the LogUp lemma, the
-lincheck reduction, and the soundness of the R1CS argument end to end.
+lincheck reduction, and the soundness and completeness of the R1CS argument end to end.
 
 - **Toolchain:** Lean 4.23.0, Mathlib `v4.23.0` (pinned in `lakefile.lean` and `lake-manifest.json`).
 - **No `sorry`.**
@@ -99,6 +99,7 @@ lake env lean KroneckerFRI/Audit.lean
 | `t + 1 = 127` words for every instance, prover and challenges | `tA_r1stmts` | `R1CS.lean` |
 | A batch witness gives the lincheck statements on the decodings | `r1_mem`, `dec`, `decProver`, `r1_bridge` | `R1CS.lean` |
 | **Thm r1cs (end to end)**, `(13N - 3)/\|F\| + 2(N-1)/\|F\| + 126M/\|F\| + ε_fold + (1-δ)^κ` | `r1cs_soundness` | `R1CS.lean` |
+| **Completeness of the R1CS argument**, probability `≥ 1 - 2N/\|F\| - 3M/\|F\|` | `denR`, `denC`, `fsH`, `honestR1`, `logup_honest`, `honest_holds`, `r1cs_completeness` | `R1CS.lean` |
 
 ## Modelling
 
@@ -116,5 +117,5 @@ lake env lean KroneckerFRI/Audit.lean
 - Operation counts: Lem 4.9, Lem 5.9(2)–(3), Lem 6.7, Prop 6.11.
 - The base-field statements: Lem 2.14, Lem 6.3(3), Rem 7.13. There is no separate base field `F_q` in the model.
 - The running time of the extractor.
-- Research note, §5: the completeness of the whole R1CS argument (the honest lincheck tables satisfy the 21 statements; Proposition affine gives the completeness of the batch once they do), and the closed forms of the public polynomials `V_1`, `V_id`, `V_{G_η}` used by the verifier (checked by the Rust tests; in Lean a public table enters through its polynomial `kronEnc`).
+- Research note, §5: the closed forms of the public polynomials `V_1`, `V_id`, `V_{G_η}` used by the verifier (checked by the Rust tests; in Lean a public table enters through its polynomial `kronEnc`).
 - The post-quantum analysis of §8. It rests on the BCS theorem of Chiesa, Di, Hu and Zheng (Thm 3.15), which has no Lean formalisation.
