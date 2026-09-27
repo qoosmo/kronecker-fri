@@ -14,3 +14,5 @@ import KroneckerFRI.InnerProduct
 import KroneckerFRI.Hadamard
 import KroneckerFRI.BatchStmts
 import KroneckerFRI.Lincheck
+import KroneckerFRI.AffineBatch
+import KroneckerFRI.R1CS

@@ -544,6 +544,21 @@ mod tests {
     use super::*;
     use crate::field::{Fp2, Fp4};
 
+    /// t + 1 = 127 words for every value of the challenges (the Lean theorem `tA_r1stmts`):
+    /// the words of a form are its declared support, zero coefficients included.
+    #[test]
+    fn word_count_127() {
+        use crate::affine::affine_words;
+        let (r, x, _) = sample_instance(4, 2, 2, 5);
+        let z = Fp2::ZERO;
+        let o = Fp2::ONE;
+        for (eta, ch) in [(o + o, [o; 4]), (z, [z; 4]), (o, [z, o, z, o])] {
+            let st = statements(&r, &x, eta, ch, &[o; 3]);
+            assert_eq!(st.len(), 21);
+            assert_eq!(affine_words(&st), 127);
+        }
+    }
+
     fn run<E: ExtField>() {
         for (n, ell, fold_log, cap_log) in [(3, 1, 1, 0), (5, 3, 2, 1), (7, 5, 3, 3)] {
             let p = Params {

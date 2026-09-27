@@ -7,7 +7,7 @@ only project-specific assumption.
 -/
 import KroneckerFRI.Generic
 import KroneckerFRI.Batch
-import KroneckerFRI.Lincheck
+import KroneckerFRI.R1CS
 
 open KroneckerFRI
 
@@ -85,3 +85,13 @@ open KroneckerFRI
 #print axioms KroneckerFRI.prob_two_phase
 #print axioms KroneckerFRI.lincheck_sound
 #print axioms KroneckerFRI.r1cs_sound
+#print axioms KroneckerFRI.batching_A
+#print axioms KroneckerFRI.prob_bad_A
+#print axioms KroneckerFRI.soundness_A
+#print axioms KroneckerFRI.knowledge_A
+#print axioms KroneckerFRI.awords_honest
+#print axioms KroneckerFRI.honestA_accepts
+#print axioms KroneckerFRI.honestA_prob
+#print axioms KroneckerFRI.r1_bridge
+#print axioms KroneckerFRI.tA_r1stmts
+#print axioms KroneckerFRI.r1cs_soundness

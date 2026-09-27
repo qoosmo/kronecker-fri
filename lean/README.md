@@ -6,7 +6,8 @@ folding proximity test with any folding arity, the scheme, completeness, soundne
 round-by-round knowledge soundness, evaluation binding, and batched openings; and the
 sumcheck-free inner-product protocol `Π_IP`, Hadamard check `Π_Had` and batched protocol `Π_Batch`
 of the research note [`../notes/inner-product/note.pdf`](../notes/inner-product/note.pdf) (§1–4),
-and its LogUp lemma, lincheck reduction and R1CS composition (§5).
+and its §5: `Π_Batch` on affine forms of committed words and public tables, the LogUp lemma, the
+lincheck reduction, and the soundness of the R1CS argument end to end.
 
 - **Toolchain:** Lean 4.23.0, Mathlib `v4.23.0` (pinned in `lakefile.lean` and `lake-manifest.json`).
 - **No `sorry`.**
@@ -88,9 +89,16 @@ lake env lean KroneckerFRI/Audit.lean
 | **Thm batch (soundness)**, `2(N-1)/\|F\| + tM/\|F\| + ε_fold + (1-δ)^κ`; knowledge | `prob_bad_had`, `prob_bad_B`, `soundness_B`, `soundnessC_B` (any set of committed levels), `knowledge_B` | `BatchStmts.lean` |
 | **Thm (completeness)**: accepted when no pole of a Hadamard check lies in `L`; probability `≥ 1 - 3M/\|F\|` | `bpolys`, `bU0`, `honestB`, `bwords_honest`, `honestB_accepts`, `prob_poles_ge`, `honestB_prob` | `BatchStmts.lean` |
 | **Lemma logup (LogUp with pairs)**, `(K + 2N_t - 1)/\|F\|` for `K` lookups against `N_t` table pairs, `char F > K` | `LogupEq`, `logupNum`, `natDegree_logupNum_le`, `logupNum_ne_zero`, `logupNum_eval_eq_zero`, `logup_prob` | `Lincheck.lean` |
-| **Def Π_Lin** (J matrices, combined row and column lookups), at the level of tables | `matVec`, `mult`, `LinProver`, `HoldsLin` | `Lincheck.lean` |
-| **Thm lin (lincheck reduction)**, `((2J + 7)N - 3)/\|F\|` | `natCast_inj_lt`, `weighted_matVec`, `prob_den_bad`, `LookupFail`, `prob_lookupFail`, `prob_root_le`, `lincheck_reduction` | `Lincheck.lean` |
+| **Def Π_Lin** (J matrices, combined row and column lookups), at the level of tables indexed by a numbered finite set | `Numbering`, `matVec`, `mult`, `LinProver`, `HoldsLin` | `Lincheck.lean` |
+| **Thm lin (lincheck reduction)**, `((2J + 7)N - 3)/\|F\|` | `Numbering.cast_inj`, `weighted_matVec`, `prob_den_bad`, `LookupFail`, `prob_lookupFail`, `prob_root_le`, `lincheck_reduction` | `Lincheck.lean` |
 | **Thm linsound, Thm r1cs**, with the second phase abstract | `prob_two_phase`, `lincheck_sound`, `r1cs_sound` | `Lincheck.lean` |
+| Affine forms (declared support, coefficients, public table), statements on forms, `R^δ_Batch` on forms, direct checks of public quotient values | `AForm`, `AForm.word`, `AForm.table`, `word_agree`, `AStmt`, `DsetA`, `BsetA`, `QIdx`, `AWord`, `RelBatchA`, `DirOK`, `awords`, `wbatA` | `AffineBatch.lean` |
+| **Prop affine (batch on affine forms)**: Lemma batchT, soundness `2(N-1)/\|F\| + tM/\|F\| + ε_fold + (1-δ)^κ`, knowledge | `batching_A`, `prob_bad_A`, `soundness_A`, `knowledge_A` | `AffineBatch.lean` |
+| **Prop affine (completeness)**, probability `≥ 1 - 3M/\|F\|` | `apolys`, `honestA`, `awords_honest`, `honestA_dirOK`, `honestA_accepts`, `honestA_prob` | `AffineBatch.lean` |
+| Def R1CS relation, the committed words, the 21 statements | `R1CSInst`, `R1CSRel`, `RW`, `R1Prover`, `r1ws`, `r1blk`, `r1once`, `r1stmts` | `R1CS.lean` |
+| `t + 1 = 127` words for every instance, prover and challenges | `tA_r1stmts` | `R1CS.lean` |
+| A batch witness gives the lincheck statements on the decodings | `r1_mem`, `dec`, `decProver`, `r1_bridge` | `R1CS.lean` |
+| **Thm r1cs (end to end)**, `(13N - 3)/\|F\| + 2(N-1)/\|F\| + 126M/\|F\| + ε_fold + (1-δ)^κ` | `r1cs_soundness` | `R1CS.lean` |
 
 ## Modelling
 
@@ -101,11 +109,12 @@ lake env lean KroneckerFRI/Audit.lean
 
   In the generic IOP framework (`Generic.lean`) the prover is an arbitrary function of the transcript, and the verifier checks the degree itself, so neither hypothesis is needed there.
 - **Distance.** δ is a rational number, which is enough since δ* = (1-ρ)/2 is rational.
+- **R1CS (`R1CS.lean`).** The index words are `Enc^T` of the honest tables (the indexer is honest). The prover (`R1Prover`) gives the witness words, its lincheck words and sums as functions of the challenges `η, (y_R, x_R), (y_C, x_C)`, and a `Π_Batch` prover for each value of them; `r1cs_soundness` assumes these batch provers causal and `DegOK`, as `soundness_B` does. The support of an affine form is declared (the words it lists, whatever the coefficients), as in the Rust module `affine`, so the 127 words do not depend on the challenges.
 
 ## Not formalised
 
 - Operation counts: Lem 4.9, Lem 5.9(2)–(3), Lem 6.7, Prop 6.11.
 - The base-field statements: Lem 2.14, Lem 6.3(3), Rem 7.13. There is no separate base field `F_q` in the model.
 - The running time of the extractor.
-- Research note, Proposition affine (`Π_Batch` on affine forms of committed words and public tables): `lincheck_sound` and `r1cs_sound` take the soundness of the second phase as a hypothesis, and `soundness_B` covers statements on committed words only. The closed forms of the public tables `1`, `id`, `η^w` are checked by the Rust tests, not in Lean.
+- Research note, §5: the completeness of the whole R1CS argument (the honest lincheck tables satisfy the 21 statements; Proposition affine gives the completeness of the batch once they do), and the closed forms of the public polynomials `V_1`, `V_id`, `V_{G_η}` used by the verifier (checked by the Rust tests; in Lean a public table enters through its polynomial `kronEnc`).
 - The post-quantum analysis of §8. It rests on the BCS theorem of Chiesa, Di, Hu and Zheng (Thm 3.15), which has no Lean formalisation.

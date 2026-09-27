@@ -80,7 +80,9 @@ pub struct OId {
     pub word: usize,
 }
 
-/// An affine form sum c_i w_i + sum d_j P_j.
+/// An affine form sum c_i w_i + sum d_j P_j. The committed words listed in `com` are its
+/// declared support: they enter the curve whatever the value of their coefficient (as in the
+/// Lean model `AForm`, so that the set of words does not depend on the challenges).
 #[derive(Clone, Debug, PartialEq)]
 pub struct Form<E> {
     pub com: Vec<(OId, E)>,
@@ -101,13 +103,10 @@ impl<E: ExtField> Form<E> {
         }
     }
     fn has_committed(&self) -> bool {
-        self.com.iter().any(|(_, c)| *c != E::ZERO)
+        !self.com.is_empty()
     }
     fn oids(&self) -> impl Iterator<Item = OId> + '_ {
-        self.com
-            .iter()
-            .filter(|(_, c)| *c != E::ZERO)
-            .map(|(o, _)| *o)
+        self.com.iter().map(|(o, _)| *o)
     }
     fn eval_pub(&self, n: usize, x: E) -> E {
         self.pubs

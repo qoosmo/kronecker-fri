@@ -1,5 +1,20 @@
 # Changelog
 
+## Unreleased — R1CS soundness machine-checked end to end
+
+### Lean
+- `lean/KroneckerFRI/AffineBatch.lean`: `Π_Batch` on affine forms of committed words and public tables (Proposition affine): forms with a declared support, statements on forms, direct checks of the quotient values of public forms; Lemma batchT (`batching_A`), soundness and knowledge (`prob_bad_A`, `soundness_A`, `knowledge_A`), completeness (`awords_honest`, `honestA_accepts`, `honestA_prob`).
+- `lean/KroneckerFRI/Lincheck.lean`: tables indexed by any numbered finite set (`Numbering`), so that the lincheck applies to hypercube tables.
+- `lean/KroneckerFRI/R1CS.lean`: the R1CS argument with its 21 statements; `tA_r1stmts` (127 words for every instance and challenges); `r1_bridge` (a batch witness gives the lincheck statements); `r1cs_soundness`: Theorem r1cs end to end, bound `(13N-3)/|F| + 2(N-1)/|F| + 126M/|F| + ε_fold + (1-δ)^κ`.
+- `Audit.lean`: the new theorems (only the project's single axiom).
+
+### Code
+- `rust/src/affine.rs`: the words of a form are its declared support (zero coefficients included), as in the Lean model; the set of words no longer depends on the challenges. Proof sizes and timings are unchanged.
+- `rust/src/r1cs.rs`: test `word_count_127` (127 words, also at zero challenges).
+
+### Note (version 10)
+- Proposition affine with declared supports; the word count of Theorem r1cs; Lean status of §5.
+
 ## Unreleased — Lean formalisation of §5; optimised R1CS prototype
 
 ### Lean
