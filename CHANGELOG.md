@@ -1,5 +1,13 @@
 # Changelog
 
+## Unreleased — sparse matrix–vector products (R1CS) without sumcheck
+
+### Note (`notes/inner-product/`, version 7, 13 pages)
+- New §5: statements on affine forms of committed and public tables (Proposition affine); the lincheck Π_Lin proving a = Mz for a public sparse M by random weights and two LogUp lookups (Lemma logup: LogUp with pairs, error (2N-1)/|F|); reduction and soundness theorems (ε_Lin = (7N-3)/|F|); R1CS without sumcheck with error (9N-5+tM)/|F| + ε_fold + (1-δ)^κ. Proofs written out and refereed; not yet compiled or in Lean.
+
+### Code
+- `rust/src/lincheck.rs`: clear-text check of the lincheck reduction (closed forms of the public tables; honest runs; a wrong a, a forged lookup value of the row or the column side are each caught by the expected statement).
+
 ## Unreleased — Lean formalisation of the batched protocol
 
 ### Lean (`lean/KroneckerFRI/BatchStmts.lean`)

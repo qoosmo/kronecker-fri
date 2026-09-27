@@ -12,6 +12,7 @@
 //! - `had`: prototype of the sumcheck-free Hadamard check Pi_Had (same note, Section 3);
 //! - `batch`: prototype of Pi_Batch, any list of evaluations, inner products and Hadamard checks
 //!   in one folding test (same note, Section 4);
+//! - `lincheck`: clear-text check of the sumcheck-free lincheck reduction (same note, Section 5);
 //! - `ft`: the folding test on a batched word and level-0 coset openings, shared by `had` and
 //!   `batch`.
 
@@ -22,6 +23,7 @@ pub mod field;
 pub mod ft;
 pub mod had;
 pub mod ip;
+pub mod lincheck;
 pub mod merkle;
 pub mod pcs;
 pub mod poly;
