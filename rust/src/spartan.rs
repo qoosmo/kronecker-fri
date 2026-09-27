@@ -69,14 +69,14 @@ pub fn eq_table<E: ExtField>(t: &[E]) -> Vec<E> {
 }
 
 /// eq(a, b) for two points.
-fn eq_point<E: ExtField>(a: &[E], b: &[E]) -> E {
+pub(crate) fn eq_point<E: ExtField>(a: &[E], b: &[E]) -> E {
     a.iter().zip(b).fold(E::ONE, |acc, (&x, &y)| {
         acc * (x * y + (E::ONE - x) * (E::ONE - y))
     })
 }
 
 /// The polynomial of degree < vals.len() with values vals[i] at i, evaluated at r.
-fn interpolate<E: ExtField>(vals: &[E], r: E) -> E {
+pub(crate) fn interpolate<E: ExtField>(vals: &[E], r: E) -> E {
     let d = vals.len();
     let mut acc = E::ZERO;
     for i in 0..d {
@@ -94,13 +94,13 @@ fn interpolate<E: ExtField>(vals: &[E], r: E) -> E {
 }
 
 /// Fold a table on variable 0 at r: f'(i) = f(2i) + r (f(2i+1) - f(2i)).
-fn fold<E: ExtField>(f: &[E], r: E) -> Vec<E> {
+pub(crate) fn fold<E: ExtField>(f: &[E], r: E) -> Vec<E> {
     (0..f.len() / 2)
         .map(|i| f[2 * i] + r * (f[2 * i + 1] - f[2 * i]))
         .collect()
 }
 
-fn absorb_es<E: ExtField>(tr: &mut Transcript, tag: &[u8], xs: &[E]) {
+pub(crate) fn absorb_es<E: ExtField>(tr: &mut Transcript, tag: &[u8], xs: &[E]) {
     let mut b = Vec::new();
     for x in xs {
         b.extend(e_bytes(x));

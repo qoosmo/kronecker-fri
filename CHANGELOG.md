@@ -1,5 +1,15 @@
 # Changelog
 
+## Unreleased — the two routes measured on one commitment
+
+### Code
+- `rust/src/sumcheck.rs`: one inner product and one Hadamard check by two routes on the same commitments (one group per table) and the same engine (`affine`): the sumcheck-free statement, and a sumcheck (degree 2) or zerocheck (degree 3) followed by one evaluation of a random combination of the tables (a batched opening). Tests for both routes.
+- `rust/src/spartan.rs`: helpers shared with `sumcheck`.
+- `examples/primitives_bench.rs`, `bench/primitives.csv`. At n = 16: inner product 225 ms (sumcheck-free) against 227 ms (sumcheck); Hadamard check 432 ms against 257 ms (zerocheck).
+
+### Note (version 13)
+- New §6: Kronecker-FRI in sumcheck-based arguments, the two routes measured (one statement, R1CS, the cost split of the Spartan core, rounds and verifier); abstract and Next updated.
+
 ## Unreleased — comparison with a sumcheck-based R1CS argument
 
 ### Code

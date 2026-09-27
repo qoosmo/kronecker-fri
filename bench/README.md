@@ -17,6 +17,7 @@ Configurations: **KF-2** = arity 2, no caps, ℓ = n − 4 (`config = v1`); **KF
 | `batch.csv` | `cargo run --release --example batch_bench` (KF-8, 148 queries, 32-byte salts, F_{p^2}) | research note `notes/inner-product`, §4 (one batched proof against four separate proofs) |
 | `r1cs.csv` | `cargo run --release --example r1cs_bench` (KF-8, 148 queries, 32-byte salts, F_{p^2}; same session as `spartan.csv`) | research note `notes/inner-product`, §5 (R1CS prototype) |
 | `spartan.csv` | `cargo run --release --example spartan_bench` (Spartan core: two sumchecks and one Π_KF opening; same configuration) | research note `notes/inner-product`, §5 (comparison with a sumcheck-based argument) |
+| `primitives.csv` | `cargo run --release --example primitives_bench` (one inner product and one Hadamard check, sumcheck-free (`sf`) and sumcheck + batched opening (`sc`), same commitments and engine; same configuration) | research note `notes/inner-product`, §6 (the two routes) |
 | `kbfold_scaling.csv` | `cargo run --release --example bench -- scaling` in [qoosmo/kbfold](https://github.com/qoosmo/kbfold) `rust/` | Table 3 (KBFold and baseline columns) |
 
 Timings of identical work vary by about 10–20% between runs on this shared machine; proof sizes are exact.

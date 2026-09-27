@@ -17,6 +17,8 @@
 //! - `r1cs`: prototype of the sumcheck-free R1CS argument (same note, Section 5.3);
 //! - `spartan`: baseline, the core of a Spartan-style R1CS argument (two sumchecks and one
 //!   Pi_KF opening) on the same commitment, for the comparison of the same note, Section 5.3;
+//! - `sumcheck`: baselines, one inner product and one Hadamard check by sumcheck, closed by a
+//!   batched opening (same note, Section 6);
 //! - `ft`: the folding test on a batched word and level-0 coset openings, shared by `had` and
 //!   `batch`.
 
@@ -34,3 +36,4 @@ pub mod pcs;
 pub mod poly;
 pub mod r1cs;
 pub mod spartan;
+pub mod sumcheck;
