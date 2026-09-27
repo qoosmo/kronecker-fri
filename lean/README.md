@@ -5,7 +5,8 @@ Machine-checked proofs of the results of §4–§7 and §11 of the paper
 folding proximity test with any folding arity, the scheme, completeness, soundness,
 round-by-round knowledge soundness, evaluation binding, and batched openings; and the
 sumcheck-free inner-product protocol `Π_IP`, Hadamard check `Π_Had` and batched protocol `Π_Batch`
-of the research note [`../notes/inner-product/note.pdf`](../notes/inner-product/note.pdf) (§1–4).
+of the research note [`../notes/inner-product/note.pdf`](../notes/inner-product/note.pdf) (§1–4),
+and its LogUp lemma, lincheck reduction and R1CS composition (§5).
 
 - **Toolchain:** Lean 4.23.0, Mathlib `v4.23.0` (pinned in `lakefile.lean` and `lake-manifest.json`).
 - **No `sorry`.**
@@ -86,6 +87,10 @@ lake env lean KroneckerFRI/Audit.lean
 | **Lemma batchT (batching, degree t)** | `virtG_value`, `batching_B` | `BatchStmts.lean` |
 | **Thm batch (soundness)**, `2(N-1)/\|F\| + tM/\|F\| + ε_fold + (1-δ)^κ`; knowledge | `prob_bad_had`, `prob_bad_B`, `soundness_B`, `soundnessC_B` (any set of committed levels), `knowledge_B` | `BatchStmts.lean` |
 | **Thm (completeness)**: accepted when no pole of a Hadamard check lies in `L`; probability `≥ 1 - 3M/\|F\|` | `bpolys`, `bU0`, `honestB`, `bwords_honest`, `honestB_accepts`, `prob_poles_ge`, `honestB_prob` | `BatchStmts.lean` |
+| **Lemma logup (LogUp with pairs)**, `(K + 2N_t - 1)/\|F\|` for `K` lookups against `N_t` table pairs, `char F > K` | `LogupEq`, `logupNum`, `natDegree_logupNum_le`, `logupNum_ne_zero`, `logupNum_eval_eq_zero`, `logup_prob` | `Lincheck.lean` |
+| **Def Π_Lin** (J matrices, combined row and column lookups), at the level of tables | `matVec`, `mult`, `LinProver`, `HoldsLin` | `Lincheck.lean` |
+| **Thm lin (lincheck reduction)**, `((2J + 7)N - 3)/\|F\|` | `natCast_inj_lt`, `weighted_matVec`, `prob_den_bad`, `LookupFail`, `prob_lookupFail`, `prob_root_le`, `lincheck_reduction` | `Lincheck.lean` |
+| **Thm linsound, Thm r1cs**, with the second phase abstract | `prob_two_phase`, `lincheck_sound`, `r1cs_sound` | `Lincheck.lean` |
 
 ## Modelling
 
@@ -102,4 +107,5 @@ lake env lean KroneckerFRI/Audit.lean
 - Operation counts: Lem 4.9, Lem 5.9(2)–(3), Lem 6.7, Prop 6.11.
 - The base-field statements: Lem 2.14, Lem 6.3(3), Rem 7.13. There is no separate base field `F_q` in the model.
 - The running time of the extractor.
+- Research note, Proposition affine (`Π_Batch` on affine forms of committed words and public tables): `lincheck_sound` and `r1cs_sound` take the soundness of the second phase as a hypothesis, and `soundness_B` covers statements on committed words only. The closed forms of the public tables `1`, `id`, `η^w` are checked by the Rust tests, not in Lean.
 - The post-quantum analysis of §8. It rests on the BCS theorem of Chiesa, Di, Hu and Zheng (Thm 3.15), which has no Lean formalisation.

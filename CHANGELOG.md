@@ -1,5 +1,18 @@
 # Changelog
 
+## Unreleased — Lean formalisation of §5; optimised R1CS prototype
+
+### Lean
+- `lean/KroneckerFRI/Lincheck.lean` (no `sorry`, standard axioms only): LogUp with pairs for any finite index types (`logup_prob`, bound `(K + 2N_t - 1)/|F|`); the lincheck reduction for `J` matrices with combined lookups at the level of tables (`lincheck_reduction`, bound `((2J + 7)N - 3)/|F|`); the two-phase composition (`prob_two_phase`, `lincheck_sound`, `r1cs_sound`). Proposition affine (the batch on affine forms and public tables) is not formalised and enters as a hypothesis.
+- `Audit.lean`: the new theorems.
+
+### Code
+- `rust/src/r1cs.rs`: one index tree (row, col, val of A, B, C and the combined multiplicities); one combined row lookup and one combined column lookup for the three matrices; 21 statements, 127 words (was 179), six trees per query (was eight). Transcript label `kronecker-fri-r1cs-v2`.
+- `bench/r1cs.csv`: n = 16: prove 5.6 s (was 7.8), verify 44 ms (was 68), proof 1.95 MiB (was 2.6).
+
+### Note (version 9)
+- §5 for J matrices with combined lookups: Definition lin, Lemma logup (univariate proof, bound `(K + 2N_t - 1)/|F|`, as in Lean), Theorem lin (`((2J + 7)N - 3)/|F|`), Theorem r1cs (`(15N - 5 + tM)/|F| + ε_fold + (1-δ)^κ`, `char F > 3N`); new measurements; Lean status.
+
 ## Unreleased — R1CS prototype without sumcheck
 
 ### Code

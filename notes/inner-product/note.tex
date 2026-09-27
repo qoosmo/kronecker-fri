@@ -18,7 +18,7 @@
 \newcommand{\iv}[2]{[#1,#2]}
 \title{Sumcheck-free hypercube inner products\\ from table-form Kronecker encodings}
 \author{Research note (companion to Kronecker-FRI)}
-\date{September 2026 --- version 8 (Section 5 implemented: R1CS prototype)}
+\date{September 2026 --- version 9 (Section 5 formalised in Lean; combined lookups)}
 \emergencystretch=3em
 \begin{document}
 \maketitle
@@ -27,7 +27,7 @@
 We encode a multilinear polynomial by its \emph{table}, $V_f(X)=\sum_{w}f(w)X^{w}$, instead of its coefficients.
 Two quantities then become single coefficients of univariate products: the evaluation $\tilde f(z)$, with a product-form kernel, and the hypercube inner product $\sum_{w}a(w)b(w)$ of two committed tables, through the reversal $V_b^\ast(X)=X^{N-1}V_b(1/X)$.
 Because a smooth domain is closed under inversion, the verifier reads $V_b^\ast$ from the commitment to $b$ as a virtual word, and the Kronecker-FRI machinery (opening polynomial, virtual word, one folding test) proves $\sum_w a(w)b(w)=S$ with no sumcheck, with soundness error $3M/|\F|+\varepsilon_{\mathrm{fold}}+(1-\delta)^\kappa$.
-With geometric weights $\gamma^w$ and DEEP quotients as further virtual words, the same method gives a sumcheck-free Hadamard check $a\circ b=c$ for three committed tables, with soundness error $2(N-1)/|\F|+8M/|\F|+\varepsilon_{\mathrm{fold}}+(1-\delta)^\kappa$. Finally, any list of evaluations, inner products and Hadamard checks on the same commitments is proved by one folding test, with soundness error $2(N-1)/|\F|+tM/|\F|+\varepsilon_{\mathrm{fold}}+(1-\delta)^\kappa$ for $t+1$ batched words; the term $2(N-1)/|\F|$ is paid once, whatever the number of Hadamard checks. The results of Sections~1--4 are machine-checked in Lean~4. Section~5 reduces sparse matrix--vector products, and hence R1CS, to the same statements with lookups by logarithmic derivatives, so an R1CS argument needs no sumcheck at all.
+With geometric weights $\gamma^w$ and DEEP quotients as further virtual words, the same method gives a sumcheck-free Hadamard check $a\circ b=c$ for three committed tables, with soundness error $2(N-1)/|\F|+8M/|\F|+\varepsilon_{\mathrm{fold}}+(1-\delta)^\kappa$. Finally, any list of evaluations, inner products and Hadamard checks on the same commitments is proved by one folding test, with soundness error $2(N-1)/|\F|+tM/|\F|+\varepsilon_{\mathrm{fold}}+(1-\delta)^\kappa$ for $t+1$ batched words; the term $2(N-1)/|\F|$ is paid once, whatever the number of Hadamard checks. The results of Sections~1--4 are machine-checked in Lean~4. Section~5 reduces sparse matrix--vector products, and hence R1CS, to the same statements with lookups by logarithmic derivatives, so an R1CS argument needs no sumcheck at all; its LogUp lemma and lincheck reduction are machine-checked as well.
 \end{abstract}
 
 \paragraph{Setting.}
@@ -343,7 +343,7 @@ One proof for the four statements is $2.0$ to $2.4$ times smaller and $1.9$ to $
 An R1CS instance asks for $z$ with $(Az)\circ(Bz)=Cz$ for public sparse matrices $A,B,C$.
 Committing to $z$ and to $a=Az$, $b=Bz$, $c=Cz$, the statement $a\circ b=c$ is a Hadamard check.
 This section proves $a=\mathbf Mz$ for a public sparse matrix $\mathbf M$ (a \emph{lincheck}) with the statements of Section~\ref{sec:batch} on affine forms of committed and public tables; lookups are handled with logarithmic derivatives (LogUp, Hab\"ock~\cite{Hab22}).
-Throughout, $N$ is at least the length of $z$ and the number of nonzero entries of each matrix, and all tables are padded to length $N=2^n$; $R\ge2$, $0<\delta\le\delta^\ast$ and $\operatorname{char}\F>N$.
+Throughout, $N$ is at least the length of $z$ and the number of nonzero entries of each matrix, and all tables are padded to length $N=2^n$; $R\ge2$ and $0<\delta\le\delta^\ast$. Several matrices $\mathbf M_1,\dots,\mathbf M_J$ are handled together (for R1CS, $J=3$), and $\operatorname{char}\F>JN$.
 
 \subsection{Affine forms and public tables}
 
@@ -369,92 +369,101 @@ On the agreement set $T$ of Lemma~\ref{lem:batchT}, the word of an affine form a
 \subsection{The lincheck}
 
 \begin{definition}[Index, relation]
-A sparse $\mathbf M\in\F^{N\times N}$ with $\nu\le N$ nonzero entries is listed as $(r_k,c_k,v_k)_{k<N}$, padded with $v_k=0$, $r_k=c_k=0$. Its \emph{index} consists of the commitments $\mathrm{Enc}^{\mathrm T}$ of the tables $\mathrm{row}(k)=r_k$, $\mathrm{col}(k)=c_k$, $\mathrm{val}(k)=v_k$ and of the multiplicities $m_R(w)=\#\{k:r_k=w\}$, $m_C(w)=\#\{k:c_k=w\}$, computed once by an honest indexer (soundness uses only that $\mathrm{row},\mathrm{col},\mathrm{val}$ are honest).
-The lincheck relation holds for commitments $(w_z,w_a)$ and tables $(z,a)$ if $\Delta^{\mathrm{fib}}_0(w_z,\mathrm{Enc}^{\mathrm T}(z))\le\delta$, $\Delta^{\mathrm{fib}}_0(w_a,\mathrm{Enc}^{\mathrm T}(a))\le\delta$ and $a=\mathbf Mz$.
+A sparse $\mathbf M_j\in\F^{N\times N}$ ($j<J$) with at most $N$ nonzero entries is listed as $(r_{j,k},c_{j,k},v_{j,k})_{k<N}$, padded with $v_{j,k}=0$, $r_{j,k}=c_{j,k}=0$. The \emph{index} of $(\mathbf M_j)_{j<J}$ consists of the commitments $\mathrm{Enc}^{\mathrm T}$ of the tables $\mathrm{row}_j(k)=r_{j,k}$, $\mathrm{col}_j(k)=c_{j,k}$, $\mathrm{val}_j(k)=v_{j,k}$ and of the \emph{combined} multiplicities $m_R(w)=\#\{(j,k):r_{j,k}=w\}$, $m_C(w)=\#\{(j,k):c_{j,k}=w\}$, computed once by an honest indexer (soundness uses only that the $\mathrm{row}_j,\mathrm{col}_j,\mathrm{val}_j$ and $m_R,m_C$ are honest), all in one Merkle tree.
+The lincheck relation holds for commitments $(w_z,(w_{a_j})_j)$ and tables $(z,(a_j)_j)$ if all are within fibre distance $\delta$ of $\mathrm{Enc}^{\mathrm T}$ of the tables and $a_j=\mathbf M_jz$ for every $j$.
 \end{definition}
 
-The reduction rests on $\sum_w\eta^w(\mathbf Mz)(w)=\sum_kv_k\,\eta^{r_k}z(c_k)$: the prover commits to $e_k=\eta^{r_k}$, $\zeta_k=z(c_k)$ and $p_k=e_k\zeta_k$, and proves the lookups $(r_k,e_k)\in\{(w,\eta^w)\}$ and $(c_k,\zeta_k)\in\{(w,z(w))\}$ by LogUp.
+The reduction rests on $\sum_w\eta^w(\mathbf M_jz)(w)=\sum_kv_{j,k}\,\eta^{r_{j,k}}z(c_{j,k})$: the prover commits to $e_{j,k}=\eta^{r_{j,k}}$, $\zeta_{j,k}=z(c_{j,k})$ and $p_{j,k}=e_{j,k}\zeta_{j,k}$, and proves the $JN$ lookups $(r_{j,k},e_{j,k})\in\{(w,\eta^w)\}$ with \emph{one} LogUp, and the $JN$ lookups $(c_{j,k},\zeta_{j,k})\in\{(w,z(w))\}$ with another.
 
 \begin{definition}[$\Pi_{\mathrm{Lin}}$]\label{def:lin}
-Instance: the index of $\mathbf M$ and commitments $w_z,w_a$.
+Instance: the index of $(\mathbf M_j)_{j<J}$ and commitments $w_z,(w_{a_j})_j$.
 \begin{enumerate}[nosep]
-\item The verifier sends $\eta$, uniform in $\F$. The prover commits to tables $e,\zeta,p$ (honestly $e_k=\eta^{r_k}$, $\zeta_k=z(c_k)$, $p_k=e_k\zeta_k$).
-\item The verifier sends $x_R,y_R,x_C,y_C$, uniform in $\F$. The prover commits to tables $\phi^R,\psi^R,\phi^C,\psi^C$ and sends $s,s_R,s_C\in\F$; honestly
+\item The verifier sends $\eta$, uniform in $\F$. The prover commits to tables $e_j,\zeta_j,p_j$ (honestly $e_{j,k}=\eta^{r_{j,k}}$, $\zeta_{j,k}=z(c_{j,k})$, $p_{j,k}=e_{j,k}\zeta_{j,k}$).
+\item The verifier sends $x_R,y_R,x_C,y_C$, uniform in $\F$. The prover commits to tables $\phi^R_j,\psi^R,\phi^C_j,\psi^C$ and sends $s_j\in\F$; honestly
 \begin{align*}
-&\phi^R_k=\frac1{x_R-r_k-y_Re_k},&& \psi^R_w=\frac{m_R(w)}{x_R-w-y_R\eta^w},\\
-&\phi^C_k=\frac1{x_C-c_k-y_C\zeta_k},&& \psi^C_w=\frac{m_C(w)}{x_C-w-y_Cz(w)},
+&\phi^R_{j,k}=\frac1{x_R-r_{j,k}-y_Re_{j,k}},&& \psi^R_w=\frac{m_R(w)}{x_R-w-y_R\eta^w},\\
+&\phi^C_{j,k}=\frac1{x_C-c_{j,k}-y_C\zeta_{j,k}},&& \psi^C_w=\frac{m_C(w)}{x_C-w-y_Cz(w)},
 \end{align*}
 with $\psi_w=0$ when $m(w)=0$; the honest prover aborts if a denominator with $m(w)\ne0$ vanishes.
-\item The statements, proved by one $\Pi_{\mathrm{Batch}}$ on affine forms (Proposition~\ref{prop:affine}) whose own challenges $\gamma,\theta,\beta$ are drawn after step~2:
+\item The statements, proved by one $\Pi_{\mathrm{Batch}}$ on affine forms (Proposition~\ref{prop:affine}) whose own challenges $\gamma,\theta,\beta$ are drawn after step~2: for every $j$,
 \begin{align*}
-&\mathsf{IP}(a,G_\eta,s),\quad \mathsf{IP}(\mathrm{val},p,s),\quad \mathsf{Had}(e,\zeta,p),\\
-&\mathsf{Had}(\phi^R,\,x_R\mathbf 1-\mathrm{row}-y_Re,\,\mathbf 1),\quad \mathsf{Had}(\psi^R,\,x_R\mathbf 1-\mathrm{id}-y_RG_\eta,\,m_R),\\
-&\mathsf{IP}(\phi^R,\mathbf 1,s_R),\quad\mathsf{IP}(\psi^R,\mathbf 1,s_R),\\
-&\mathsf{Had}(\phi^C,\,x_C\mathbf 1-\mathrm{col}-y_C\zeta,\,\mathbf 1),\quad \mathsf{Had}(\psi^C,\,x_C\mathbf 1-\mathrm{id}-y_Cz,\,m_C),\\
-&\mathsf{IP}(\phi^C,\mathbf 1,s_C),\quad\mathsf{IP}(\psi^C,\mathbf 1,s_C).
+&\mathsf{IP}(a_j,G_\eta,s_j),\quad \mathsf{IP}(\mathrm{val}_j,p_j,s_j),\quad \mathsf{Had}(e_j,\zeta_j,p_j),\\
+&\mathsf{Had}(\phi^R_j,\,x_R\mathbf 1-\mathrm{row}_j-y_Re_j,\,\mathbf 1),\quad \mathsf{Had}(\phi^C_j,\,x_C\mathbf 1-\mathrm{col}_j-y_C\zeta_j,\,\mathbf 1),
 \end{align*}
+and once
+\begin{align*}
+&\mathsf{Had}(\psi^R,\,x_R\mathbf 1-\mathrm{id}-y_RG_\eta,\,m_R),\quad \textstyle\mathsf{IP}(\sum_j\phi^R_j-\psi^R,\mathbf 1,0),\\
+&\mathsf{Had}(\psi^C,\,x_C\mathbf 1-\mathrm{id}-y_Cz,\,m_C),\quad \textstyle\mathsf{IP}(\sum_j\phi^C_j-\psi^C,\mathbf 1,0),
+\end{align*}
+that is $5J+4$ statements.
 \end{enumerate}
 \end{definition}
 
-The honest prover aborts with probability at most $2N/|\F|$ (a denominator $x-w-y\,\cdot$ with $m(w)\ne0$ vanishes; the denominators of $\phi$ are among them), and is otherwise accepted with the probability of Proposition~\ref{prop:affine}, at least $1-3M/|\F|$.
+The honest prover aborts with probability at most $2N/|\F|$ (a denominator $x-w-y\,\cdot$ with $m(w)\ne0$ vanishes; the denominators of the $\phi$ are among them), and is otherwise accepted with the probability of Proposition~\ref{prop:affine}, at least $1-3M/|\F|$.
 
 \begin{lemma}[LogUp with pairs]\label{lem:logup}
-Let $\operatorname{char}\F>N$, pairs $(\alpha_k,\alpha'_k)_{k<N}$ and $(\omega_w,\omega'_w)_{w<N}$ in $\F^2$, and $m_w\in\F$. If some $(\alpha_k,\alpha'_k)$ is not among the $(\omega_w,\omega'_w)$, then for $x,y$ uniform in $\F$,
+Let pairs $(\alpha_k,\alpha'_k)_{k<K}$ and $(\omega_w,\omega'_w)_{w<N_t}$ in $\F^2$, $m_w\in\F$, and $\operatorname{char}\F>K$. If some $(\alpha_{k_0},\alpha'_{k_0})$ is not among the $(\omega_w,\omega'_w)$, then for $x,y$ uniform in $\F$,
 \[
-\Pr\Bigl[\textstyle\sum_k\frac1{x-\alpha_k-y\alpha'_k}=\sum_w\frac{m_w}{x-\omega_w-y\omega'_w}\text{ with all denominators nonzero}\Bigr]\le\frac{2N-1}{|\F|}.
+\Pr\Bigl[\textstyle\sum_k\frac1{x-\alpha_k-y\alpha'_k}=\sum_w\frac{m_w}{x-\omega_w-y\omega'_w}\text{ with all denominators nonzero}\Bigr]\le\frac{K+2N_t-1}{|\F|}.
 \]
 \end{lemma}
 \begin{proof}
-In $\F(X,Y)$ let $\Phi=\sum_k(X-\alpha_k-Y\alpha'_k)^{-1}-\sum_wm_w(X-\omega_w-Y\omega'_w)^{-1}$, and let $\mathrm{Den}$ be the product of the $2N$ linear forms. Two such linear forms are equal iff their pairs are.
-Let $\ell=X-\alpha_k-Y\alpha'_k$ with $(\alpha_k,\alpha'_k)$ not a table pair, and $c=\#\{k':(\alpha_{k'},\alpha'_{k'})=(\alpha_k,\alpha'_k)\}\in\iv1N$. Multiply $\Phi$ by the product of the linear forms different from $\ell$ and substitute $X=\alpha_k+Y\alpha'_k$: every term vanishes except $c$ times a product of nonzero polynomials in $Y$, so $\Phi\ne0$ since $c\ne0$ in $\F$.
-Hence $\Phi\,\mathrm{Den}$ is a nonzero polynomial of total degree $\le2N-1$; where $\mathrm{Den}\ne0$, $\Phi=0$ iff $\Phi\,\mathrm{Den}=0$, and the Schwartz--Zippel lemma concludes (the pairs and $m$ are fixed before $x,y$).
+Fix $y$ and write $c_k=\alpha_k+y\alpha'_k$, $t_w=\omega_w+y\omega'_w$. The equation $c_{k_0}=t_w$ is $\alpha_{k_0}-\omega_w=y(\omega'_w-\alpha'_{k_0})$; it has no solution $y$ when $\alpha'_{k_0}=\omega'_w$ (then $\alpha_{k_0}\ne\omega_w$) and one otherwise, so $c_{k_0}$ is a table value $t_w$ for at most $N_t$ values of $y$.
+For the other $y$, let $S=\{c_k\}$, $n_c=\#\{k:c_k=c\}$ and
+\[
+\mathrm{Num}(X)=\sum_{c\in S}n_c\!\!\prod_{c'\in S\setminus\{c\}}\!\!(X-c')\prod_w(X-t_w)-\sum_wm_w\prod_{c\in S}(X-c)\prod_{v\ne w}(X-t_v),
+\]
+of degree $\le K+N_t-1$. At $X=c_{k_0}$ only the term of $c=c_{k_0}$ survives, and it is $n_{c_{k_0}}\in\iv1K$ (nonzero in $\F$) times nonzero products, so $\mathrm{Num}\ne0$. Where all denominators are nonzero, the equation multiplied by $\prod_{c\in S}(x-c)\prod_w(x-t_w)$ is $\mathrm{Num}(x)=0$, which holds for at most $K+N_t-1$ values of $x$.
 \end{proof}
 
 \begin{theorem}[Lincheck reduction]\label{thm:lin}
-Suppose the index is honest, the decodings $z,a$ of $w_z,w_a$ exist and $a\ne\mathbf Mz$, and fix a deterministic prover. Let $E$ be the event, over $\eta,x_R,y_R,x_C,y_C$, that every word committed by the prover in steps~1--2 has a decoding within fibre distance $\delta$ and that these decodings, with $z,a$ and the index, satisfy all the statements of step~3. Then
+Suppose the index is honest, the decodings $z,a_j$ of $w_z,w_{a_j}$ exist and $a_{j_0}\ne\mathbf M_{j_0}z$ for some $j_0$, and fix a deterministic prover. Let $E$ be the event, over $\eta,x_R,y_R,x_C,y_C$, that every word committed by the prover in steps~1--2 has a decoding within fibre distance $\delta$ and that these decodings, with $z,a_j$ and the index, satisfy all the statements of step~3. Then
 \[
-\Pr[E]\le\varepsilon_{\mathrm{Lin}}=\frac{N-1}{|\F|}+2\Bigl(\frac{2N-1}{|\F|}+\frac N{|\F|}\Bigr)=\frac{7N-3}{|\F|}.
+\Pr[E]\le\varepsilon_{\mathrm{Lin}}=\frac{N-1}{|\F|}+2\,\frac{N+(JN+2N-1)}{|\F|}=\frac{(2J+7)N-3}{|\F|}.
 \]
 \end{theorem}
 \begin{proof}
-On $E$: from $\mathsf{Had}(\phi^R,x_R\mathbf 1-\mathrm{row}-y_Re,\mathbf 1)$, every $x_R-r_k-y_Re_k$ is nonzero and $\phi^R_k$ is its inverse. From $\mathsf{Had}(\psi^R,\dots,m_R)$, $\psi^R_w(x_R-w-y_R\eta^w)=m_R(w)$; unless $x_R=w+y_R\eta^w$ for some $w$ (probability $\le N/|\F|$ over $x_R$, for every $y_R$), $\psi^R_w=m_R(w)/(x_R-w-y_R\eta^w)$. The two $\mathsf{IP}$ with $\mathbf 1$ give $\sum_k\phi^R_k=\sum_w\psi^R_w$.
-The decoding $e$ is fixed before $x_R,y_R$, so by Lemma~\ref{lem:logup}, except with probability $(2N-1)/|\F|$, every $(r_k,e_k)$ is a pair $(w,\eta^w)$, that is $e_k=\eta^{r_k}$.
-In the same way, except with probability $(2N-1)/|\F|+N/|\F|$, $\zeta_k=z(c_k)$ for all $k$ (the decodings $\zeta$ and $z$ are fixed before $x_C,y_C$).
-Then $\mathsf{Had}(e,\zeta,p)$ gives $p_k=\eta^{r_k}z(c_k)$, and the first two statements give
-$\sum_w\eta^wa(w)=s=\sum_kv_k\eta^{r_k}z(c_k)=\sum_w\eta^w(\mathbf Mz)(w)$.
-So $\eta$ is a root of the nonzero polynomial $\sum_w(a-\mathbf Mz)(w)X^w$ of degree $\le N-1$, fixed before $\eta$: probability $\le(N-1)/|\F|$.
+On $E$: from $\mathsf{Had}(\phi^R_j,x_R\mathbf 1-\mathrm{row}_j-y_Re_j,\mathbf 1)$, every $x_R-r_{j,k}-y_Re_{j,k}$ is nonzero and $\phi^R_{j,k}$ is its inverse. From $\mathsf{Had}(\psi^R,\dots,m_R)$, $\psi^R_w(x_R-w-y_R\eta^w)=m_R(w)$; unless $x_R=w+y_R\eta^w$ for some $w$ (probability $\le N/|\F|$ over $x_R$, for every $y_R$), $\psi^R_w=m_R(w)/(x_R-w-y_R\eta^w)$. The last row statement gives $\sum_{j,k}\phi^R_{j,k}=\sum_w\psi^R_w$.
+The decodings $e_j$ are fixed before $x_R,y_R$, and $w\mapsto w\in\F$ is injective on $\iv0{N-1}$ since $\operatorname{char}\F>N$; so by Lemma~\ref{lem:logup} with $K=JN$ and $N_t=N$, except with probability $(JN+2N-1)/|\F|$, every $(r_{j,k},e_{j,k})$ is a pair $(w,\eta^w)$, that is $e_{j,k}=\eta^{r_{j,k}}$.
+In the same way, except with probability $(N+JN+2N-1)/|\F|$, $\zeta_{j,k}=z(c_{j,k})$ for all $j,k$ (the decodings $\zeta_j$ and $z$ are fixed before $x_C,y_C$).
+Then $\mathsf{Had}(e_{j_0},\zeta_{j_0},p_{j_0})$ gives $p_{j_0,k}=\eta^{r_{j_0,k}}z(c_{j_0,k})$, and the first two statements give
+$\sum_w\eta^wa_{j_0}(w)=s_{j_0}=\sum_kv_{j_0,k}\eta^{r_{j_0,k}}z(c_{j_0,k})=\sum_w\eta^w(\mathbf M_{j_0}z)(w)$.
+So $\eta$ is a root of the nonzero polynomial $\sum_w(a_{j_0}-\mathbf M_{j_0}z)(w)X^w$ of degree $\le N-1$, fixed before $\eta$: probability $\le(N-1)/|\F|$.
 \end{proof}
 
+For $J=1$, $\varepsilon_{\mathrm{Lin}}=(9N-3)/|\F|$. Separate lookups for each matrix would cost $J(4N-1)/|\F|$ per kind of lookup instead of $((J+3)N-1)/|\F|$, and $J-1$ more words $\psi$ and more statements per kind.
+
 \begin{theorem}[Soundness of the lincheck]\label{thm:linsound}
-If the index is honest and $(w_z,w_a)$ has no witness for the lincheck relation, every prover of $\Pi_{\mathrm{Lin}}$ followed by $\Pi_{\mathrm{Batch}}$ is accepted with probability at most $\varepsilon_{\mathrm{Lin}}+\varepsilon_{\mathrm{Batch}}$, with $\varepsilon_{\mathrm{Batch}}$ of Theorem~\ref{thm:batch} for the $t+1$ words of step~3.
+If the index is honest and $(w_z,(w_{a_j})_j)$ has no witness for the lincheck relation, every prover of $\Pi_{\mathrm{Lin}}$ followed by $\Pi_{\mathrm{Batch}}$ is accepted with probability at most $\varepsilon_{\mathrm{Lin}}+\varepsilon_{\mathrm{Batch}}$, with $\varepsilon_{\mathrm{Batch}}$ of Theorem~\ref{thm:batch} for the $t+1$ words of step~3.
 \end{theorem}
 \begin{proof}
 It suffices to consider deterministic provers. Let $\tau$ be the transcript of steps~1--2; the batch instance $I(\tau)$ and the event $E$ of Theorem~\ref{thm:lin} are functions of $\tau$, and given $\tau$ the rest of the prover is a prover of $\Pi_{\mathrm{Batch}}$ facing fresh challenges.
-If $w_z$ or $w_a$ has no decoding, $I(\tau)$ has no witness for every $\tau$. Otherwise $a\ne\mathbf Mz$, and for $\tau\notin E$, $I(\tau)$ has no witness: by unique decoding a witness would consist of the decodings, which either do not exist or violate a statement.
+If $w_z$ or some $w_{a_j}$ has no decoding, $I(\tau)$ has no witness for every $\tau$. Otherwise $a_{j_0}\ne\mathbf M_{j_0}z$ for some $j_0$, and for $\tau\notin E$, $I(\tau)$ has no witness: by unique decoding a witness would consist of the decodings, which either do not exist or violate a statement.
 In both cases Theorem~\ref{thm:batch} gives $\Pr[\text{accept}\mid\tau]\le\varepsilon_{\mathrm{Batch}}$ for $\tau\notin E$, so the acceptance probability is at most $\Pr[E]+\varepsilon_{\mathrm{Batch}}$.
 \end{proof}
 
 \subsection{R1CS}
 
 \begin{definition}[R1CS relation]
-Public: sparse $A,B,C\in\F^{N\times N}$ (with honest indices), input positions $I\subseteq\iv0{N-1}$ and an input $x\in\F^I$. Let $\hat x$ be the table equal to $x$ on $I$ and $0$ elsewhere, and $\chi$ the $0/1$ table of $I$ (both public tables; for $I=\iv0{|I|-1}$, $V_\chi(X)=(X^{|I|}-1)/(X-1)$, and in general $V_{\hat x},V_\chi$ cost $O(|I|)$).
+Public: sparse $A,B,C\in\F^{N\times N}$ (with an honest index), input positions $I\subseteq\iv0{N-1}$ and an input $x\in\F^I$. Let $\hat x$ be the table equal to $x$ on $I$ and $0$ elsewhere, and $\chi$ the $0/1$ table of $I$ (both public tables; for $I=\iv0{|I|-1}$, $V_\chi(X)=(X^{|I|}-1)/(X-1)$, and in general $V_{\hat x},V_\chi$ cost $O(|I|)$).
 The relation holds for commitments $(w_w,w_a,w_b,w_c)$ and tables $(w,a,b,c)$ if all four are within fibre distance $\delta$, $w$ vanishes on $I$, and with $z=\hat x+w$: $a=Az$, $b=Bz$, $c=Cz$ and $a\circ b=c$.
 \end{definition}
 
 \begin{theorem}[R1CS without sumcheck]\label{thm:r1cs}
-Run the three linchecks $\Pi_{\mathrm{Lin}}$ for $(A,a)$, $(B,b)$, $(C,c)$ on the affine form $z=\hat x+w_w$ (they may share their challenges), and prove their statements, $\mathsf{Had}(a,b,c)$ and $\mathsf{Had}(w,\chi,\mathbf 0)$ in one $\Pi_{\mathrm{Batch}}$ on affine forms. If the instance has no witness, every prover is accepted with probability at most
+Run $\Pi_{\mathrm{Lin}}$ for $(\mathbf M_0,\mathbf M_1,\mathbf M_2)=(A,B,C)$ and $(a_0,a_1,a_2)=(a,b,c)$ (so $J=3$ and $\operatorname{char}\F>3N$) on the affine form $z=\hat x+w_w$, and prove its $19$ statements, $\mathsf{Had}(a,b,c)$ and $\mathsf{Had}(w,\chi,\mathbf 0)$ in one $\Pi_{\mathrm{Batch}}$ on affine forms. If the instance has no witness, every prover is accepted with probability at most
 \[
-\varepsilon_{\mathrm{Lin}}+\varepsilon_{\mathrm{Batch}}\le\frac{9N-5+tM}{|\F|}+\varepsilon_{\mathrm{fold}}+(1-\delta)^\kappa .
+\varepsilon_{\mathrm{Lin}}+\varepsilon_{\mathrm{Batch}}\le\frac{15N-5+tM}{|\F|}+\varepsilon_{\mathrm{fold}}+(1-\delta)^\kappa .
 \]
 \end{theorem}
 \begin{proof}
-As in Theorem~\ref{thm:linsound}, with one false statement: if some decoding is missing, the batch instance never has a witness; if $a\ne Az$ (or $b\ne Bz$, $c\ne Cz$) for the decodings, only the event $E$ of that lincheck matters, of probability $\le\varepsilon_{\mathrm{Lin}}$; otherwise $a\circ b\ne c$ or $w$ does not vanish on $I$, and $\mathsf{Had}(a,b,c)$ or $\mathsf{Had}(w,\chi,\mathbf 0)$ is false for every value of the challenges.
+As in Theorem~\ref{thm:linsound}, with one false statement: if some decoding is missing, the batch instance never has a witness; if $a\ne Az$, $b\ne Bz$ or $c\ne Cz$ for the decodings, only the event $E$ of the lincheck matters, of probability $\le\varepsilon_{\mathrm{Lin}}=(13N-3)/|\F|$; otherwise $a\circ b\ne c$ or $w$ does not vanish on $I$, and $\mathsf{Had}(a,b,c)$ or $\mathsf{Had}(w,\chi,\mathbf 0)$ is false for every value of the challenges.
 \end{proof}
 
 Every step is a coefficient extraction, a lookup by logarithmic derivatives, or a Hadamard check: an R1CS argument on Kronecker-FRI commitments needs no sumcheck.
 
 \paragraph{Status.} The algebra of $\Pi_{\mathrm{Lin}}$ is checked in the clear by the Rust module \texttt{lincheck} (closed forms of $V_{\mathbf 1}$, $V_{\mathrm{id}}$, $V_{G_\eta}$; honest runs with padded matrices; a wrong $a$ caught by the weighted sums; a forged $\zeta_k$ or $e_k$ that repairs the weighted sums caught by the column or row lookup).
-The compiled protocol is implemented: the module \texttt{affine} runs $\Pi_{\mathrm{Batch}}$ on affine forms (Proposition~\ref{prop:affine}) with committed words grouped in Merkle trees whose leaves hold one value of each word of a group, and the module \texttt{r1cs} implements the indexer, prover and verifier of Theorem~\ref{thm:r1cs} (the three linchecks share their challenges). Its tests accept honest proofs and reject a wrong public input, an unsatisfied constraint, a witness that is nonzero on an input position, a false lincheck alone, and a false lincheck repaired by a forged $\zeta_k$ or $e_k$; removing the two sums of the column (row) lookup from the statements makes the forged $\zeta_k$ ($e_k$) accepted, so each lookup is exercised.
+The compiled protocol is implemented: the module \texttt{affine} runs $\Pi_{\mathrm{Batch}}$ on affine forms (Proposition~\ref{prop:affine}) with committed words grouped in Merkle trees whose leaves hold one value of each word of a group, and the module \texttt{r1cs} implements the indexer, prover and verifier of Theorem~\ref{thm:r1cs}: one index tree of $11$ words ($\mathrm{row}_j,\mathrm{col}_j,\mathrm{val}_j$, $m_R$, $m_C$), combined row and column lookups, $21$ statements and $t+1=127$ words; the proof opens six trees per query (witness, index, the two lincheck groups, the two groups of $\Pi_{\mathrm{Batch}}$). Its tests accept honest proofs and reject a wrong public input, an unsatisfied constraint, a witness that is nonzero on an input position, a false lincheck alone, and a false lincheck repaired by a forged $\zeta_k$ or $e_k$; removing the sum statement of the column (row) lookup makes the forged $\zeta_k$ ($e_k$) accepted, so each lookup is exercised.
+The Lean formalisation of this section is described in Section~\ref{sec:status}.
 
 \begin{table}[h]
 \centering\small
@@ -462,17 +471,17 @@ The compiled protocol is implemented: the module \texttt{affine} runs $\Pi_{\mat
 \hline
 $n$ & constraints & index (ms) & prove (ms) & verify (ms) & proof (KiB)\\
 \hline
-10 & 512 & 5.3 & 83.0 & 29.0 & 1134.6\\
-12 & 2048 & 20.9 & 383.7 & 63.0 & 2272.9\\
-14 & 8192 & 85.4 & 1700.3 & 62.6 & 2512.5\\
-16 & 32768 & 413.6 & 7802.2 & 67.8 & 2694.0\\
+10 & 512 & 3.1 & 58.4 & 20.5 & 890.0\\
+12 & 2048 & 12.7 & 265.1 & 40.2 & 1701.1\\
+14 & 8192 & 53.0 & 1176.4 & 42.0 & 1843.8\\
+16 & 32768 & 267.7 & 5619.1 & 44.4 & 1997.1\\
 \hline
 \end{tabular}
-\caption{The R1CS prototype on the instances of \texttt{r1cs::sample\_instance} ($N/2$ constraints $(Az)_i(Bz)_i=z_{N/2+i}$, two nonzero entries per row of $A$ and $B$, two public inputs); $t+1=179$ words; configuration KF-8 ($\ell=\max(n-8,1)$), $148$ queries, $32$-byte salts, $\F_{p^2}$; one core; medians. Source: \texttt{bench/r1cs.csv}, \texttt{cargo run --release --example r1cs\_bench}.}
+\caption{The R1CS prototype on the instances of \texttt{r1cs::sample\_instance} ($N/2$ constraints $(Az)_i(Bz)_i=z_{N/2+i}$, two nonzero entries per row of $A$ and $B$, two public inputs); $t+1=127$ words; configuration KF-8 ($\ell=\max(n-8,1)$), $148$ queries, $32$-byte salts, $\F_{p^2}$; one core; medians. Source: \texttt{bench/r1cs.csv}, \texttt{cargo run --release --example r1cs\_bench}.}
 \end{table}
-The prototype is unoptimised: the proof opens eight trees per query (the witness group, three index groups, the two lincheck groups and the two groups of $\Pi_{\mathrm{Batch}}$), each on the coset of $\xi$ and, for five of them, of $\xi^{-1}$, and the verifier evaluates $179$ words per point. Merging the index groups into one tree, opening only the words used, and reducing the number of statements (for instance, one lookup of $z$ for the three matrices) are the obvious next optimisations. The Lean formalisation of this section is the next step.
+Compared with separate lookups for each matrix and three index trees (version~8 of this note: $179$ words, eight trees), at $n=16$ the prover is $28\%$ faster ($7802\to5619$\,ms), the verifier $35\%$ faster ($67.8\to44.4$\,ms) and the proof $26\%$ smaller ($2694\to1997$\,KiB).
 
-\section{Relation to known techniques and status}
+\section{Relation to known techniques and status}\label{sec:status}
 
 Writing an inner product as the middle coefficient of a product with a reversed polynomial is classical, and appears in pairing-based multilinear commitments (Mercury~\cite{EG25} uses the table form with KZG).
 DEEP quotients for out-of-domain values are standard in FRI-based STARKs.
@@ -491,6 +500,7 @@ The common step of KF Lemma~7.4 and Lemma~\ref{lem:batch3}, correlated agreement
 \item \emph{Rust.} The module \texttt{ip} of the Kronecker-FRI crate implements $\Pi_{\mathrm{IP}}$ with Merkle caps, arity $2^k$ and Fiat--Shamir, on the commitments of \texttt{pcs}. Its tests check Lemmas~\ref{lem:ip}, \ref{lem:gen-identity} and~\ref{lem:rev}(1), completeness for $n\le10$, two rates and arities $2$ to $16$, and the rejection of three cheating provers (a wrong $S$; a wrong $S$ absorbed into a polynomial $A$ of degree $N$, as in KF Remark~4.13; opening polynomials computed from a table $b'\ne b$).
 \item \emph{Lean~4, Section~3.} File \texttt{Hadamard.lean}, same axiom, no \texttt{sorry}. Lemma~\ref{lem:deep}: \texttt{deep\_step}, \texttt{deep\_honest}; completeness: \texttt{honestHad\_accepts}, and \texttt{honestHad\_prob} for the bound $1-3M/|\F|$; Lemma~\ref{lem:batch8}: \texttt{batching\_Had}; Theorem~\ref{thm:had}: \texttt{prob\_bad\_le} (the bad pairs $(\gamma,\theta)$), \texttt{soundness\_Had}, and \texttt{soundnessC\_Had} for any folding arity $2^k$; knowledge: \texttt{knowledge\_Had}. The step ``for good $(\gamma,\theta)$, the argument of KF Thm~7.8'' is the separate theorem \texttt{ft\_family\_bound}: for any family of words $w_0(\beta)$, the acceptance probability is at most $|\mathcal G|/|\F|+\varepsilon_{\mathrm{fold}}+(1-\delta)^\kappa$.
 \item \emph{Lean~4, Section~\ref{sec:batch}.} File \texttt{BatchStmts.lean}, same axiom, no \texttt{sorry}. Statements: \texttt{BStmt} (\texttt{eval}, \texttt{ip}, \texttt{had}), \texttt{Dset}, \texttt{Bset}, \texttt{RelBatchS}; the words are indexed by the finite type \texttt{BWord} ($D\oplus B\oplus\mathcal H\oplus[J]\oplus[J]\oplus\mathcal H\times[3]$) with a fixed enumeration, and \texttt{curve\_agreement\_idx} is correlated agreement for such an index type. Lemma~\ref{lem:batchT}: \texttt{batching\_B}; Theorem~\ref{thm:batch}: \texttt{prob\_bad\_had} (one false Hadamard check), \texttt{prob\_bad\_B}, \texttt{soundness\_B}, \texttt{soundnessC\_B} (any folding arity); knowledge: \texttt{knowledge\_B}; completeness: \texttt{bwords\_honest}, \texttt{honestB\_accepts}, \texttt{honestB\_prob}.
+\item \emph{Lean~4, Section~\ref{sec:lin}.} File \texttt{Lincheck.lean}, no \texttt{sorry}, and no axiom beyond the three standard ones of Lean and Mathlib. Lemma~\ref{lem:logup}: \texttt{logup\_prob}, for any finite index types of the $K$ lookups and $N_t$ table pairs (numerator \texttt{logupNum}, \texttt{logupNum\_ne\_zero}, \texttt{logupNum\_eval\_eq\_zero}). Theorem~\ref{thm:lin}: \texttt{lincheck\_reduction}, for $J$ matrices with combined lookups, at the level of tables: any deterministic prover given by its tables as functions of the challenges (\texttt{LinProver}), the statements of step~3 on these tables (\texttt{HoldsLin}), and the bound $(N-1+2(N+(N+(JN+N-1))))/|\F|$; one failing lookup: \texttt{prob\_lookupFail}. Theorems~\ref{thm:linsound} and~\ref{thm:r1cs}: \texttt{lincheck\_sound} and \texttt{r1cs\_sound}, via the two-phase bound \texttt{prob\_two\_phase}, with the second phase abstract: they hold for any second phase whose acceptance probability is $\le\varepsilon_2$ whenever a statement of step~3 fails (resp.\ a statement of step~3, $\mathsf{Had}(a,b,c)$ or $\mathsf{Had}(w,\chi,\mathbf 0)$). Not formalised: Proposition~\ref{prop:affine}, i.e.\ that $\Pi_{\mathrm{Batch}}$ on affine forms with public tables provides that second phase with $\varepsilon_2=\varepsilon_{\mathrm{Batch}}$ (\texttt{soundness\_B} is proved for statements on committed words only), and the closed forms of $V_{\mathbf 1}$, $V_{\mathrm{id}}$, $V_{G_\eta}$ (checked by the Rust tests).
 \item \emph{Rust, Section~\ref{sec:batch}.} The module \texttt{batch} implements $\Pi_{\mathrm{Batch}}$ with one multi-value Merkle tree for all $w_Q$ and one for all $w_A$; its tests check Lemma~\ref{lem:eval} for $E^\ast_z$, completeness for mixed batches (two Hadamard checks sharing a table, an inner product, two evaluations) for $n\le10$ and arities $2$ to $16$, and the rejection of a batch with one false evaluation, one false inner product, or one false Hadamard check (also against a prover that sets $y_3$ to the weighted inner product, which only the quotient word $q[w_c,y_3,\gamma]$ catches).
 \item \emph{Rust, Section~3.} The module \texttt{had} implements $\Pi_{\mathrm{Had}}$ on the shared folding-test code of module \texttt{ft}, drawing $\gamma$, $\theta$ by rejection sampling outside the base field $\F_p\supseteq L$, so that no pole lies in $L$ and completeness is perfect (the two first terms of $\varepsilon_{\mathrm{Had}}$ become $(N-1)/(|\F|-p)$ each); its tests check completeness for $n\le10$, two rates and arities $2$ to $16$, and the rejection of a wrong $y_1$, of a wrong $Q$ (with $y_1=Q(\theta)$), and of a false instance ($c$ differing from $a\circ b$ in one entry) with three choices of $y_3$. Removing $q[w_c,y_3,\gamma]$ from the batch makes the false instance accepted, and a wrong pole in the verifier breaks completeness, so the tests exercise each part.
 \end{itemize}
@@ -515,7 +525,7 @@ $n$ & KF & IP & Had & KF & IP & Had & KF & IP & Had\\
 An inner product of two committed tables costs less prover time than one evaluation opening (the round-$1$ work is in the base field), about the same verifier time, and about $20\%$ more proof, the extra openings of $w_b$ on the inverse cosets.
 A Hadamard check costs about $2.2$ evaluation openings of prover time (its polynomials $Q$, $A$, $H$ lie in the extension field) and $1.7$ times the proof, since five oracles are opened per query instead of two; when $a$, $b$, $c$ are committed together, one tree with three values per leaf removes two of the five authentication paths per query.
 
-\paragraph{Next.} The Lean formalisation of Section~\ref{sec:lin}; optimisation of the R1CS prototype (fewer trees and statements).
+\paragraph{Next.} The Lean formalisation of Proposition~\ref{prop:affine} (the batch on affine forms and public tables), which would close the R1CS theorem end to end; a comparison with a sumcheck-based R1CS argument (Spartan-style) at equal soundness.
 
 \begin{thebibliography}{9}
 \bibitem{KF} A.~Mkhida. Kronecker-FRI: A Hash-Based Multilinear Polynomial Commitment from a Coefficient-Extraction Identity. Preprint, 2026. \url{https://github.com/qoosmo/kronecker-fri}.
