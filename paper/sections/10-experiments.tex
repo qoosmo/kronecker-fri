@@ -11,6 +11,7 @@ All runs use one core of an Intel Xeon processor at $2.10$\,GHz (cloud virtual m
 All numbers of this section come from one session on one machine; the absolute timings of~\cite{Mkh26} were measured on another machine.
 Times are medians over $11$ runs for $n \le 18$, $5$ for $n = 20$ and $3$ for $n = 22$ and for \cref{tab:exp-arity,tab:exp-stop,tab:apps-params}; verification times are medians over $21$ runs.
 The machine is a shared virtual machine, and timings of identical work vary by up to about $10$--$20\%$ between runs.
+Except in \cref{sec:exp:hash}, the measurements were recorded with an earlier Merkle format of both implementations compared, which separated leaves and nodes by one-byte prefixes, $\mathsf{H}(\mathtt{0x00}\,\|\,\cdot)$ and $\mathsf{H}(\mathtt{0x01}\,\|\,\cdot)$, and derived each salt by its own keyed BLAKE3 call; \cref{sec:exp:hash} measures the format of \cref{sec:impl:merkle}.
 
 \paragraph{Parameters.}
 Unless stated otherwise: $\rho = 1/4$ ($R = 2$), $\kappa = 148$, the quadratic extension $\F = \mathbb{F}_{q^2}$, and unsalted Merkle trees. We use two configurations of Kronecker-FRI:
@@ -159,9 +160,38 @@ The asymptotic cost of the opening is $O(M\log M)$; the product, the NTT and the
 
 \subsection{Salting}\label{sec:exp:salt}
 
-Salting every leaf with $32$ bytes (\cref{tab:exp-kf8}) costs $21$--$39\%$ in commit time and $17$--$38\%$ in open time (the salts are derived by one keyed BLAKE3 call per leaf), and adds $32$ bytes per opened leaf and per round to the proof, $41$ to $102$\,KiB; it does not change the verification time beyond the variability of the machine.
+Salting every leaf with $32$ bytes (\cref{tab:exp-kf8}) costs $21$--$39\%$ in commit time and $17$--$38\%$ in open time (in the recorded version the salts were derived by one keyed BLAKE3 call per leaf; \cref{sec:exp:hash} measures the current derivation), and adds $32$ bytes per opened leaf and per round to the proof, $41$ to $102$\,KiB; it does not change the verification time beyond the variability of the machine.
 The post-quantum statement (\cref{cor:pq}) requires salts; \cref{tab:apps-params} measures the salted parameter sets.
 The commitment is unaffected by the choice of $\F$, since $\Enc(f)$ is computed over $\Fq$.
+
+\subsection{Merkle hashing}\label{sec:exp:hash}
+
+\begin{table}[t]
+\centering
+\small
+\begin{tabular}{r l rrrr}
+\toprule
+$n$ & format & commit (ms) & open (ms) & verify (ms) & proof (KiB) \\
+\midrule
+16 & prefixes, salt per leaf & 69.9 & 155.0 & 3.57 & 249.8 \\
+   & prefixes, salt stream & 49.9 & 133.4 & 3.58 & 247.9 \\
+   & keys, salt stream & 38.7 & 111.9 & 3.09 & 247.9 \\
+\midrule
+18 & prefixes, salt per leaf & 288.1 & 671.6 & 4.27 & 325.0 \\
+   & prefixes, salt stream & 221.9 & 589.4 & 4.33 & 326.5 \\
+   & keys, salt stream & 163.6 & 496.1 & 3.63 & 325.6 \\
+\midrule
+20 & prefixes, salt per leaf & 1268.3 & 3248.1 & 5.39 & 391.7 \\
+   & prefixes, salt stream & 1050.4 & 2945.0 & 5.38 & 390.7 \\
+   & keys, salt stream & 835.3 & 2576.8 & 4.11 & 389.5 \\
+\bottomrule
+\end{tabular}
+\caption{Kronecker-FRI in the configuration KF-8 with $32$-byte salts, $\rho = 1/4$, $\kappa = 148$, $\F = \mathbb{F}_{q^2}$, for three Merkle formats: one-byte prefixes and one keyed BLAKE3 call per salt (the format of the other tables of this section), one-byte prefixes and one salt stream per tree, and the format of \cref{sec:impl:merkle} (keys and one salt stream). One core of an Intel Xeon at $2.80$\,GHz, a different machine from the other tables; the three versions interleaved in one session, means of two medians. Proof sizes differ only through the queried positions. Source: \texttt{bench/merkle\_format.csv}.}
+\label{tab:exp-hash}
+\end{table}
+
+\Cref{tab:exp-hash} compares the Merkle formats on one machine and in one session.
+Reading the salts of a tree from one BLAKE3 output stream instead of one keyed call per leaf, and separating the domains by keys, so that a node and a salted leaf are $64$ bytes (one compression), reduce the commit time by $34$--$45\%$, the open time by $21$--$28\%$ and the verification time by $13$--$24\%$; the proofs keep their shape and size.
 
 \subsection{The number of folding rounds}\label{sec:exp:stop}
 

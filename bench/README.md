@@ -18,8 +18,9 @@ Configurations: **KF-2** = arity 2, no caps, ℓ = n − 4 (`config = v1`); **KF
 | `r1cs.csv` | `cargo run --release --example r1cs_bench` (KF-8, 148 queries, 32-byte salts, F_{p^2}; same session as `spartan.csv`) | research note `notes/inner-product`, §5 (R1CS prototype) |
 | `spartan.csv` | `cargo run --release --example spartan_bench` (Spartan core: two sumchecks and one Π_KF opening; same configuration) | research note `notes/inner-product`, §5 (comparison with a sumcheck-based argument) |
 | `primitives.csv` | `cargo run --release --example primitives_bench` (one inner product and one Hadamard check, sumcheck-free (`sf`) and sumcheck + batched opening (`sc`), same commitments and engine; same configuration) | research note `notes/inner-product`, §6 (the two routes) |
+| `merkle_format.csv` | `ip_bench` (KF columns) built at three versions and run interleaved: one-byte prefixes with one keyed call per salt, prefixes with a salt stream, BLAKE3 keys with a salt stream; means of two medians | Table `tab:exp-hash` (§10, Merkle hashing) |
 | `kbfold_scaling.csv` | `cargo run --release --example bench -- scaling` in [qoosmo/kbfold](https://github.com/qoosmo/kbfold) `rust/` | Table 3 (KBFold and baseline columns) |
 
-The salted Merkle trees were made faster after these recordings (bulk salt streams, see CHANGELOG): current code commits and opens 10–25% faster than these files show; proof sizes are unaffected.
+The Merkle trees were made faster after these recordings (one salt stream per tree, and domain separation by BLAKE3 keys instead of one-byte prefixes; see CHANGELOG and paper §10.7). All files except `merkle_format.csv` were recorded with the earlier format; `merkle_format.csv` compares the three formats in one session on another machine (Intel Xeon at 2.80 GHz).
 
 Timings of identical work vary by about 10–20% between runs on this shared machine; proof sizes are exact.

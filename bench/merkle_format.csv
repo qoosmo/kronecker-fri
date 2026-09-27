@@ -1,0 +1,10 @@
+version,n,commit_ms,open_ms,verify_ms,proof_kib
+prefix_perleaf,16,69.9,155.0,3.57,249.8
+prefix_stream,16,49.9,133.4,3.58,247.9
+keyed_stream,16,38.7,111.9,3.09,247.9
+prefix_perleaf,18,288.1,671.6,4.27,325.0
+prefix_stream,18,221.9,589.4,4.33,326.5
+keyed_stream,18,163.6,496.1,3.63,325.6
+prefix_perleaf,20,1268.3,3248.1,5.39,391.7
+prefix_stream,20,1050.4,2945.0,5.38,390.7
+keyed_stream,20,835.3,2576.8,4.11,389.5

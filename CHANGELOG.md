@@ -1,5 +1,14 @@
 # Changelog
 
+## Unreleased — Merkle hashing by BLAKE3 keys
+
+### Code
+- `rust/src/merkle.rs`: leaves are H_{K0}(data || salt) and internal nodes H_{K1}(left || right), BLAKE3 in keyed mode with two fixed keys (domain separation), instead of one-byte prefixes; a node and a salted leaf of one fibre over F_{p^2} are 64 bytes, one compression. Same change in [qoosmo/kbfold](https://github.com/qoosmo/kbfold), so that the comparison of §10 stays at identical engineering.
+
+### Paper
+- §9 (Commitments and transcript): the Merkle format and the salt stream.
+- §10: the recorded tables are stated to use the earlier format of both implementations; new subsection "Merkle hashing" (Table `tab:exp-hash`, `bench/merkle_format.csv`): commit −34 to −45 %, open −21 to −28 %, verify −13 to −24 % at n = 16, 18, 20 (KF-8, salted), on one machine and in one session.
+
 ## Unreleased — faster salted Merkle trees
 
 ### Code

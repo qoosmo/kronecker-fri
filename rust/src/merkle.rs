@@ -1,24 +1,28 @@
 //! Salted BLAKE3 Merkle trees (Section 3.4, "Salted Merkle commitments") and the Fiat-Shamir
 //! transcript with the challenge maps phi and pos of Section 8.1.
 //!
-//! Leaves are H(0x00 || data || salt), internal nodes H(0x01 || left || right).  With
+//! Leaves are H_{K0}(data || salt), internal nodes H_{K1}(left || right), with BLAKE3 in keyed
+//! mode under two fixed keys K0 = 0^32, K1 = 1^32 (domain separation).  With
 //! `salt_len = 0` the trees are unsalted (used only to measure the cost of salting).
 
 use crate::field::{ExtField, Fp, P};
 
 pub type Digest = [u8; 32];
 
+/// Domain separation of leaves and internal nodes by two fixed BLAKE3 keys (keyed mode), so that
+/// a node, and a salted leaf of one fibre over F_{p^2}, hash exactly 64 bytes: one compression.
+const LEAF_KEY: [u8; 32] = [0u8; 32];
+const NODE_KEY: [u8; 32] = [1u8; 32];
+
 fn hash_leaf(data: &[u8], salt: &[u8]) -> Digest {
-    let mut h = blake3::Hasher::new();
-    h.update(&[0u8]);
+    let mut h = blake3::Hasher::new_keyed(&LEAF_KEY);
     h.update(data);
     h.update(salt);
     *h.finalize().as_bytes()
 }
 
 fn hash_node(l: &Digest, r: &Digest) -> Digest {
-    let mut h = blake3::Hasher::new();
-    h.update(&[1u8]);
+    let mut h = blake3::Hasher::new_keyed(&NODE_KEY);
     h.update(l);
     h.update(r);
     *h.finalize().as_bytes()
