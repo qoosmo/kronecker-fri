@@ -5,7 +5,8 @@
 [![Rust](https://github.com/qoosmo/kronecker-fri/actions/workflows/rust.yml/badge.svg)](https://github.com/qoosmo/kronecker-fri/actions/workflows/rust.yml)
 [![Paper](https://github.com/qoosmo/kronecker-fri/actions/workflows/paper.yml/badge.svg)](https://github.com/qoosmo/kronecker-fri/actions/workflows/paper.yml)
 [![Lean](https://github.com/qoosmo/kronecker-fri/actions/workflows/lean.yml/badge.svg)](https://github.com/qoosmo/kronecker-fri/actions/workflows/lean.yml)
-![Rust 2024](https://img.shields.io/badge/Rust-2024_edition-orange)
+[![crates.io](https://img.shields.io/crates/v/kronecker-fri.svg)](https://crates.io/crates/kronecker-fri)
+[![docs.rs](https://img.shields.io/docsrs/kronecker-fri)](https://docs.rs/kronecker-fri)
 ![License](https://img.shields.io/badge/code-MIT%20%7C%20Apache--2.0-blue)
 ![Paper](https://img.shields.io/badge/paper-CC%20BY%204.0-lightgrey)
 
