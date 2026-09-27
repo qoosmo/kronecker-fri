@@ -2,7 +2,7 @@
 
 This section measures the implementation of \cref{sec:impl}.
 The goals are specific: to compare Kronecker-FRI with the kernel-basis scheme of~\cite{Mkh26} and with a coefficient-form baseline at identical engineering, to measure the effect of folding arity and Merkle caps, to locate where the prover's time goes, and to quantify salting and the number of folding rounds.
-All codes are single-threaded and use no SIMD and no hash-specific batching, so that the comparison isolates the protocols.
+All codes are single-threaded, except in \cref{sec:exp:par}, and use no SIMD and no hash-specific batching, so that the comparison isolates the protocols.
 
 \subsection{Setup}\label{sec:exp:setup}
 
@@ -156,7 +156,7 @@ The other four columns are the commitment to the opening polynomial:
   \item the words $\ev_L(K_z)$, $h$ and $w_0$, with $O(M)$ operations in $\F$ (\cref{prop:costs}(2)).
 \end{itemize}
 Each costs between $0.3$ and $0.85$ of a commitment, and together $1.9$ to $2.6$ commitments. In exchange, the verifier runs no sumcheck and the soundness argument has a single algebraic step (\cref{lem:batching}).
-The asymptotic cost of the opening is $O(M\log M)$; the product, the NTT and the tree of $w_A$ are independent passes that parallelise like the commitment.
+The asymptotic cost of the opening is $O(M\log M)$; the product, the NTT and the tree of $w_A$ are independent passes that parallelise like the commitment (\cref{sec:exp:par}).
 
 \subsection{Salting}\label{sec:exp:salt}
 
@@ -192,6 +192,30 @@ $n$ & format & commit (ms) & open (ms) & verify (ms) & proof (KiB) \\
 
 \Cref{tab:exp-hash} compares the Merkle formats on one machine and in one session.
 Reading the salts of a tree from one BLAKE3 output stream instead of one keyed call per leaf, and separating the domains by keys, so that a node and a salted leaf are $64$ bytes (one compression), reduce the commit time by $34$--$45\%$, the open time by $21$--$28\%$ and the verification time by $13$--$24\%$; the proofs keep their shape and size.
+
+\subsection{Multithreading}\label{sec:exp:par}
+
+\begin{table}[t]
+\centering
+\small
+\begin{tabular}{r l rrr}
+\toprule
+$n$ & prover & commit (ms) & open (ms) & verify (ms) \\
+\midrule
+16 & one thread & 40.1 & 108.4 & 3.03 \\
+   & two threads & 30.2 & 78.9 & 3.04 \\
+\midrule
+20 & one thread & 920.2 & 2544.6 & 4.19 \\
+   & two threads & 580.5 & 1709.2 & 4.32 \\
+\bottomrule
+\end{tabular}
+\caption{Kronecker-FRI in the configuration KF-8 with $32$-byte salts, $\rho = 1/4$, $\kappa = 148$, $\F = \mathbb{F}_{q^2}$, with the prover on one thread and on two threads (\cref{sec:impl:alg}, multithreading); the proofs are identical. Intel Xeon at $2.80$\,GHz with $2$ vCPUs, the machine of \cref{tab:exp-hash}; the two builds interleaved in one session, means of two medians. Source: \texttt{bench/parallel.csv}.}
+\label{tab:exp-par}
+\end{table}
+
+\Cref{tab:exp-par} runs the prover on the two vCPUs of the machine of \cref{tab:exp-hash}.
+The commitment is $1.3$ to $1.6$ times faster and the opening $1.4$ to $1.5$ times faster, the larger gains at $n = 20$, where the passes are long enough to amortise the synchronisation; the verifier is unchanged, since it runs on one thread.
+Every pass of the prover is split into independent pieces, so more cores reduce the prover time further.
 
 \subsection{The number of folding rounds}\label{sec:exp:stop}
 

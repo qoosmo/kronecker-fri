@@ -1,7 +1,7 @@
 \section{Implementation}\label{sec:impl}
 
-We implemented $\Pi_{\mathrm{KF}}$, compiled with salted Merkle trees and a Fiat--Shamir transcript, as a self-contained Rust library, \texttt{kronecker-fri}, in the companion repository.
-It has about $1{,}900$ lines of library code, including unit tests, and $850$ lines of integration tests, examples and benchmarks (formatted with \texttt{rustfmt}); its only dependency is the BLAKE3 hash function (the parameter check of \cref{rem:pq-params} also uses arbitrary-precision integers, as a development dependency).
+We implemented $\Pi_{\mathrm{KF}}$, compiled with salted Merkle trees and a Fiat--Shamir transcript, as a self-contained Rust library, \texttt{kronecker-fri}, in the companion repository; it is published on crates.io as the crate \texttt{kronecker-fri}.
+It has about $1{,}900$ lines of library code, including unit tests, and $850$ lines of integration tests, examples and benchmarks (formatted with \texttt{rustfmt}); its only dependency is the BLAKE3 hash function, with rayon as an optional dependency for multithreading (the parameter check of \cref{rem:pq-params} also uses arbitrary-precision integers, as a development dependency).
 The code follows the paper: every function names the statement it implements, and the test suite (\cref{sec:impl:tests}) checks the algebraic statements listed in \cref{app:verification} against direct computations.
 This section records the concrete choices; \cref{sec:exp} reports measurements.
 
@@ -50,6 +50,12 @@ The prover reads $(2\xi)^{-1}$ from one table of $\omega^{-t}$, $t < M/2$, share
 The verifier obtains $(2\omega_{j-1}^{k})^{-1} = \tfrac12\,\omega^{M - k 2^{j-1}}$ by one exponentiation in $\Fq$, without inversion.
 With arity $2^k$, the verifier folds the $2^{g}$ values of $w_{j'}$ above a point of $L_{j'+g}$, $g = \min(k, \ell - j')$, by $2^g - 1$ calls of this function, level by level ($2^{g-1}$ calls at the first level, then half as many at each next level), which computes the check of \cref{def:fpt-arity}.
 The final polynomial is $P = \pfold^{(\ell)}_r(U_0)$, computed on coefficients (\cref{lem:iterated}), and the verifier evaluates it by Horner's rule.
+
+\paragraph{Multithreading.}
+An optional feature runs the prover on several threads: the NTT, the leaves and layers of the Merkle trees, the product $U_f K_z$, the word $\ev_L(K_z)$, the batched word $w_0$, the folds and the final polynomial.
+Each is split into independent pieces whose results do not depend on the split: every piece starts from its own powers of $\omega$ or $\xi$, and the salts are read from the salt stream at the position of the leaf.
+The proofs are therefore identical with and without the feature; the continuous integration checks this by comparing digests of proofs of every protocol built with and without it.
+Without the feature the same loops run serially, and all measurements of \cref{sec:exp} except \cref{sec:exp:par} are single-threaded.
 
 \subsection{Commitments and transcript}\label{sec:impl:merkle}
 
