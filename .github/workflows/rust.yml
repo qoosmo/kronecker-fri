@@ -27,6 +27,8 @@ jobs:
         run: |
           cargo clippy --release --all-targets --features parallel,insecure-test-vectors -- -D warnings
           cargo test --release --features parallel
+      - name: Test vectors (seeded proofs)
+        run: cargo test --release --features insecure-test-vectors --test vectors
       - name: Same proofs with and without the parallel prover
         run: diff <(cargo run --release --features insecure-test-vectors --example proof_digest) <(cargo run --release --features parallel,insecure-test-vectors --example proof_digest)
       - name: Documentation

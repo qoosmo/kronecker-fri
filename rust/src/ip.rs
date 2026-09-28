@@ -175,7 +175,7 @@ fn init_transcript(
     s: Fp,
     degree: usize,
 ) -> Transcript {
-    let mut tr = Transcript::new(b"kronecker-fri-ip-v1");
+    let mut tr = Transcript::new(b"kronecker-fri/v0.5/ip");
     let params = [
         p.n,
         p.log_inv_rate,

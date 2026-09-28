@@ -297,6 +297,17 @@ impl Transcript {
         }
         E::from_digits(&digits)
     }
+    /// A challenge in `F \ {0}`: the first nonzero output of [`Transcript::challenge`]. A zero
+    /// output has probability below `2^{-64}` per draw, so the loop runs once except with that
+    /// probability.
+    pub fn challenge_nonzero<E: ExtField>(&mut self) -> E {
+        loop {
+            let c: E = self.challenge();
+            if c != E::ZERO {
+                return c;
+            }
+        }
+    }
     /// kappa query indices in [0, 2^bits), from kappa * bits consecutive output bits (map pos).
     pub fn query_indices(&mut self, kappa: usize, bits: usize) -> Vec<usize> {
         let total = kappa * bits;

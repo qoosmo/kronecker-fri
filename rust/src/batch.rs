@@ -132,7 +132,7 @@ pub fn batch_words<E>(stmts: &[Stmt<E>]) -> usize {
 }
 
 fn init_transcript<E: ExtField>(p: &Params, roots: &[Digest], stmts: &[Stmt<E>]) -> Transcript {
-    let mut tr = Transcript::new(b"kronecker-fri-batch-v1");
+    let mut tr = Transcript::new(b"kronecker-fri/v0.5/batch");
     let params = [
         p.n,
         p.log_inv_rate,

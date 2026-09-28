@@ -110,7 +110,7 @@ pub(crate) fn absorb_es<E: ExtField>(tr: &mut Transcript, tag: &[u8], xs: &[E]) 
 }
 
 fn init_transcript(p: &Params, r: &R1cs, root: &Digest, x: &[Fp]) -> Transcript {
-    let mut tr = Transcript::new(b"spartan-core-v1");
+    let mut tr = Transcript::new(b"kronecker-fri/v0.5/spartan-core");
     let pb: Vec<u8> = [
         p.n,
         p.log_inv_rate,

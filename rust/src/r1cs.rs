@@ -238,7 +238,7 @@ pub fn statements_for_count<E: ExtField>(r: &R1cs, x: &[Fp]) -> Vec<AStmt<E>> {
 }
 
 fn init_transcript<E: ExtField>(p: &Params, idx_root: &Digest, r: &R1cs, x: &[Fp]) -> Transcript {
-    let mut tr = Transcript::new(b"kronecker-fri-r1cs-v2");
+    let mut tr = Transcript::new(b"kronecker-fri/v0.5/r1cs");
     let params = [
         p.n,
         p.log_inv_rate,

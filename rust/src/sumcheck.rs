@@ -136,7 +136,7 @@ pub(crate) fn prove_ip_sc_seeded<E: ExtField>(
             .fold(Fp::ZERO, |acc, (&x, &y)| acc + x * y),
     );
     let roots = [g[0].tree.root(), g[1].tree.root()];
-    let mut tr = init(b"ip-sumcheck-v2", &roots);
+    let mut tr = init(b"kronecker-fri/v0.5/ip-sumcheck-v2", &roots);
     absorb_es(&mut tr, b"s", &[s]);
     let (mut a, mut b) = (lift::<E>(ta), lift::<E>(tb));
     let mut rounds = Vec::with_capacity(p.n);
@@ -186,7 +186,7 @@ pub fn verify_ip_sc<E: ExtField>(
     if pf.rounds.len() != p.n || pf.evals.len() != 2 {
         return Err(Error::Shape);
     }
-    let mut tr = init(b"ip-sumcheck-v2", &roots);
+    let mut tr = init(b"kronecker-fri/v0.5/ip-sumcheck-v2", &roots);
     absorb_es(&mut tr, b"s", &[s]);
     let (r, claim) = replay(&mut tr, &pf.rounds, 2, s)?;
     if claim != pf.evals[0] * pf.evals[1] {
@@ -213,7 +213,7 @@ pub(crate) fn prove_had_sc_seeded<E: ExtField>(
     seed: &Digest,
 ) -> RouteProof<E> {
     let roots = [g[0].tree.root(), g[1].tree.root(), g[2].tree.root()];
-    let mut tr = init(b"had-zerocheck-v2", &roots);
+    let mut tr = init(b"kronecker-fri/v0.5/had-zerocheck-v2", &roots);
     let tau: Vec<E> = (0..p.n).map(|_| tr.challenge()).collect();
     let mut eq = eq_table(&tau);
     let (mut a, mut b, mut c) = (
@@ -273,7 +273,7 @@ pub fn verify_had_sc<E: ExtField>(
     if pf.rounds.len() != p.n || pf.evals.len() != 3 {
         return Err(Error::Shape);
     }
-    let mut tr = init(b"had-zerocheck-v2", &roots);
+    let mut tr = init(b"kronecker-fri/v0.5/had-zerocheck-v2", &roots);
     let tau: Vec<E> = (0..p.n).map(|_| tr.challenge()).collect();
     let (r, claim) = replay(&mut tr, &pf.rounds, 3, E::ZERO)?;
     if claim != eq_point(&tau, &r) * (pf.evals[0] * pf.evals[1] - pf.evals[2]) {
@@ -306,7 +306,7 @@ pub(crate) fn prove_ip_sf_seeded<E: ExtField>(
             .fold(Fp::ZERO, |acc, (&x, &y)| acc + x * y),
     );
     let roots = [g[0].tree.root(), g[1].tree.root()];
-    let mut tr = init(b"ip-free-v2", &roots);
+    let mut tr = init(b"kronecker-fri/v0.5/ip-free-v2", &roots);
     absorb_es(&mut tr, b"s", &[s]);
     let st = AStmt::Ip(Form::word(word(0)), Form::word(word(1)), s);
     let engine = prove_affine_seeded(
@@ -334,7 +334,7 @@ pub fn verify_ip_sf<E: ExtField>(
     pf: &RouteProof<E>,
 ) -> Result<(), Error> {
     p.validate()?;
-    let mut tr = init(b"ip-free-v2", &roots);
+    let mut tr = init(b"kronecker-fri/v0.5/ip-free-v2", &roots);
     absorb_es(&mut tr, b"s", &[s]);
     let st = AStmt::Ip(Form::word(word(0)), Form::word(word(1)), s);
     verify_affine(p, &mut tr, &roots, &shapes(2), &[st], &pf.engine)
@@ -357,7 +357,7 @@ pub(crate) fn prove_had_sf_seeded<E: ExtField>(
     seed: &Digest,
 ) -> RouteProof<E> {
     let roots = [g[0].tree.root(), g[1].tree.root(), g[2].tree.root()];
-    let mut tr = init(b"had-free-v2", &roots);
+    let mut tr = init(b"kronecker-fri/v0.5/had-free-v2", &roots);
     let st = AStmt::Had(
         Form::word(word(0)),
         Form::word(word(1)),
@@ -378,7 +378,7 @@ pub fn verify_had_sf<E: ExtField>(
     pf: &RouteProof<E>,
 ) -> Result<(), Error> {
     p.validate()?;
-    let mut tr = init(b"had-free-v2", &roots);
+    let mut tr = init(b"kronecker-fri/v0.5/had-free-v2", &roots);
     let st = AStmt::Had(
         Form::word(word(0)),
         Form::word(word(1)),

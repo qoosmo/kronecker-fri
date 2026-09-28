@@ -4,6 +4,16 @@
 
 Preparation of the crate for the Kronobol proof system: errors, randomness, transcript, zero-knowledge hooks. This entry grows with each patch.
 
+### Transcript
+- Versioned domain labels `kronecker-fri/v0.5/<protocol>` for every protocol (`pcs`, `ip`, `had`, `batch`, `r1cs`, `spartan-core`, and the four routes of `sumcheck`). Proofs therefore differ from 0.4.
+- `pcs::open_in` and `pcs::verify_in` continue the caller's transcript: a protocol using `Π_KF` as a subprotocol first absorbs its own domain separator and statement, and every challenge of the opening depends on them. The opening still absorbs its own statement (parameters, extension degree, commitment, point, value). `pcs::LABEL` is the label of the stand-alone transcript.
+- `Transcript::challenge_nonzero` for challenges that must be nonzero.
+- Challenges keep the map of paper §8.1 (`64e + 64` bits reduced mod `p^e`, statistical distance at most `2^{-64}` from uniform per challenge), which the post-quantum analysis uses.
+- `tests/vectors.rs`:
+  - a transcript vector, reproduced independently from the specification of §8.1 with a separate BLAKE3 implementation;
+  - a digest of a seeded `Π_KF` proof (feature `insecure-test-vectors`, run in CI);
+  - a composition test: an opening made with `open_in` verifies only against a transcript in the same state, and the prover's and verifier's transcripts end in the same state.
+
 ### Randomness from the operating system
 - The public provers take no seeds: `pcs::{commit_table, commit_coeffs, open}`, `ip::{commit_table_form, prove_ip}`, `had::prove_had`, `batch::prove_batch`, `affine::{commit_group, prove_affine}`, `r1cs::{index, prove_r1cs}`, `spartan::prove_spartan` and the `sumcheck` provers draw a fresh 32-byte seed from the operating system (`getrandom`) and return `Result<_, Error>`.
 - New error variants `Error::Input` (prover inputs that do not match the parameters, e.g. a table of the wrong length) and `Error::Randomness`. `pcs::commit_*` and `pcs::open` check their inputs instead of panicking.

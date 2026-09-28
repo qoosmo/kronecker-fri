@@ -340,8 +340,11 @@ pub(crate) fn commit_table_seeded(p: &Params, table: &[Fp], seed: &Digest) -> (D
     commit_coeffs_seeded(p, &alpha, seed)
 }
 
-fn init_transcript<E: ExtField>(p: &Params, root: &Digest, z: &[E], v: E) -> Transcript {
-    let mut tr = Transcript::new(b"kronecker-fri-v3");
+/// Domain separator of `Π_KF` in its own transcript.
+pub const LABEL: &[u8] = b"kronecker-fri/v0.5/pcs";
+
+/// Absorbs the statement of an opening (parameters, extension degree, commitment, point, value).
+fn absorb_statement<E: ExtField>(tr: &mut Transcript, p: &Params, root: &Digest, z: &[E], v: E) {
     let params = [
         p.n,
         p.log_inv_rate,
@@ -361,7 +364,6 @@ fn init_transcript<E: ExtField>(p: &Params, root: &Digest, z: &[E], v: E) -> Tra
     let zb: Vec<u8> = z.iter().flat_map(e_bytes).collect();
     tr.absorb(b"point", &zb);
     tr.absorb(b"value", &e_bytes(&v));
-    tr
 }
 
 pub(crate) fn inv_powers(omega: Fp, count: usize) -> Vec<Fp> {
@@ -407,6 +409,49 @@ pub fn open<E: ExtField>(p: &Params, pd: &ProverData, z: &[E]) -> Result<(E, Pro
     Ok(open_seeded(p, pd, z, &crate::rand::fresh_seed()?))
 }
 
+/// As [`open`], continuing the caller's transcript `tr` instead of starting a new one.
+///
+/// For composition: a protocol that uses `Π_KF` as a subprotocol starts `tr` with its own domain
+/// separator and statement, and every challenge of the opening then depends on them. The opening
+/// absorbs its own statement (parameters, commitment, point, value) into `tr` before its first
+/// challenge. The verifier must call [`verify_in`] with a transcript in the same state.
+pub fn open_in<E: ExtField>(
+    p: &Params,
+    tr: &mut Transcript,
+    pd: &ProverData,
+    z: &[E],
+) -> Result<(E, Proof<E>), Error> {
+    p.validate()?;
+    if z.len() != p.n {
+        return Err(Error::Input("the point must have n coordinates"));
+    }
+    if pd.alpha.len() != p.big_n() || pd.y.len() != p.m() {
+        return Err(Error::Input(
+            "the prover data was made with other parameters",
+        ));
+    }
+    Ok(open_with(
+        p,
+        pd,
+        z,
+        &crate::rand::fresh_seed()?,
+        Cheat::None,
+        Some(tr),
+    ))
+}
+
+/// As [`open_in`], with the seed given by the caller (tests only).
+#[cfg(feature = "insecure-test-vectors")]
+pub(crate) fn open_in_seeded<E: ExtField>(
+    p: &Params,
+    tr: &mut Transcript,
+    pd: &ProverData,
+    z: &[E],
+    seed: &Digest,
+) -> (E, Proof<E>) {
+    open_with(p, pd, z, seed, Cheat::None, Some(tr))
+}
+
 /// As [`open`], with the seed of the prover's randomness given by the caller: for tests and
 /// test vectors only (feature `insecure-test-vectors`); the seed must never be reused.
 pub(crate) fn open_seeded<E: ExtField>(
@@ -415,7 +460,7 @@ pub(crate) fn open_seeded<E: ExtField>(
     z: &[E],
     seed: &Digest,
 ) -> (E, Proof<E>) {
-    open_with(p, pd, z, seed, Cheat::None)
+    open_with(p, pd, z, seed, Cheat::None, None)
 }
 
 pub(crate) fn open_with<E: ExtField>(
@@ -424,6 +469,7 @@ pub(crate) fn open_with<E: ExtField>(
     z: &[E],
     seed: &Digest,
     cheat: Cheat,
+    ext: Option<&mut Transcript>,
 ) -> (E, Proof<E>) {
     p.check();
     assert_eq!(z.len(), p.n);
@@ -453,7 +499,9 @@ pub(crate) fn open_with<E: ExtField>(
             a.push(-E::ONE); // A - X^N: degree N
         }
     }
-    let mut tr = init_transcript(p, &pd.tree0.root(), z, v);
+    let mut own = Transcript::new(LABEL);
+    let tr = ext.unwrap_or(&mut own);
+    absorb_statement(tr, p, &pd.tree0.root(), z, v);
 
     // round 1: w_A = ev_L(A)
     let mut wa = a.clone();
@@ -577,6 +625,18 @@ pub fn verify<E: ExtField>(
     v: E,
     proof: &Proof<E>,
 ) -> Result<(), Error> {
+    verify_in(p, &mut Transcript::new(LABEL), root, z, v, proof)
+}
+
+/// As [`verify`], continuing the caller's transcript `tr` (see [`open_in`]).
+pub fn verify_in<E: ExtField>(
+    p: &Params,
+    tr: &mut Transcript,
+    root: &Digest,
+    z: &[E],
+    v: E,
+    proof: &Proof<E>,
+) -> Result<(), Error> {
     p.validate()?;
     let (nn, m, ell) = (p.big_n(), p.m(), p.ell);
     let groups = p.groups();
@@ -634,7 +694,7 @@ pub fn verify<E: ExtField>(
         return Err(Error::Merkle);
     }
     let omega = p.omega();
-    let mut tr = init_transcript(p, root, z, v);
+    absorb_statement(tr, p, root, z, v);
     tr.absorb(b"root", &root_from_cap(&proof.cap_a)?);
     tr.absorb(b"salt", &proof.round_salts[0]);
     let beta: E = tr.challenge();
@@ -809,13 +869,13 @@ mod tests {
                 )
             );
             assert!(verify(&p, &root, &z, v, &proof).is_ok());
-            let (v1, pr1) = open_with(&p, &pd, &z, &[3u8; 32], Cheat::WrongValue);
+            let (v1, pr1) = open_with(&p, &pd, &z, &[3u8; 32], Cheat::WrongValue, None);
             assert_eq!(
                 verify(&p, &root, &z, v1, &pr1),
                 Err(Error::Fold),
                 "n={n} l={ell}"
             );
-            let (v2, pr2) = open_with(&p, &pd, &z, &[4u8; 32], Cheat::AbsorbInA);
+            let (v2, pr2) = open_with(&p, &pd, &z, &[4u8; 32], Cheat::AbsorbInA, None);
             assert_eq!(v2, v + E::ONE);
             assert_eq!(
                 verify(&p, &root, &z, v2, &pr2),

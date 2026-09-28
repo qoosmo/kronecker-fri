@@ -118,7 +118,7 @@ impl<E: ExtField> HadProof<E> {
 }
 
 fn init_transcript(p: &Params, roots: [&Digest; 3], degree: usize) -> Transcript {
-    let mut tr = Transcript::new(b"kronecker-fri-had-v1");
+    let mut tr = Transcript::new(b"kronecker-fri/v0.5/had");
     let params = [
         p.n,
         p.log_inv_rate,

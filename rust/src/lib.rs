@@ -87,6 +87,15 @@ pub mod insecure {
     pub fn open<E: ExtField>(p: &Params, pd: &ProverData, z: &[E], seed: &Digest) -> (E, Proof<E>) {
         crate::pcs::open_seeded(p, pd, z, seed)
     }
+    pub fn open_in<E: ExtField>(
+        p: &Params,
+        tr: &mut crate::merkle::Transcript,
+        pd: &ProverData,
+        z: &[E],
+        seed: &Digest,
+    ) -> (E, Proof<E>) {
+        crate::pcs::open_in_seeded(p, tr, pd, z, seed)
+    }
     pub fn commit_table_form(p: &Params, table: &[Fp], seed: &Digest) -> (Digest, ProverData) {
         crate::ip::commit_table_form_seeded(p, table, seed)
     }
