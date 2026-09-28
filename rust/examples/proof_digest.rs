@@ -3,12 +3,13 @@
 //! feature `parallel`:
 //!   diff <(cargo run --release --example proof_digest) \
 //!        <(cargo run --release --features parallel --example proof_digest)
-use kronecker_fri::batch::{Stmt, prove_batch};
+use kronecker_fri::batch::Stmt;
 use kronecker_fri::field::{Field, Fp, Fp2};
-use kronecker_fri::had::prove_had;
-use kronecker_fri::ip::{commit_table_form, prove_ip};
-use kronecker_fri::pcs::{Params, commit_coeffs, open};
-use kronecker_fri::r1cs::{index, prove_r1cs, sample_instance};
+use kronecker_fri::insecure::{
+    commit_coeffs, commit_table_form, index, open, prove_batch, prove_had, prove_ip, prove_r1cs,
+};
+use kronecker_fri::pcs::Params;
+use kronecker_fri::r1cs::sample_instance;
 fn d(s: String) -> String {
     blake3::hash(s.as_bytes()).to_hex()[..16].to_string()
 }

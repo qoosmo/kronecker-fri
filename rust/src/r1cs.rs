@@ -27,8 +27,8 @@
 //! pairs: they need char F > 3N, and each costs (4N - 1)/|F| instead of (2N - 1)/|F|.
 
 use crate::affine::{
-    AStmt, AffineProof, Form, GData, GroupData, OId, Pub, Shape, commit_group, prove_affine,
-    verify_affine,
+    AStmt, AffineProof, Form, GData, GroupData, OId, Pub, Shape, commit_group_seeded,
+    prove_affine_seeded, verify_affine,
 };
 use crate::error::Error;
 use crate::field::{ExtField, Field, Fp, batch_inv};
@@ -54,7 +54,14 @@ pub struct Index {
 /// Number of words of the index group.
 const IDX_WORDS: usize = 11;
 
-pub fn index(p: &Params, r: &R1cs, seed: &Digest) -> Index {
+pub fn index(p: &Params, r: &R1cs) -> Result<Index, Error> {
+    p.validate()?;
+    Ok(index_seeded(p, r, &crate::rand::fresh_seed()?))
+}
+
+/// As [`index`], with the seed of the prover's randomness given by the caller: for tests and
+/// test vectors only (feature `insecure-test-vectors`); the seed must never be reused.
+pub(crate) fn index_seeded(p: &Params, r: &R1cs, seed: &Digest) -> Index {
     let nn = 1usize << r.n;
     let mut words: Vec<Vec<Fp>> = Vec::with_capacity(IDX_WORDS);
     let (mut mr, mut mc) = (vec![Fp::ZERO; nn], vec![Fp::ZERO; nn]);
@@ -70,7 +77,7 @@ pub fn index(p: &Params, r: &R1cs, seed: &Digest) -> Index {
     }
     words.push(mr);
     words.push(mc);
-    let group = commit_group(p, words, seed, b"index");
+    let group = commit_group_seeded(p, words, seed, b"index");
     let root = group.tree.root();
     Index { group, root }
 }
@@ -279,12 +286,32 @@ pub fn prove_r1cs<E: ExtField>(
     idx: &Index,
     x: &[Fp],
     wit: &[Fp],
+) -> Result<R1csProof<E>, Error> {
+    p.validate()?;
+    Ok(prove_r1cs_seeded(
+        p,
+        r,
+        idx,
+        x,
+        wit,
+        &crate::rand::fresh_seed()?,
+    ))
+}
+
+/// As [`prove_r1cs`], with the seed of the prover's randomness given by the caller: for tests and
+/// test vectors only (feature `insecure-test-vectors`); the seed must never be reused.
+pub(crate) fn prove_r1cs_seeded<E: ExtField>(
+    p: &Params,
+    r: &R1cs,
+    idx: &Index,
+    x: &[Fp],
+    wit: &[Fp],
     seed: &Digest,
 ) -> R1csProof<E> {
     prove_r1cs_with(p, r, idx, x, wit, seed, R1csCheat::None)
 }
 
-pub fn prove_r1cs_with<E: ExtField>(
+pub(crate) fn prove_r1cs_with<E: ExtField>(
     p: &Params,
     r: &R1cs,
     idx: &Index,
@@ -307,7 +334,7 @@ pub fn prove_r1cs_with<E: ExtField>(
     let mut tr = init_transcript::<E>(p, &idx.root, r, x);
     let mut salts = Vec::new();
     // round 1: (w, a, b, c)
-    let g_wit = commit_group(
+    let g_wit = commit_group_seeded(
         p,
         vec![wit.to_vec(), abc[0].clone(), abc[1].clone(), abc[2].clone()],
         seed,
@@ -340,7 +367,7 @@ pub fn prove_r1cs_with<E: ExtField>(
         l1.push(zeta);
         l1.push(pp);
     }
-    let g_l1 = commit_group(p, l1.clone(), seed, b"r1cs-L1");
+    let g_l1 = commit_group_seeded(p, l1.clone(), seed, b"r1cs-L1");
     tr.absorb(b"root", &g_l1.tree.root());
     salts.push(round_salt(seed, 102, p.salt_len));
     tr.absorb(b"salt", salts.last().unwrap());
@@ -400,7 +427,7 @@ pub fn prove_r1cs_with<E: ExtField>(
     l2.push(psr);
     l2.extend(phc);
     l2.push(psc);
-    let g_l2 = commit_group(p, l2, seed, b"r1cs-L2");
+    let g_l2 = commit_group_seeded(p, l2, seed, b"r1cs-L2");
     tr.absorb(b"root", &g_l2.tree.root());
     for v in &sums {
         tr.absorb(b"sum", &e_bytes(v));
@@ -415,7 +442,7 @@ pub fn prove_r1cs_with<E: ExtField>(
         GData::Ext(&g_l1),
         GData::Ext(&g_l2),
     ];
-    let engine = prove_affine(p, &mut tr, seed, 104, &groups, &stmts);
+    let engine = prove_affine_seeded(p, &mut tr, seed, 104, &groups, &stmts);
     R1csProof {
         root_wit: g_wit.tree.root(),
         root_l1: g_l1.tree.root(),
@@ -573,8 +600,8 @@ mod tests {
                 cap_log,
             };
             let (r, x, wit) = sample_instance(n, 2, 2, 7 + n as u64);
-            let idx = index(&p, &r, &[1u8; 32]);
-            let pr = prove_r1cs::<E>(&p, &r, &idx, &x, &wit, &[2u8; 32]);
+            let idx = index_seeded(&p, &r, &[1u8; 32]);
+            let pr = prove_r1cs_seeded::<E>(&p, &r, &idx, &x, &wit, &[2u8; 32]);
             assert_eq!(verify_r1cs(&p, &r, &idx.root, &x, &pr), Ok(()), "n={n}");
             // a wrong public input
             let mut x2 = x.clone();
@@ -584,7 +611,7 @@ mod tests {
             let mut w2 = wit.clone();
             let slot = (1usize << n) / 2;
             w2[slot] = w2[slot] + Fp::ONE;
-            let pr2 = prove_r1cs::<E>(&p, &r, &idx, &x, &w2, &[3u8; 32]);
+            let pr2 = prove_r1cs_seeded::<E>(&p, &r, &idx, &x, &w2, &[3u8; 32]);
             assert_eq!(
                 verify_r1cs(&p, &r, &idx.root, &x, &pr2),
                 Err(Error::Fold),
@@ -606,7 +633,7 @@ mod tests {
             // a witness that is not zero on an input position
             let mut w3 = wit.clone();
             w3[0] = w3[0] + Fp::ONE;
-            let pr3 = prove_r1cs::<E>(&p, &r, &idx, &x, &w3, &[4u8; 32]);
+            let pr3 = prove_r1cs_seeded::<E>(&p, &r, &idx, &x, &w3, &[4u8; 32]);
             assert!(verify_r1cs(&p, &r, &idx.root, &x, &pr3).is_err(), "n={n}");
         }
     }

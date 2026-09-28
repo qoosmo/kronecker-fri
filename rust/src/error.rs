@@ -16,6 +16,10 @@ pub enum Error {
     Merkle,
     /// A fold check or the final-polynomial check of the folding test failed.
     Fold,
+    /// The prover was called with inputs that do not match the parameters (lengths, counts).
+    Input(&'static str),
+    /// The operating system's random number generator failed.
+    Randomness,
     /// A protocol equation other than the folding test failed; the message names it
     /// (for instance `"outer sumcheck"` or `"row lookup"`).
     Check(&'static str),
@@ -28,6 +32,8 @@ impl fmt::Display for Error {
             Error::Shape => f.write_str("malformed proof: wrong shape"),
             Error::Merkle => f.write_str("invalid Merkle opening"),
             Error::Fold => f.write_str("folding test failed"),
+            Error::Input(m) => write!(f, "invalid prover input: {m}"),
+            Error::Randomness => f.write_str("the system random number generator failed"),
             Error::Check(m) => write!(f, "check failed: {m}"),
         }
     }

@@ -54,16 +54,16 @@ fn run<E: ExtField>(p: &Params, reps: usize, seed: u64) -> Row {
     let mut cm = vec![];
     for _ in 0..reps {
         let t = Instant::now();
-        let r = commit_coeffs(p, &alpha, &[1u8; 32]);
+        let r = commit_coeffs(p, &alpha).unwrap();
         cm.push(ms(t));
         std::hint::black_box(r.0);
     }
-    let (root, pd) = commit_coeffs(p, &alpha, &[1u8; 32]);
+    let (root, pd) = commit_coeffs(p, &alpha).unwrap();
     let mut op = vec![];
     let mut last = None;
     for _ in 0..reps {
         let t = Instant::now();
-        let r = open(p, &pd, &z, &[2u8; 32]);
+        let r = open(p, &pd, &z).unwrap();
         op.push(ms(t));
         last = Some(r);
     }
@@ -98,7 +98,7 @@ fn breakdown(n: usize) {
     let mut rng = Rng(5 + n as u64);
     let alpha: Vec<Fp> = (0..nn).map(|_| rng.fp()).collect();
     let z: Vec<Fp2> = (0..n).map(|_| rng.e()).collect();
-    let (_, pd) = commit_coeffs(&p, &alpha, &[1u8; 32]);
+    let (_, pd) = commit_coeffs(&p, &alpha).unwrap();
     let omega = p.omega();
     let inv2 = Fp::new(2).inv();
     let oi = omega.inv();

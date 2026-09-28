@@ -15,7 +15,7 @@ categories = ["cryptography", "mathematics"]
 exclude = ["target/"]
 
 [package.metadata.docs.rs]
-all-features = true
+features = ["parallel"]
 
 [profile.release]
 codegen-units = 1
@@ -23,14 +23,22 @@ lto = "fat"
 
 [dependencies]
 blake3 = "1.8.7"
+getrandom = "0.4"
 rayon = { version = "1.12.0", optional = true }
 
 [features]
 # Multithreaded prover (commitment, opening, Merkle trees) with rayon. Off by default: the
 # benchmarks of the paper are single-threaded. The proofs are identical with and without it.
 parallel = ["dep:rayon"]
+# Seeded provers (module `insecure`) for test vectors and reproducible digests. Insecure: never
+# enable in production.
+insecure-test-vectors = []
 
 [dev-dependencies]
 num-bigint = "0.4"
 num-rational = "0.4"
 num-traits = "0.2"
+
+[[example]]
+name = "proof_digest"
+required-features = ["insecure-test-vectors"]

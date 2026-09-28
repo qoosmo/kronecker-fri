@@ -149,13 +149,31 @@ pub fn prove_spartan<E: ExtField>(
     r: &R1cs,
     x: &[Fp],
     wit: &[Fp],
+) -> Result<(SpartanProof<E>, SpartanTimes), Error> {
+    p.validate()?;
+    Ok(prove_spartan_seeded(
+        p,
+        r,
+        x,
+        wit,
+        &crate::rand::fresh_seed()?,
+    ))
+}
+
+/// As [`prove_spartan`], with the seed of the prover's randomness given by the caller: for tests and
+/// test vectors only (feature `insecure-test-vectors`); the seed must never be reused.
+pub(crate) fn prove_spartan_seeded<E: ExtField>(
+    p: &Params,
+    r: &R1cs,
+    x: &[Fp],
+    wit: &[Fp],
     seed: &Digest,
 ) -> (SpartanProof<E>, SpartanTimes) {
     let n = r.n;
     let nn = 1usize << n;
     let mut times = SpartanTimes::default();
     let t0 = std::time::Instant::now();
-    let (root, pd) = pcs::commit_table(p, wit, seed);
+    let (root, pd) = pcs::commit_table_seeded(p, wit, seed);
     times.commit = t0.elapsed().as_secs_f64();
 
     let t1 = std::time::Instant::now();
@@ -240,7 +258,7 @@ pub fn prove_spartan<E: ExtField>(
     times.sumchecks = t1.elapsed().as_secs_f64();
 
     let t2 = std::time::Instant::now();
-    let (w_eval, pcs_proof) = pcs::open(p, &pd, &ry, seed);
+    let (w_eval, pcs_proof) = pcs::open_seeded(p, &pd, &ry, seed);
     times.open = t2.elapsed().as_secs_f64();
     (
         SpartanProof {
@@ -334,11 +352,11 @@ mod tests {
         let n = 5;
         let p = Params::recommended(n, 20, 16);
         let table: Vec<Fp> = (0..1u64 << n).map(|i| Fp::new(i * i + 3)).collect();
-        let (_, pd) = pcs::commit_table(&p, &table, &[3u8; 32]);
+        let (_, pd) = pcs::commit_table_seeded(&p, &table, &[3u8; 32]);
         let z: Vec<Fp2> = (0..n)
             .map(|k| Fp2(Fp::new(5 + k as u64), Fp::new(7 * k as u64)))
             .collect();
-        let (v, _) = pcs::open(&p, &pd, &z, &[4u8; 32]);
+        let (v, _) = pcs::open_seeded(&p, &pd, &z, &[4u8; 32]);
         let eq = eq_table(&z);
         let direct = table
             .iter()
@@ -351,7 +369,7 @@ mod tests {
         for n in [4, 6, 8] {
             let p = Params::recommended(n, 20, 16);
             let (r, x, wit) = sample_instance(n, 2, 2, 11 + n as u64);
-            let (pf, _) = prove_spartan::<E>(&p, &r, &x, &wit, &[5u8; 32]);
+            let (pf, _) = prove_spartan_seeded::<E>(&p, &r, &x, &wit, &[5u8; 32]);
             assert_eq!(verify_spartan(&p, &r, &x, &pf), Ok(()));
             // a wrong public input
             let mut x2 = x.clone();
@@ -361,24 +379,24 @@ mod tests {
             let mut w2 = wit.clone();
             let last = w2.len() - 1;
             w2[last] = w2[last] + Fp::ONE;
-            let (pf2, _) = prove_spartan::<E>(&p, &r, &x, &w2, &[6u8; 32]);
+            let (pf2, _) = prove_spartan_seeded::<E>(&p, &r, &x, &w2, &[6u8; 32]);
             assert!(verify_spartan(&p, &r, &x, &pf2).is_err());
             // a wrong claim Cz~(rx)
-            let (mut pf4, _) = prove_spartan::<E>(&p, &r, &x, &wit, &[8u8; 32]);
+            let (mut pf4, _) = prove_spartan_seeded::<E>(&p, &r, &x, &wit, &[8u8; 32]);
             pf4.claims[2] = pf4.claims[2] + E::ONE;
             assert_eq!(
                 verify_spartan(&p, &r, &x, &pf4),
                 Err(Error::Check("outer final"))
             );
             // a wrong opening value
-            let (mut pf5, _) = prove_spartan::<E>(&p, &r, &x, &wit, &[9u8; 32]);
+            let (mut pf5, _) = prove_spartan_seeded::<E>(&p, &r, &x, &wit, &[9u8; 32]);
             pf5.w_eval = pf5.w_eval + E::ONE;
             assert_eq!(
                 verify_spartan(&p, &r, &x, &pf5),
                 Err(Error::Check("inner final"))
             );
             // a tampered round polynomial
-            let (mut pf3, _) = prove_spartan::<E>(&p, &r, &x, &wit, &[7u8; 32]);
+            let (mut pf3, _) = prove_spartan_seeded::<E>(&p, &r, &x, &wit, &[7u8; 32]);
             pf3.inner[1][2] = pf3.inner[1][2] + E::ONE;
             assert!(verify_spartan(&p, &r, &x, &pf3).is_err());
         }

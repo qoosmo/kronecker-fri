@@ -61,7 +61,7 @@ Without the feature the same loops run serially, and all measurements of \cref{s
 
 \paragraph{Salted Merkle trees.}
 Leaves are hashed as $\mathsf{H}_{K_0}(\text{data} \,\|\, \gamma)$ with a salt $\gamma$ of $32$ bytes, and internal nodes as $\mathsf{H}_{K_1}(\text{left} \,\|\, \text{right})$, where $\mathsf{H}_K$ is BLAKE3 in keyed mode with key $K$, $K_0 = \mathtt{0x00}^{32}$ and $K_1 = \mathtt{0x01}^{32}$ separate the two domains, and $\lambda_{\mathsf{H}} = 256$. A node, and a salted leaf of one fibre over $\F_{q^2}$, are $64$ bytes: one BLAKE3 compression each.
-The salts of a tree are the consecutive $32$-byte blocks of one BLAKE3 output stream, keyed with a $32$-byte seed supplied by the caller and bound to the label of the tree; the seed must be fresh and secret for every commitment and every proof, since the salts are what the compiler of~\cite{CDHZ25} requires to be random.
+The salts of a tree are the consecutive $32$-byte blocks of one BLAKE3 output stream, keyed with a $32$-byte seed drawn from the operating system's random number generator for every commitment and every proof, and bound to the label of the tree; the salts are what the compiler of~\cite{CDHZ25} requires to be random.
 Setting the salt length to $0$ gives unsalted trees, which we use only to measure the cost of salting (\cref{sec:exp}).
 
 \paragraph{Coset leaves.}

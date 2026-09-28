@@ -12,7 +12,7 @@
 //! statements against a sumcheck followed by one opening.
 
 use crate::affine::{
-    AStmt, AffineProof, Form, GData, GroupData, OId, Shape, prove_affine, verify_affine,
+    AStmt, AffineProof, Form, GData, GroupData, OId, Shape, prove_affine_seeded, verify_affine,
 };
 use crate::error::Error;
 use crate::field::{ExtField, Field, Fp};
@@ -55,8 +55,15 @@ fn lift<E: ExtField>(t: &[Fp]) -> Vec<E> {
 }
 
 /// Commit to a table in table form, as a group of one word.
-pub fn commit_one(p: &Params, table: &[Fp], seed: &Digest) -> GroupData<Fp> {
-    crate::affine::commit_group(p, vec![table.to_vec()], seed, b"route")
+pub fn commit_one(p: &Params, table: &[Fp]) -> Result<GroupData<Fp>, Error> {
+    p.validate()?;
+    Ok(commit_one_seeded(p, table, &crate::rand::fresh_seed()?))
+}
+
+/// As [`commit_one`], with the seed of the prover's randomness given by the caller: for tests and
+/// test vectors only (feature `insecure-test-vectors`); the seed must never be reused.
+pub(crate) fn commit_one_seeded(p: &Params, table: &[Fp], seed: &Digest) -> GroupData<Fp> {
+    crate::affine::commit_group_seeded(p, vec![table.to_vec()], seed, b"route")
 }
 
 fn shapes(k: usize) -> Vec<Shape> {
@@ -110,6 +117,16 @@ fn replay<E: ExtField>(
 pub fn prove_ip_sc<E: ExtField>(
     p: &Params,
     g: [&GroupData<Fp>; 2],
+) -> Result<(E, RouteProof<E>), Error> {
+    p.validate()?;
+    Ok(prove_ip_sc_seeded(p, g, &crate::rand::fresh_seed()?))
+}
+
+/// As [`prove_ip_sc`], with the seed of the prover's randomness given by the caller: for tests and
+/// test vectors only (feature `insecure-test-vectors`); the seed must never be reused.
+pub(crate) fn prove_ip_sc_seeded<E: ExtField>(
+    p: &Params,
+    g: [&GroupData<Fp>; 2],
     seed: &Digest,
 ) -> (E, RouteProof<E>) {
     let (ta, tb) = (&g[0].coeffs[0], &g[1].coeffs[0]);
@@ -141,7 +158,7 @@ pub fn prove_ip_sc<E: ExtField>(
     }
     let evals = vec![a[0], b[0]];
     let st = eval_stmt(&mut tr, &r, &evals);
-    let engine = prove_affine(
+    let engine = prove_affine_seeded(
         p,
         &mut tr,
         seed,
@@ -181,6 +198,16 @@ pub fn verify_ip_sc<E: ExtField>(
 
 /// Hadamard check a o b = c by zerocheck.
 pub fn prove_had_sc<E: ExtField>(
+    p: &Params,
+    g: [&GroupData<Fp>; 3],
+) -> Result<RouteProof<E>, Error> {
+    p.validate()?;
+    Ok(prove_had_sc_seeded(p, g, &crate::rand::fresh_seed()?))
+}
+
+/// As [`prove_had_sc`], with the seed of the prover's randomness given by the caller: for tests and
+/// test vectors only (feature `insecure-test-vectors`); the seed must never be reused.
+pub(crate) fn prove_had_sc_seeded<E: ExtField>(
     p: &Params,
     g: [&GroupData<Fp>; 3],
     seed: &Digest,
@@ -229,7 +256,7 @@ pub fn prove_had_sc<E: ExtField>(
     let evals = vec![a[0], b[0], c[0]];
     let st = eval_stmt(&mut tr, &r, &evals);
     let gd = [GData::Base(g[0]), GData::Base(g[1]), GData::Base(g[2])];
-    let engine = prove_affine(p, &mut tr, seed, 1, &gd, &[st]);
+    let engine = prove_affine_seeded(p, &mut tr, seed, 1, &gd, &[st]);
     RouteProof {
         rounds,
         evals,
@@ -260,6 +287,16 @@ pub fn verify_had_sc<E: ExtField>(
 pub fn prove_ip_sf<E: ExtField>(
     p: &Params,
     g: [&GroupData<Fp>; 2],
+) -> Result<(E, RouteProof<E>), Error> {
+    p.validate()?;
+    Ok(prove_ip_sf_seeded(p, g, &crate::rand::fresh_seed()?))
+}
+
+/// As [`prove_ip_sf`], with the seed of the prover's randomness given by the caller: for tests and
+/// test vectors only (feature `insecure-test-vectors`); the seed must never be reused.
+pub(crate) fn prove_ip_sf_seeded<E: ExtField>(
+    p: &Params,
+    g: [&GroupData<Fp>; 2],
     seed: &Digest,
 ) -> (E, RouteProof<E>) {
     let (ta, tb) = (&g[0].coeffs[0], &g[1].coeffs[0]);
@@ -272,7 +309,7 @@ pub fn prove_ip_sf<E: ExtField>(
     let mut tr = init(b"ip-free-v2", &roots);
     absorb_es(&mut tr, b"s", &[s]);
     let st = AStmt::Ip(Form::word(word(0)), Form::word(word(1)), s);
-    let engine = prove_affine(
+    let engine = prove_affine_seeded(
         p,
         &mut tr,
         seed,
@@ -307,6 +344,16 @@ pub fn verify_ip_sf<E: ExtField>(
 pub fn prove_had_sf<E: ExtField>(
     p: &Params,
     g: [&GroupData<Fp>; 3],
+) -> Result<RouteProof<E>, Error> {
+    p.validate()?;
+    Ok(prove_had_sf_seeded(p, g, &crate::rand::fresh_seed()?))
+}
+
+/// As [`prove_had_sf`], with the seed of the prover's randomness given by the caller: for tests and
+/// test vectors only (feature `insecure-test-vectors`); the seed must never be reused.
+pub(crate) fn prove_had_sf_seeded<E: ExtField>(
+    p: &Params,
+    g: [&GroupData<Fp>; 3],
     seed: &Digest,
 ) -> RouteProof<E> {
     let roots = [g[0].tree.root(), g[1].tree.root(), g[2].tree.root()];
@@ -317,7 +364,7 @@ pub fn prove_had_sf<E: ExtField>(
         Form::word(word(2)),
     );
     let gd = [GData::Base(g[0]), GData::Base(g[1]), GData::Base(g[2])];
-    let engine = prove_affine(p, &mut tr, seed, 1, &gd, &[st]);
+    let engine = prove_affine_seeded(p, &mut tr, seed, 1, &gd, &[st]);
     RouteProof {
         rounds: vec![],
         evals: vec![],
@@ -365,10 +412,10 @@ mod tests {
             let c: Vec<Fp> = a.iter().zip(&b).map(|(&x, &y)| x * y).collect();
             let mut c2 = c.clone();
             c2[1] = c2[1] + Fp::ONE;
-            let ga = commit_one(&p, &a, &[1u8; 32]);
-            let gb = commit_one(&p, &b, &[2u8; 32]);
-            let gc = commit_one(&p, &c, &[3u8; 32]);
-            let gc2 = commit_one(&p, &c2, &[4u8; 32]);
+            let ga = commit_one_seeded(&p, &a, &[1u8; 32]);
+            let gb = commit_one_seeded(&p, &b, &[2u8; 32]);
+            let gc = commit_one_seeded(&p, &c, &[3u8; 32]);
+            let gc2 = commit_one_seeded(&p, &c2, &[4u8; 32]);
             let (ra, rb, rc, rc2) = (
                 ga.tree.root(),
                 gb.tree.root(),
@@ -376,26 +423,26 @@ mod tests {
                 gc2.tree.root(),
             );
             // inner product, both routes
-            let (s, pf) = prove_ip_sc::<E>(&p, [&ga, &gb], &[5u8; 32]);
+            let (s, pf) = prove_ip_sc_seeded::<E>(&p, [&ga, &gb], &[5u8; 32]);
             assert_eq!(verify_ip_sc(&p, [ra, rb], s, &pf), Ok(()));
             assert!(verify_ip_sc(&p, [ra, rb], s + E::ONE, &pf).is_err());
-            let (s, mut pf) = prove_ip_sc::<E>(&p, [&ga, &gb], &[6u8; 32]);
+            let (s, mut pf) = prove_ip_sc_seeded::<E>(&p, [&ga, &gb], &[6u8; 32]);
             pf.evals[1] = pf.evals[1] + E::ONE;
             assert!(verify_ip_sc(&p, [ra, rb], s, &pf).is_err());
-            let (s, pf) = prove_ip_sf::<E>(&p, [&ga, &gb], &[7u8; 32]);
+            let (s, pf) = prove_ip_sf_seeded::<E>(&p, [&ga, &gb], &[7u8; 32]);
             assert_eq!(verify_ip_sf(&p, [ra, rb], s, &pf), Ok(()));
             assert!(verify_ip_sf(&p, [ra, rb], s + E::ONE, &pf).is_err());
             // Hadamard check, both routes
-            let pf = prove_had_sc::<E>(&p, [&ga, &gb, &gc], &[8u8; 32]);
+            let pf = prove_had_sc_seeded::<E>(&p, [&ga, &gb, &gc], &[8u8; 32]);
             assert_eq!(verify_had_sc(&p, [ra, rb, rc], &pf), Ok(()));
-            let pf = prove_had_sc::<E>(&p, [&ga, &gb, &gc2], &[9u8; 32]);
+            let pf = prove_had_sc_seeded::<E>(&p, [&ga, &gb, &gc2], &[9u8; 32]);
             assert!(verify_had_sc(&p, [ra, rb, rc2], &pf).is_err());
-            let mut pf = prove_had_sc::<E>(&p, [&ga, &gb, &gc], &[10u8; 32]);
+            let mut pf = prove_had_sc_seeded::<E>(&p, [&ga, &gb, &gc], &[10u8; 32]);
             pf.evals[2] = pf.evals[2] + E::ONE;
             assert_eq!(verify_had_sc(&p, [ra, rb, rc], &pf), Err(Error::Fold));
-            let pf = prove_had_sf::<E>(&p, [&ga, &gb, &gc], &[11u8; 32]);
+            let pf = prove_had_sf_seeded::<E>(&p, [&ga, &gb, &gc], &[11u8; 32]);
             assert_eq!(verify_had_sf(&p, [ra, rb, rc], &pf), Ok(()));
-            let pf = prove_had_sf::<E>(&p, [&ga, &gb, &gc2], &[12u8; 32]);
+            let pf = prove_had_sf_seeded::<E>(&p, [&ga, &gb, &gc2], &[12u8; 32]);
             assert!(verify_had_sf(&p, [ra, rb, rc2], &pf).is_err());
         }
     }

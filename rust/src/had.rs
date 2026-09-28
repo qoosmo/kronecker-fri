@@ -170,12 +170,30 @@ pub fn prove_had<E: ExtField>(
     pda: &ProverData,
     pdb: &ProverData,
     pdc: &ProverData,
+) -> Result<HadProof<E>, Error> {
+    p.validate()?;
+    Ok(prove_had_seeded(
+        p,
+        pda,
+        pdb,
+        pdc,
+        &crate::rand::fresh_seed()?,
+    ))
+}
+
+/// As [`prove_had`], with the seed of the prover's randomness given by the caller: for tests and
+/// test vectors only (feature `insecure-test-vectors`); the seed must never be reused.
+pub(crate) fn prove_had_seeded<E: ExtField>(
+    p: &Params,
+    pda: &ProverData,
+    pdb: &ProverData,
+    pdc: &ProverData,
     seed: &Digest,
 ) -> HadProof<E> {
     prove_had_with(p, pda, pdb, pdc, seed, HadCheat::None)
 }
 
-pub fn prove_had_with<E: ExtField>(
+pub(crate) fn prove_had_with<E: ExtField>(
     p: &Params,
     pda: &ProverData,
     pdb: &ProverData,
@@ -438,7 +456,7 @@ pub fn verify_had<E: ExtField>(
 mod tests {
     use super::*;
     use crate::field::{Fp2, Fp4};
-    use crate::ip::commit_table_form;
+    use crate::ip::commit_table_form_seeded;
 
     struct Rng(u64);
     impl Rng {
@@ -487,10 +505,10 @@ mod tests {
                 let a: Vec<Fp> = (0..1 << n).map(|_| rng.fp()).collect();
                 let b: Vec<Fp> = (0..1 << n).map(|_| rng.fp()).collect();
                 let c: Vec<Fp> = a.iter().zip(&b).map(|(&x, &y)| x * y).collect();
-                let (ra, pda) = commit_table_form(&p, &a, &[1u8; 32]);
-                let (rb, pdb) = commit_table_form(&p, &b, &[2u8; 32]);
-                let (rc, pdc) = commit_table_form(&p, &c, &[3u8; 32]);
-                let proof = prove_had::<E>(&p, &pda, &pdb, &pdc, &[4u8; 32]);
+                let (ra, pda) = commit_table_form_seeded(&p, &a, &[1u8; 32]);
+                let (rb, pdb) = commit_table_form_seeded(&p, &b, &[2u8; 32]);
+                let (rc, pdc) = commit_table_form_seeded(&p, &c, &[3u8; 32]);
+                let proof = prove_had_seeded::<E>(&p, &pda, &pdb, &pdc, &[4u8; 32]);
                 assert_eq!(
                     verify_had(&p, [&ra, &rb, &rc], &proof),
                     Ok(()),
@@ -508,7 +526,7 @@ mod tests {
                 let mut c2 = c.clone();
                 let k = (rng.fp().0 as usize) % (1 << n);
                 c2[k] = c2[k] + Fp::ONE;
-                let (rc2, pdc2) = commit_table_form(&p, &c2, &[6u8; 32]);
+                let (rc2, pdc2) = commit_table_form_seeded(&p, &c2, &[6u8; 32]);
                 for cheat in [HadCheat::None, HadCheat::UseVc, HadCheat::UseIp] {
                     let pr = prove_had_with::<E>(&p, &pda, &pdb, &pdc2, &[7u8; 32], cheat);
                     assert_eq!(

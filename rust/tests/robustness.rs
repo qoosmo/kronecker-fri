@@ -171,8 +171,8 @@ fn pcs_malformed_proofs() {
         let z: Vec<Fp2> = (0..n as u64)
             .map(|i| Fp2(Fp::new(5 + i), Fp::new(3 * i + 1)))
             .collect();
-        let (root, pd) = commit_table(&p, &table, &[1u8; 32]);
-        let (v, proof) = open(&p, &pd, &z, &[2u8; 32]);
+        let (root, pd) = commit_table(&p, &table).unwrap();
+        let (v, proof) = open(&p, &pd, &z).unwrap();
         run(&format!("pcs n={n}"), &proof, pcs_muts(), |pr| {
             verify(&p, &root, &z, v, pr)
         });
@@ -244,10 +244,46 @@ fn r1cs_malformed_proofs() {
         cap_log: 1,
     };
     let (r, x, wit) = sample_instance(n, 2, 2, 11);
-    let idx = index(&p, &r, &[1u8; 32]);
-    let pr = prove_r1cs::<Fp2>(&p, &r, &idx, &x, &wit, &[2u8; 32]);
+    let idx = index(&p, &r).unwrap();
+    let pr = prove_r1cs::<Fp2>(&p, &r, &idx, &x, &wit).unwrap();
     run("r1cs", &pr, r1cs_muts(), |q| {
         verify_r1cs(&p, &r, &idx.root, &x, q)
     });
     assert!(verify_r1cs(&p, &r, &idx.root, &x[1..], &pr).is_err());
+}
+
+/// Fresh randomness: two proofs of the same statement differ (salts) and both verify; misuse of
+/// the prover API returns errors.
+#[test]
+fn fresh_randomness_and_input_errors() {
+    let n = 8;
+    let p = Params::recommended(n, 20, 32);
+    let table: Vec<Fp> = (0..1u64 << n).map(Fp::new).collect();
+    let z: Vec<Fp2> = (0..n as u64)
+        .map(|i| Fp2(Fp::new(i + 2), Fp::new(i)))
+        .collect();
+    let (r1, pd1) = commit_table(&p, &table).unwrap();
+    let (r2, _) = commit_table(&p, &table).unwrap();
+    assert_ne!(
+        r1, r2,
+        "two commitments to the same table must use different salts"
+    );
+    let (v1, pr1) = open(&p, &pd1, &z).unwrap();
+    let (v2, pr2) = open(&p, &pd1, &z).unwrap();
+    assert_eq!(v1, v2);
+    assert_ne!(pr1.round_salts, pr2.round_salts);
+    assert!(verify(&p, &r1, &z, v1, &pr1).is_ok() && verify(&p, &r1, &z, v2, &pr2).is_ok());
+    assert!(matches!(
+        commit_table(&p, &table[1..]),
+        Err(Error::Input(_))
+    ));
+    assert!(matches!(open(&p, &pd1, &z[1..]), Err(Error::Input(_))));
+    let q = Params::recommended(n + 1, 20, 32);
+    assert!(matches!(
+        open(&q, &pd1, &[z.clone(), vec![Fp2::ONE]].concat()),
+        Err(Error::Input(_))
+    ));
+    let mut bad = p;
+    bad.queries = 0;
+    assert!(matches!(commit_table(&bad, &table), Err(Error::Params(_))));
 }

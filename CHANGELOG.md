@@ -4,6 +4,15 @@
 
 Preparation of the crate for the Kronobol proof system: errors, randomness, transcript, zero-knowledge hooks. This entry grows with each patch.
 
+### Randomness from the operating system
+- The public provers take no seeds: `pcs::{commit_table, commit_coeffs, open}`, `ip::{commit_table_form, prove_ip}`, `had::prove_had`, `batch::prove_batch`, `affine::{commit_group, prove_affine}`, `r1cs::{index, prove_r1cs}`, `spartan::prove_spartan` and the `sumcheck` provers draw a fresh 32-byte seed from the operating system (`getrandom`) and return `Result<_, Error>`.
+- New error variants `Error::Input` (prover inputs that do not match the parameters, e.g. a table of the wrong length) and `Error::Randomness`. `pcs::commit_*` and `pcs::open` check their inputs instead of panicking.
+- Seeded provers exist only in the module `insecure`, behind the feature `insecure-test-vectors` (off by default, hidden from the documentation). The example `proof_digest` requires it, and CI uses it to check that the parallel prover gives identical proofs. The `*_with` provers (cheating provers for tests) are no longer public.
+- Proofs are unchanged: for the same seed, the digests of `proof_digest` are identical to 0.4.
+- Migration: `commit_table(&p, &t, &seed)` becomes `commit_table(&p, &t)?`, and `open(&p, &pd, &z, &seed)` becomes `open(&p, &pd, &z)?`.
+- New dependency: `getrandom` 0.4.
+- Paper §9: the seed of the salt stream is drawn from the operating system for every commitment and every proof.
+
 ### Errors instead of panics
 - New module `error`: every verifier returns `Result<(), Error>` (`Params`, `Shape`, `Merkle`, `Fold`, `Check(name)`), with `Display` and `std::error::Error`.
 - `pcs::verify`, `ip::verify_ip`, `had::verify_had`, `batch::verify_batch` return `Result<(), Error>`. The former `*_detail` functions are removed, since the plain functions now give the reason. Migration: `assert!(verify(..))` becomes `assert!(verify(..).is_ok())`, and `verify_detail(..)` becomes `verify(..)`.

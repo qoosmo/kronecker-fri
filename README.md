@@ -117,10 +117,10 @@ use kronecker_fri::pcs::{commit_table, open, verify, Params};
 let p = Params::recommended(16, 148, 32);
 let table: Vec<Fp> = (0..1u64 << 16).map(Fp::new).collect(); // f on {0,1}^16
 let z: Vec<Fp2> = (0..16u64).map(|i| Fp2(Fp::new(3 + i), Fp::new(7 * i))).collect();
-// The seeds derive the Merkle salts: use fresh, secret randomness in practice.
-let (root, pd) = commit_table(&p, &table, &commit_seed);
-let (v, proof) = open(&p, &pd, &z, &open_seed); // v = f(z)
-assert!(verify(&p, &root, &z, v, &proof));
+// The salts of the Merkle trees are drawn from the operating system.
+let (root, pd) = commit_table(&p, &table)?;
+let (v, proof) = open(&p, &pd, &z)?; // v = f(z)
+verify(&p, &root, &z, v, &proof)?;
 ```
 
 The full program is [`rust/examples/quickstart.rs`](rust/examples/quickstart.rs).

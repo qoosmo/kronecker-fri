@@ -58,12 +58,12 @@ fn main() {
         let (mut kf_size, mut ip_size) = (0, 0);
         for _ in 0..reps {
             let t = Instant::now();
-            let (ra, pda) = commit_table_form(&p, &a, &[1u8; 32]);
+            let (ra, pda) = commit_table_form(&p, &a).unwrap();
             cm.push(ms(t));
-            let (rb, pdb) = commit_table_form(&p, &b, &[2u8; 32]);
+            let (rb, pdb) = commit_table_form(&p, &b).unwrap();
 
             let t = Instant::now();
-            let (v, proof) = open::<Fp2>(&p, &pda, &z, &[3u8; 32]);
+            let (v, proof) = open::<Fp2>(&p, &pda, &z).unwrap();
             ko.push(ms(t));
             let t = Instant::now();
             assert!(verify(&p, &ra, &z, v, &proof).is_ok());
@@ -71,16 +71,16 @@ fn main() {
             kf_size = proof.size_bytes();
 
             let t = Instant::now();
-            let (s, ipr) = prove_ip::<Fp2>(&p, &pda, &pdb, &[4u8; 32]);
+            let (s, ipr) = prove_ip::<Fp2>(&p, &pda, &pdb).unwrap();
             ipp.push(ms(t));
             let t = Instant::now();
             assert!(verify_ip(&p, &ra, &rb, s, &ipr).is_ok());
             ipv.push(ms(t));
             ip_size = ipr.size_bytes();
 
-            let (rc, pdc) = commit_table_form(&p, &c, &[5u8; 32]);
+            let (rc, pdc) = commit_table_form(&p, &c).unwrap();
             let t = Instant::now();
-            let hpr = prove_had::<Fp2>(&p, &pda, &pdb, &pdc, &[6u8; 32]);
+            let hpr = prove_had::<Fp2>(&p, &pda, &pdb, &pdc).unwrap();
             hp.push(ms(t));
             let t = Instant::now();
             assert!(verify_had(&p, [&ra, &rb, &rc], &hpr).is_ok());

@@ -291,7 +291,21 @@ pub(crate) fn distinct_positions(idx: &[usize], modulus: usize) -> Vec<usize> {
 
 /// Commit to f given in coefficient form (Definition 6.2): one NTT of size M.
 /// The Merkle layout depends on the first group of `p` (its length min(k, l)).
-pub fn commit_coeffs(p: &Params, alpha: &[Fp], seed: &Digest) -> (Digest, ProverData) {
+pub fn commit_coeffs(p: &Params, alpha: &[Fp]) -> Result<(Digest, ProverData), Error> {
+    p.validate()?;
+    if alpha.len() != p.big_n() {
+        return Err(Error::Input("the coefficient vector must have length 2^n"));
+    }
+    Ok(commit_coeffs_seeded(p, alpha, &crate::rand::fresh_seed()?))
+}
+
+/// As [`commit_coeffs`], with the seed of the prover's randomness given by the caller: for tests and
+/// test vectors only (feature `insecure-test-vectors`); the seed must never be reused.
+pub(crate) fn commit_coeffs_seeded(
+    p: &Params,
+    alpha: &[Fp],
+    seed: &Digest,
+) -> (Digest, ProverData) {
     p.check();
     assert_eq!(alpha.len(), p.big_n());
     let mut y = alpha.to_vec();
@@ -310,10 +324,20 @@ pub fn commit_coeffs(p: &Params, alpha: &[Fp], seed: &Digest) -> (Digest, Prover
 }
 
 /// Commit to f given in table form: Moebius transform ((n/2) N subtractions), then commit.
-pub fn commit_table(p: &Params, table: &[Fp], seed: &Digest) -> (Digest, ProverData) {
+pub fn commit_table(p: &Params, table: &[Fp]) -> Result<(Digest, ProverData), Error> {
+    p.validate()?;
+    if table.len() != p.big_n() {
+        return Err(Error::Input("the table must have length 2^n"));
+    }
+    Ok(commit_table_seeded(p, table, &crate::rand::fresh_seed()?))
+}
+
+/// As [`commit_table`], with the seed of the prover's randomness given by the caller: for tests and
+/// test vectors only (feature `insecure-test-vectors`); the seed must never be reused.
+pub(crate) fn commit_table_seeded(p: &Params, table: &[Fp], seed: &Digest) -> (Digest, ProverData) {
     let mut alpha = table.to_vec();
     mobius(&mut alpha);
-    commit_coeffs(p, &alpha, seed)
+    commit_coeffs_seeded(p, &alpha, seed)
 }
 
 fn init_transcript<E: ExtField>(p: &Params, root: &Digest, z: &[E], v: E) -> Transcript {
@@ -370,11 +394,31 @@ pub enum Cheat {
 }
 
 /// Prover: returns v = f(z) and the proof.  `seed` must be fresh and secret (salts).
-pub fn open<E: ExtField>(p: &Params, pd: &ProverData, z: &[E], seed: &Digest) -> (E, Proof<E>) {
+pub fn open<E: ExtField>(p: &Params, pd: &ProverData, z: &[E]) -> Result<(E, Proof<E>), Error> {
+    p.validate()?;
+    if z.len() != p.n {
+        return Err(Error::Input("the point must have n coordinates"));
+    }
+    if pd.alpha.len() != p.big_n() || pd.y.len() != p.m() {
+        return Err(Error::Input(
+            "the prover data was made with other parameters",
+        ));
+    }
+    Ok(open_seeded(p, pd, z, &crate::rand::fresh_seed()?))
+}
+
+/// As [`open`], with the seed of the prover's randomness given by the caller: for tests and
+/// test vectors only (feature `insecure-test-vectors`); the seed must never be reused.
+pub(crate) fn open_seeded<E: ExtField>(
+    p: &Params,
+    pd: &ProverData,
+    z: &[E],
+    seed: &Digest,
+) -> (E, Proof<E>) {
     open_with(p, pd, z, seed, Cheat::None)
 }
 
-pub fn open_with<E: ExtField>(
+pub(crate) fn open_with<E: ExtField>(
     p: &Params,
     pd: &ProverData,
     z: &[E],
@@ -755,8 +799,8 @@ mod tests {
             };
             let alpha: Vec<Fp> = (0..1 << n).map(|_| rng.fp()).collect();
             let z: Vec<E> = (0..n).map(|_| rng.e()).collect();
-            let (root, pd) = commit_coeffs(&p, &alpha, &[1u8; 32]);
-            let (v, proof) = open(&p, &pd, &z, &[2u8; 32]);
+            let (root, pd) = commit_coeffs_seeded(&p, &alpha, &[1u8; 32]);
+            let (v, proof) = open_seeded(&p, &pd, &z, &[2u8; 32]);
             assert_eq!(
                 v,
                 ml_eval_coeffs(

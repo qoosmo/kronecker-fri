@@ -378,12 +378,28 @@ pub fn prove_batch<E: ExtField>(
     p: &Params,
     pds: &[&ProverData],
     stmts: &[Stmt<E>],
+) -> Result<BatchProof<E>, Error> {
+    p.validate()?;
+    Ok(prove_batch_seeded(
+        p,
+        pds,
+        stmts,
+        &crate::rand::fresh_seed()?,
+    ))
+}
+
+/// As [`prove_batch`], with the seed of the prover's randomness given by the caller: for tests and
+/// test vectors only (feature `insecure-test-vectors`); the seed must never be reused.
+pub(crate) fn prove_batch_seeded<E: ExtField>(
+    p: &Params,
+    pds: &[&ProverData],
+    stmts: &[Stmt<E>],
     seed: &Digest,
 ) -> BatchProof<E> {
     prove_batch_with(p, pds, stmts, seed, BatchCheat::None)
 }
 
-pub fn prove_batch_with<E: ExtField>(
+pub(crate) fn prove_batch_with<E: ExtField>(
     p: &Params,
     pds: &[&ProverData],
     stmts: &[Stmt<E>],
@@ -774,7 +790,7 @@ pub fn verify_batch<E: ExtField>(
 mod tests {
     use super::*;
     use crate::field::{Fp2, Fp4};
-    use crate::ip::commit_table_form;
+    use crate::ip::commit_table_form_seeded;
 
     struct Rng(u64);
     impl Rng {
@@ -854,7 +870,7 @@ mod tests {
             let com: Vec<(Digest, ProverData)> = tables
                 .iter()
                 .enumerate()
-                .map(|(i, t)| commit_table_form(&p, t, &[i as u8 + 1; 32]))
+                .map(|(i, t)| commit_table_form_seeded(&p, t, &[i as u8 + 1; 32]))
                 .collect();
             let roots: Vec<Digest> = com.iter().map(|x| x.0).collect();
             let pds: Vec<&ProverData> = com.iter().map(|x| &x.1).collect();
@@ -882,11 +898,11 @@ mod tests {
                     v: mle(&a, &z2),
                 },
             ];
-            let pr = prove_batch(&p, &pds, &stmts, &[9u8; 32]);
+            let pr = prove_batch_seeded(&p, &pds, &stmts, &[9u8; 32]);
             assert_eq!(verify_batch(&p, &roots, &stmts, &pr), Ok(()), "n={n}");
             // sub-batches of one kind
             for sub in [&stmts[..1], &stmts[2..3], &stmts[3..4], &stmts[2..]] {
-                let pr = prove_batch(&p, &pds, sub, &[10u8; 32]);
+                let pr = prove_batch_seeded(&p, &pds, sub, &[10u8; 32]);
                 assert_eq!(verify_batch(&p, &roots, sub, &pr), Ok(()), "n={n} sub");
             }
             // one false statement among true ones is rejected
@@ -901,7 +917,7 @@ mod tests {
             let mut bad_had = stmts.clone();
             bad_had[1] = Stmt::Had { a: 1, b: 3, c: 3 }; // b o d != d
             for (name, st) in [("eval", &bad_eval), ("ip", &bad_ip), ("had", &bad_had)] {
-                let pr = prove_batch(&p, &pds, st, &[11u8; 32]);
+                let pr = prove_batch_seeded(&p, &pds, st, &[11u8; 32]);
                 assert_eq!(
                     verify_batch(&p, &roots, st, &pr),
                     Err(Error::Fold),
@@ -920,7 +936,7 @@ mod tests {
     }
 
     fn pr_ok<E: ExtField>(p: &Params, pds: &[&ProverData], s: &[Stmt<E>]) -> BatchProof<E> {
-        prove_batch(p, pds, s, &[12u8; 32])
+        prove_batch_seeded(p, pds, s, &[12u8; 32])
     }
 
     #[test]

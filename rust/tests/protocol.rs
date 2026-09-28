@@ -49,8 +49,8 @@ fn completeness<E: ExtField>(max_n: usize) {
                     };
                     let table: Vec<Fp> = (0..1 << n).map(|_| rng.fp()).collect();
                     let z: Vec<E> = (0..n).map(|_| rng.e()).collect();
-                    let (root, pd) = commit_table(&p, &table, &[7u8; 32]);
-                    let (v, proof) = open(&p, &pd, &z, &[8u8; 32]);
+                    let (root, pd) = commit_table(&p, &table).unwrap();
+                    let (v, proof) = open(&p, &pd, &z).unwrap();
                     assert_eq!(v, eval_table(&table, &z), "value n={n} R={r} l={ell}");
                     assert_eq!(
                         verify(&p, &root, &z, v, &proof),
@@ -96,8 +96,8 @@ fn tampering_is_rejected() {
         };
         let alpha: Vec<Fp> = (0..1 << n).map(|_| rng.fp()).collect();
         let z: Vec<Fp2> = (0..n).map(|_| rng.e()).collect();
-        let (root, pd) = commit_coeffs(&p, &alpha, &[1u8; 32]);
-        let (v, proof) = open(&p, &pd, &z, &[2u8; 32]);
+        let (root, pd) = commit_coeffs(&p, &alpha).unwrap();
+        let (v, proof) = open(&p, &pd, &z).unwrap();
         assert!(verify(&p, &root, &z, v, &proof).is_ok());
 
         // wrong value, wrong point
@@ -107,11 +107,11 @@ fn tampering_is_rejected() {
         assert!(verify(&p, &root, &z2, v, &proof).is_err());
         // other commitment
         let alpha2: Vec<Fp> = (0..1 << n).map(|_| rng.fp()).collect();
-        let (root2, _) = commit_coeffs(&p, &alpha2, &[1u8; 32]);
+        let (root2, _) = commit_coeffs(&p, &alpha2).unwrap();
         assert!(verify(&p, &root2, &z, v, &proof).is_err());
         // a proof for another polynomial, checked against the original commitment
-        let (_, pd2) = commit_coeffs(&p, &alpha2, &[1u8; 32]);
-        let (v2, proof2) = open(&p, &pd2, &z, &[2u8; 32]);
+        let (_, pd2) = commit_coeffs(&p, &alpha2).unwrap();
+        let (v2, proof2) = open(&p, &pd2, &z).unwrap();
         assert!(verify(&p, &root, &z, v2, &proof2).is_err());
 
         let mutations: Vec<Mutation> = vec![
@@ -183,8 +183,8 @@ fn arity_and_caps_agree() {
                 fold_log,
                 cap_log,
             };
-            let (root, pd) = commit_coeffs(&p, &alpha, &[1u8; 32]);
-            let (v, proof) = open(&p, &pd, &z, &[2u8; 32]);
+            let (root, pd) = commit_coeffs(&p, &alpha).unwrap();
+            let (v, proof) = open(&p, &pd, &z).unwrap();
             assert!(verify(&p, &root, &z, v, &proof).is_ok());
             sizes.push(((fold_log, cap_log), proof.size_bytes(), v));
         }

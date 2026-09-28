@@ -26,8 +26,23 @@ use crate::pcs::{
 use crate::poly::{horner, ntt, pfold};
 
 /// Commit to a table in table form: the table is the coefficient vector of V_f.
-pub fn commit_table_form(p: &Params, table: &[Fp], seed: &Digest) -> (Digest, ProverData) {
-    crate::pcs::commit_coeffs(p, table, seed)
+pub fn commit_table_form(p: &Params, table: &[Fp]) -> Result<(Digest, ProverData), Error> {
+    p.validate()?;
+    Ok(commit_table_form_seeded(
+        p,
+        table,
+        &crate::rand::fresh_seed()?,
+    ))
+}
+
+/// As [`commit_table_form`], with the seed of the prover's randomness given by the caller: for tests and
+/// test vectors only (feature `insecure-test-vectors`); the seed must never be reused.
+pub(crate) fn commit_table_form_seeded(
+    p: &Params,
+    table: &[Fp],
+    seed: &Digest,
+) -> (Digest, ProverData) {
+    crate::pcs::commit_coeffs_seeded(p, table, seed)
 }
 
 /// Product of two polynomials over F_p by NTT (length a.len() + b.len() - 1).
@@ -195,12 +210,23 @@ pub fn prove_ip<E: ExtField>(
     p: &Params,
     pda: &ProverData,
     pdb: &ProverData,
+) -> Result<(Fp, IpProof<E>), Error> {
+    p.validate()?;
+    Ok(prove_ip_seeded(p, pda, pdb, &crate::rand::fresh_seed()?))
+}
+
+/// As [`prove_ip`], with the seed of the prover's randomness given by the caller: for tests and
+/// test vectors only (feature `insecure-test-vectors`); the seed must never be reused.
+pub(crate) fn prove_ip_seeded<E: ExtField>(
+    p: &Params,
+    pda: &ProverData,
+    pdb: &ProverData,
     seed: &Digest,
 ) -> (Fp, IpProof<E>) {
     prove_ip_with(p, pda, pdb, seed, IpCheat::None)
 }
 
-pub fn prove_ip_with<E: ExtField>(
+pub(crate) fn prove_ip_with<E: ExtField>(
     p: &Params,
     pda: &ProverData,
     pdb: &ProverData,
@@ -614,7 +640,7 @@ mod tests {
             let p = Params::new(n, 2, 1, 1, 0);
             let (nn, m) = (p.big_n(), p.m());
             let b: Vec<Fp> = (0..nn).map(|_| rng.fp()).collect();
-            let (_, pd) = commit_table_form(&p, &b, &[0u8; 32]);
+            let (_, pd) = commit_table_form_seeded(&p, &b, &[0u8; 32]);
             let brev: Vec<Fp> = b.iter().rev().copied().collect();
             let omega = p.omega();
             for i in 0..m {
@@ -647,9 +673,9 @@ mod tests {
                 };
                 let a: Vec<Fp> = (0..1 << n).map(|_| rng.fp()).collect();
                 let b: Vec<Fp> = (0..1 << n).map(|_| rng.fp()).collect();
-                let (ra, pda) = commit_table_form(&p, &a, &[1u8; 32]);
-                let (rb, pdb) = commit_table_form(&p, &b, &[2u8; 32]);
-                let (s, proof) = prove_ip::<E>(&p, &pda, &pdb, &[3u8; 32]);
+                let (ra, pda) = commit_table_form_seeded(&p, &a, &[1u8; 32]);
+                let (rb, pdb) = commit_table_form_seeded(&p, &b, &[2u8; 32]);
+                let (s, proof) = prove_ip_seeded::<E>(&p, &pda, &pdb, &[3u8; 32]);
                 let direct = a.iter().zip(&b).fold(Fp::ZERO, |acc, (&x, &y)| acc + x * y);
                 assert_eq!(s, direct);
                 assert_eq!(verify_ip(&p, &ra, &rb, s, &proof), Ok(()), "n={n} l={ell}");

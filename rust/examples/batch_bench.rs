@@ -69,8 +69,7 @@ fn main() {
         let d: Vec<Fp> = (0..nn).map(|_| rng.fp()).collect();
         let com: Vec<(Digest, ProverData)> = [&a, &b, &c, &d]
             .iter()
-            .enumerate()
-            .map(|(i, t)| commit_table_form(&p, t, &[i as u8 + 1; 32]))
+            .map(|t| commit_table_form(&p, t).unwrap())
             .collect();
         let roots: Vec<Digest> = com.iter().map(|x| x.0).collect();
         let pds: Vec<&ProverData> = com.iter().map(|x| &x.1).collect();
@@ -95,7 +94,7 @@ fn main() {
         let (mut bsize, mut ssize) = (0, 0);
         for _ in 0..reps {
             let t = Instant::now();
-            let pr = prove_batch(&p, &pds, &stmts, &[9u8; 32]);
+            let pr = prove_batch(&p, &pds, &stmts).unwrap();
             bp.push(ms(t));
             let t = Instant::now();
             assert!(verify_batch(&p, &roots, &stmts, &pr).is_ok());
@@ -105,7 +104,7 @@ fn main() {
             for st in &stmts {
                 let one = std::slice::from_ref(st);
                 let t = Instant::now();
-                let pr = prove_batch(&p, &pds, one, &[9u8; 32]);
+                let pr = prove_batch(&p, &pds, one).unwrap();
                 tp += ms(t);
                 let t = Instant::now();
                 assert!(verify_batch(&p, &roots, one, &pr).is_ok());

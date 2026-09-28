@@ -12,10 +12,11 @@
 //! let p = Params::recommended(10, 148, 32);
 //! let table: Vec<Fp> = (0..1u64 << 10).map(Fp::new).collect(); // f on {0,1}^10
 //! let z: Vec<Fp2> = (0..10u64).map(|i| Fp2(Fp::new(3 + i), Fp::new(7 * i))).collect();
-//! // The seeds derive the Merkle salts: use fresh, secret randomness for every call.
-//! let (root, pd) = commit_table(&p, &table, &[0x11; 32]);
-//! let (v, proof) = open(&p, &pd, &z, &[0x22; 32]); // v = f(z)
+//! // The salts of the Merkle trees are drawn from the operating system.
+//! let (root, pd) = commit_table(&p, &table)?;
+//! let (v, proof) = open(&p, &pd, &z)?; // v = f(z)
 //! assert!(verify(&p, &root, &z, v, &proof).is_ok());
+//! # Ok::<(), kronecker_fri::error::Error>(())
 //! ```
 //!
 //! The modules `field`, `poly`, `merkle` and `pcs` implement the paper and form the stable API.
@@ -62,5 +63,69 @@ mod par;
 pub mod pcs;
 pub mod poly;
 pub mod r1cs;
+mod rand;
 pub mod spartan;
 pub mod sumcheck;
+
+/// Seeded provers for test vectors and reproducible digests (feature `insecure-test-vectors`).
+///
+/// **Insecure:** the seed determines every salt of the proof, so a reused or public seed breaks
+/// hiding and zero knowledge. Never enable this feature in production code.
+#[cfg(feature = "insecure-test-vectors")]
+#[doc(hidden)]
+pub mod insecure {
+    use crate::field::{ExtField, Fp};
+    use crate::merkle::Digest;
+    use crate::pcs::{Params, Proof, ProverData};
+
+    pub fn commit_coeffs(p: &Params, alpha: &[Fp], seed: &Digest) -> (Digest, ProverData) {
+        crate::pcs::commit_coeffs_seeded(p, alpha, seed)
+    }
+    pub fn commit_table(p: &Params, table: &[Fp], seed: &Digest) -> (Digest, ProverData) {
+        crate::pcs::commit_table_seeded(p, table, seed)
+    }
+    pub fn open<E: ExtField>(p: &Params, pd: &ProverData, z: &[E], seed: &Digest) -> (E, Proof<E>) {
+        crate::pcs::open_seeded(p, pd, z, seed)
+    }
+    pub fn commit_table_form(p: &Params, table: &[Fp], seed: &Digest) -> (Digest, ProverData) {
+        crate::ip::commit_table_form_seeded(p, table, seed)
+    }
+    pub fn prove_ip<E: ExtField>(
+        p: &Params,
+        pda: &ProverData,
+        pdb: &ProverData,
+        seed: &Digest,
+    ) -> (Fp, crate::ip::IpProof<E>) {
+        crate::ip::prove_ip_seeded(p, pda, pdb, seed)
+    }
+    pub fn prove_had<E: ExtField>(
+        p: &Params,
+        pda: &ProverData,
+        pdb: &ProverData,
+        pdc: &ProverData,
+        seed: &Digest,
+    ) -> crate::had::HadProof<E> {
+        crate::had::prove_had_seeded(p, pda, pdb, pdc, seed)
+    }
+    pub fn prove_batch<E: ExtField>(
+        p: &Params,
+        pds: &[&ProverData],
+        stmts: &[crate::batch::Stmt<E>],
+        seed: &Digest,
+    ) -> crate::batch::BatchProof<E> {
+        crate::batch::prove_batch_seeded(p, pds, stmts, seed)
+    }
+    pub fn index(p: &Params, r: &crate::r1cs::R1cs, seed: &Digest) -> crate::r1cs::Index {
+        crate::r1cs::index_seeded(p, r, seed)
+    }
+    pub fn prove_r1cs<E: ExtField>(
+        p: &Params,
+        r: &crate::r1cs::R1cs,
+        idx: &crate::r1cs::Index,
+        x: &[Fp],
+        wit: &[Fp],
+        seed: &Digest,
+    ) -> crate::r1cs::R1csProof<E> {
+        crate::r1cs::prove_r1cs_seeded(p, r, idx, x, wit, seed)
+    }
+}

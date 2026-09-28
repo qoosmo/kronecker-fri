@@ -34,12 +34,12 @@ fn main() {
         let reps = if n >= 16 { 3 } else { 5 };
         let (r, x, wit) = sample_instance(n, 2, 2, 99 + n as u64);
         let t = Instant::now();
-        let idx = index(&p, &r, &[1u8; 32]);
+        let idx = index(&p, &r).unwrap();
         let tidx = ms(t);
         let (mut pv, mut vv, mut size) = (vec![], vec![], 0);
         for _ in 0..reps {
             let t = Instant::now();
-            let pr = prove_r1cs::<Fp2>(&p, &r, &idx, &x, &wit, &[2u8; 32]);
+            let pr = prove_r1cs::<Fp2>(&p, &r, &idx, &x, &wit).unwrap();
             pv.push(ms(t));
             let t = Instant::now();
             assert_eq!(verify_r1cs(&p, &r, &idx.root, &x, &pr), Ok(()));

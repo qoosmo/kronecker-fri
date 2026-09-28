@@ -26,10 +26,10 @@ let p = Params::recommended(16, 148, 32);
 let table: Vec<Fp> = (0..1u64 << 16).map(Fp::new).collect(); // f on {0,1}^16
 let z: Vec<Fp2> = (0..16u64).map(|i| Fp2(Fp::new(3 + i), Fp::new(7 * i))).collect();
 
-// The seeds derive the Merkle salts: use fresh, secret randomness for every call.
-let (root, pd) = commit_table(&p, &table, &[0x11; 32]);
-let (v, proof) = open(&p, &pd, &z, &[0x22; 32]); // v = f(z)
-assert!(verify(&p, &root, &z, v, &proof).is_ok());
+// The salts of the Merkle trees are drawn from the operating system.
+let (root, pd) = commit_table(&p, &table)?;
+let (v, proof) = open(&p, &pd, &z)?; // v = f(z)
+verify(&p, &root, &z, v, &proof)?;
 ```
 
 ## Modules
@@ -75,7 +75,7 @@ cargo run --release --features parallel --example ip_bench  # multithreaded prov
   bit `k-1`, z_k is `z[k-1]`, r_j is `rs[j-1]`.
 - Position i of a word on L_j is omega_j^i; the fibre over position k of L_{j+1} is
   {k, k + M_{j+1}}; a Merkle leaf holds one fibre.
-- The seeds passed to `commit_*` and `open` derive all salts; they must be fresh and secret.
+- The prover's randomness (the seeds of the Merkle salts) comes from the operating system's secure random number generator; the API takes no seeds. Seeded provers for test vectors exist only behind the feature `insecure-test-vectors`.
 
 ## Status
 

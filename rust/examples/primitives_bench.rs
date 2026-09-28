@@ -48,15 +48,15 @@ fn main() {
         let a: Vec<Fp> = (0..p.big_n()).map(|_| next()).collect();
         let b: Vec<Fp> = (0..p.big_n()).map(|_| next()).collect();
         let c: Vec<Fp> = a.iter().zip(&b).map(|(&x, &y)| x * y).collect();
-        let ga = commit_one(&p, &a, &[1u8; 32]);
-        let gb = commit_one(&p, &b, &[2u8; 32]);
-        let gc = commit_one(&p, &c, &[3u8; 32]);
+        let ga = commit_one(&p, &a).unwrap();
+        let gb = commit_one(&p, &b).unwrap();
+        let gc = commit_one(&p, &c).unwrap();
         let (ra, rb, rc) = (ga.tree.root(), gb.tree.root(), gc.tree.root());
         let mut t = vec![vec![]; 8];
         let mut sz = [0usize; 4];
         for _ in 0..reps {
             let t0 = Instant::now();
-            let (sv, pr) = prove_ip_sf::<Fp2>(&p, [&ga, &gb], &[4u8; 32]);
+            let (sv, pr) = prove_ip_sf::<Fp2>(&p, [&ga, &gb]).unwrap();
             t[0].push(ms(t0));
             let t0 = Instant::now();
             assert_eq!(verify_ip_sf(&p, [ra, rb], sv, &pr), Ok(()));
@@ -64,7 +64,7 @@ fn main() {
             sz[0] = pr.size_bytes();
 
             let t0 = Instant::now();
-            let (sv, pr) = prove_ip_sc::<Fp2>(&p, [&ga, &gb], &[5u8; 32]);
+            let (sv, pr) = prove_ip_sc::<Fp2>(&p, [&ga, &gb]).unwrap();
             t[2].push(ms(t0));
             let t0 = Instant::now();
             assert_eq!(verify_ip_sc(&p, [ra, rb], sv, &pr), Ok(()));
@@ -72,7 +72,7 @@ fn main() {
             sz[1] = pr.size_bytes();
 
             let t0 = Instant::now();
-            let pr = prove_had_sf::<Fp2>(&p, [&ga, &gb, &gc], &[6u8; 32]);
+            let pr = prove_had_sf::<Fp2>(&p, [&ga, &gb, &gc]).unwrap();
             t[4].push(ms(t0));
             let t0 = Instant::now();
             assert_eq!(verify_had_sf(&p, [ra, rb, rc], &pr), Ok(()));
@@ -80,7 +80,7 @@ fn main() {
             sz[2] = pr.size_bytes();
 
             let t0 = Instant::now();
-            let pr = prove_had_sc::<Fp2>(&p, [&ga, &gb, &gc], &[7u8; 32]);
+            let pr = prove_had_sc::<Fp2>(&p, [&ga, &gb, &gc]).unwrap();
             t[6].push(ms(t0));
             let t0 = Instant::now();
             assert_eq!(verify_had_sc(&p, [ra, rb, rc], &pr), Ok(()));

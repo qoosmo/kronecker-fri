@@ -34,7 +34,7 @@ fn main() {
             (vec![], vec![], vec![], vec![], vec![], 0);
         for _ in 0..reps {
             let t = Instant::now();
-            let (pf, tm) = prove_spartan::<Fp2>(&p, &r, &x, &wit, &[2u8; 32]);
+            let (pf, tm) = prove_spartan::<Fp2>(&p, &r, &x, &wit).unwrap();
             pv.push(t.elapsed().as_secs_f64() * 1e3);
             cv.push(tm.commit * 1e3);
             sv.push(tm.sumchecks * 1e3);

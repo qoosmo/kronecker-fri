@@ -134,6 +134,22 @@ pub struct GroupData<T> {
 pub fn commit_group<T: Field + core::ops::Mul<Fp, Output = T>>(
     p: &Params,
     coeffs: Vec<Vec<T>>,
+    label: &[u8],
+) -> Result<GroupData<T>, Error> {
+    p.validate()?;
+    Ok(commit_group_seeded(
+        p,
+        coeffs,
+        &crate::rand::fresh_seed()?,
+        label,
+    ))
+}
+
+/// As [`commit_group`], with the seed of the prover's randomness given by the caller: for tests and
+/// test vectors only (feature `insecure-test-vectors`); the seed must never be reused.
+pub(crate) fn commit_group_seeded<T: Field + core::ops::Mul<Fp, Output = T>>(
+    p: &Params,
+    coeffs: Vec<Vec<T>>,
     seed: &Digest,
     label: &[u8],
 ) -> GroupData<T> {
@@ -372,6 +388,26 @@ fn absorb_stmts<E: ExtField>(tr: &mut Transcript, stmts: &[AStmt<E>]) {
 pub fn prove_affine<E: ExtField>(
     p: &Params,
     tr: &mut Transcript,
+    first_round: usize,
+    groups: &[GData<E>],
+    stmts: &[AStmt<E>],
+) -> Result<AffineProof<E>, Error> {
+    p.validate()?;
+    Ok(prove_affine_seeded(
+        p,
+        tr,
+        &crate::rand::fresh_seed()?,
+        first_round,
+        groups,
+        stmts,
+    ))
+}
+
+/// As [`prove_affine`], with the seed of the prover's randomness given by the caller: for tests and
+/// test vectors only (feature `insecure-test-vectors`); the seed must never be reused.
+pub(crate) fn prove_affine_seeded<E: ExtField>(
+    p: &Params,
+    tr: &mut Transcript,
     seed: &Digest,
     first_round: usize,
     groups: &[GData<E>],
@@ -456,7 +492,7 @@ pub fn prove_affine<E: ExtField>(
     let tree_q = if pl.had.is_empty() {
         None
     } else {
-        Some(commit_group(p, qcoef.clone(), seed, b"affine-Q"))
+        Some(commit_group_seeded(p, qcoef.clone(), seed, b"affine-Q"))
     };
     if let Some(t) = &tree_q {
         tr.absorb(b"root", &t.tree.root());
@@ -503,7 +539,7 @@ pub fn prove_affine<E: ExtField>(
         tr.absorb(b"y1", &e_bytes(y1));
         tr.absorb(b"y3", &e_bytes(y3));
     }
-    let tree_w = commit_group(p, acoef.clone(), seed, b"affine-A");
+    let tree_w = commit_group_seeded(p, acoef.clone(), seed, b"affine-A");
     tr.absorb(b"root", &tree_w.tree.root());
     salts.push(round_salt(seed, first_round + 1, p.salt_len));
     tr.absorb(b"salt", salts.last().unwrap());
