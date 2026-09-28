@@ -66,7 +66,7 @@ fn main() {
             let (v, proof) = open::<Fp2>(&p, &pda, &z, &[3u8; 32]);
             ko.push(ms(t));
             let t = Instant::now();
-            assert!(verify(&p, &ra, &z, v, &proof));
+            assert!(verify(&p, &ra, &z, v, &proof).is_ok());
             kv.push(ms(t));
             kf_size = proof.size_bytes();
 
@@ -74,7 +74,7 @@ fn main() {
             let (s, ipr) = prove_ip::<Fp2>(&p, &pda, &pdb, &[4u8; 32]);
             ipp.push(ms(t));
             let t = Instant::now();
-            assert!(verify_ip(&p, &ra, &rb, s, &ipr));
+            assert!(verify_ip(&p, &ra, &rb, s, &ipr).is_ok());
             ipv.push(ms(t));
             ip_size = ipr.size_bytes();
 
@@ -83,7 +83,7 @@ fn main() {
             let hpr = prove_had::<Fp2>(&p, &pda, &pdb, &pdc, &[6u8; 32]);
             hp.push(ms(t));
             let t = Instant::now();
-            assert!(verify_had(&p, [&ra, &rb, &rc], &hpr));
+            assert!(verify_had(&p, [&ra, &rb, &rc], &hpr).is_ok());
             hv.push(ms(t));
             had_size = hpr.size_bytes();
         }

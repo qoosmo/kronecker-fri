@@ -71,7 +71,7 @@ fn run<E: ExtField>(p: &Params, reps: usize, seed: u64) -> Row {
     let mut ve = vec![];
     for _ in 0..21 {
         let t = Instant::now();
-        let ok = verify(p, &root, &z, v, &proof);
+        let ok = verify(p, &root, &z, v, &proof).is_ok();
         ve.push(ms(t));
         assert!(ok);
     }

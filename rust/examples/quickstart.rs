@@ -19,7 +19,7 @@ fn main() {
 
     let (root, pd) = commit_table(&p, &table, &commit_seed);
     let (v, proof) = open(&p, &pd, &z, &open_seed); // v = f(z)
-    assert!(verify(&p, &root, &z, v, &proof));
+    assert!(verify(&p, &root, &z, v, &proof).is_ok());
     println!("f(z) = {:?}", v);
     println!("proof size: {:.1} KiB", proof.size_bytes() as f64 / 1024.0);
     println!("verified: ok");

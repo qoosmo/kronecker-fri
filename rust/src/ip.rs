@@ -14,6 +14,7 @@
 //! The inverse of the coset above position a of L_g is the coset above position (M_g - a) mod M_g,
 //! so each query opens w_a and w_A on one coset and w_b on one coset, as `pcs` does for y and w_A.
 
+use crate::error::Error;
 use crate::field::{ExtField, Field, Fp};
 use crate::merkle::{
     Digest, GroupOpening, MerkleTree, Transcript, root_from_cap, verify_group_capped,
@@ -368,25 +369,15 @@ pub fn prove_ip_with<E: ExtField>(
     )
 }
 
+/// Verifier with the reason for rejection: "shape", "merkle" or "fold".
 pub fn verify_ip<E: ExtField>(
     p: &Params,
     root_a: &Digest,
     root_b: &Digest,
     s: Fp,
     proof: &IpProof<E>,
-) -> bool {
-    verify_ip_detail(p, root_a, root_b, s, proof).is_ok()
-}
-
-/// Verifier with the reason for rejection: "shape", "merkle" or "fold".
-pub fn verify_ip_detail<E: ExtField>(
-    p: &Params,
-    root_a: &Digest,
-    root_b: &Digest,
-    s: Fp,
-    proof: &IpProof<E>,
-) -> Result<(), &'static str> {
-    p.check();
+) -> Result<(), Error> {
+    p.validate()?;
     let (nn, m, ell) = (p.big_n(), p.m(), p.ell);
     let groups = p.groups();
     let g0 = groups[0].1;
@@ -402,14 +393,14 @@ pub fn verify_ip_detail<E: ExtField>(
             .any(|o| o.ya.len() != h0 || o.wa.len() != h0)
         || proof.levelb.iter().any(|o| o.yb.len() != h0)
     {
-        return Err("shape");
+        return Err(Error::Shape);
     }
     for (i, &(_, g)) in groups.iter().enumerate().skip(1) {
         if proof.levels[i - 1]
             .iter()
             .any(|o| o.vals.len() != 1 << (g - 1))
         {
-            return Err("shape");
+            return Err(Error::Shape);
         }
     }
     let sl = p.salt_len;
@@ -430,7 +421,7 @@ pub fn verify_ip_detail<E: ExtField>(
             .iter()
             .any(|o| !op_ok(&o.open, depth0, g0 - 1, c0))
     {
-        return Err("shape");
+        return Err(Error::Shape);
     }
     for (i, &(jc, g)) in groups.iter().enumerate().skip(1) {
         let leaves = (m >> jc) / 2;
@@ -440,15 +431,15 @@ pub fn verify_ip_detail<E: ExtField>(
                 .iter()
                 .any(|o| !op_ok(&o.open, depth, g - 1, c))
         {
-            return Err("shape");
+            return Err(Error::Shape);
         }
     }
-    if root_from_cap(&proof.cap_a) != *root_a || root_from_cap(&proof.cap_b) != *root_b {
-        return Err("merkle");
+    if root_from_cap(&proof.cap_a)? != *root_a || root_from_cap(&proof.cap_b)? != *root_b {
+        return Err(Error::Merkle);
     }
     let omega = p.omega();
     let mut tr = init_transcript(p, root_a, root_b, s, E::DEGREE);
-    tr.absorb(b"root", &root_from_cap(&proof.cap_w));
+    tr.absorb(b"root", &root_from_cap(&proof.cap_w)?);
     tr.absorb(b"salt", &proof.round_salts[0]);
     let beta: E = tr.challenge();
     let (beta2, beta3) = (beta * beta, beta * beta * beta);
@@ -456,7 +447,7 @@ pub fn verify_ip_detail<E: ExtField>(
     let mut ci = 0;
     for j in 1..=ell {
         if j >= 2 && groups.iter().any(|&(st, _)| st == j - 1) {
-            tr.absorb(b"root", &root_from_cap(&proof.caps[ci]));
+            tr.absorb(b"root", &root_from_cap(&proof.caps[ci])?);
             ci += 1;
         }
         tr.absorb(b"salt", &proof.round_salts[j]);
@@ -476,13 +467,13 @@ pub fn verify_ip_detail<E: ExtField>(
         || proof.levelb.len() != posb.len()
         || proof.levelb.iter().zip(&posb).any(|(o, &a)| o.pos != a)
     {
-        return Err("shape");
+        return Err(Error::Shape);
     }
     for (gi, &(jc, g)) in groups.iter().enumerate().skip(1) {
         let pj = distinct_positions(&idx, m >> (jc + g));
         let lv = &proof.levels[gi - 1];
         if lv.len() != pj.len() || lv.iter().zip(&pj).any(|(o, &a)| o.pos != a) {
-            return Err("shape");
+            return Err(Error::Shape);
         }
     }
     for o in &proof.level0 {
@@ -491,20 +482,20 @@ pub fn verify_ip_detail<E: ExtField>(
         if !verify_group_capped(&proof.cap_a, o.pos << (g0 - 1), g0 - 1, &ad, &o.ya_open)
             || !verify_group_capped(&proof.cap_w, o.pos << (g0 - 1), g0 - 1, &wd, &o.wa_open)
         {
-            return Err("merkle");
+            return Err(Error::Merkle);
         }
     }
     for o in &proof.levelb {
         let bd: Vec<Vec<u8>> = o.yb.iter().map(|[x, y]| pair_bytes(x, y)).collect();
         if !verify_group_capped(&proof.cap_b, o.pos << (g0 - 1), g0 - 1, &bd, &o.open) {
-            return Err("merkle");
+            return Err(Error::Merkle);
         }
     }
     for (gi, &(_, g)) in groups.iter().enumerate().skip(1) {
         for o in &proof.levels[gi - 1] {
             let d: Vec<Vec<u8>> = o.vals.iter().map(|[x, y]| pair_bytes(x, y)).collect();
             if !verify_group_capped(&proof.caps[gi - 1], o.pos << (g - 1), g - 1, &d, &o.open) {
-                return Err("merkle");
+                return Err(Error::Merkle);
             }
         }
     }
@@ -542,14 +533,14 @@ pub fn verify_ip_detail<E: ExtField>(
             let vals = unpair(&o.vals);
             let pos = i0 % (m >> jc);
             if vals[(pos - aj) / mg] != value {
-                return Err("fold");
+                return Err(Error::Fold);
             }
             value = fold_coset(vals, aj, jc, mg, &rs, m, omega);
         }
         let pos = i0 % (m >> ell);
         let eta = omega.pow((pos as u64) << ell);
         if value != horner(&proof.p, E::from(eta)) {
-            return Err("fold");
+            return Err(Error::Fold);
         }
     }
     Ok(())
@@ -661,21 +652,17 @@ mod tests {
                 let (s, proof) = prove_ip::<E>(&p, &pda, &pdb, &[3u8; 32]);
                 let direct = a.iter().zip(&b).fold(Fp::ZERO, |acc, (&x, &y)| acc + x * y);
                 assert_eq!(s, direct);
-                assert_eq!(
-                    verify_ip_detail(&p, &ra, &rb, s, &proof),
-                    Ok(()),
-                    "n={n} l={ell}"
-                );
+                assert_eq!(verify_ip(&p, &ra, &rb, s, &proof), Ok(()), "n={n} l={ell}");
                 // wrong claim, wrong commitment order, and the three cheating provers
-                assert!(!verify_ip(&p, &ra, &rb, s + Fp::ONE, &proof));
+                assert!(verify_ip(&p, &ra, &rb, s + Fp::ONE, &proof).is_err());
                 if a != b {
-                    assert!(!verify_ip(&p, &rb, &ra, s, &proof));
+                    assert!(verify_ip(&p, &rb, &ra, s, &proof).is_err());
                 }
                 for cheat in [IpCheat::WrongValue, IpCheat::AbsorbInA, IpCheat::OtherB] {
                     let (s1, pr1) = prove_ip_with::<E>(&p, &pda, &pdb, &[4u8; 32], cheat);
                     assert_eq!(
-                        verify_ip_detail(&p, &ra, &rb, s1, &pr1),
-                        Err("fold"),
+                        verify_ip(&p, &ra, &rb, s1, &pr1),
+                        Err(Error::Fold),
                         "n={n} l={ell} {cheat:?}"
                     );
                 }

@@ -19,6 +19,7 @@
 //!   Had(h^R, x_R one - row - y_R e, one), Had(g^R, x_R one - id - y_R G_gamma, mR),
 //!   IP(h^R, one) = IP(g^R, one); the same for the columns with (col, u) and (id, z).
 
+use crate::error::Error;
 use crate::field::{ExtField, Field, Fp};
 
 /// V_one(x) = sum_{w < N} x^w = prod_{k < n} (1 + x^{2^k}).
@@ -154,7 +155,7 @@ pub fn check<E: ExtField>(
     r1: &Round1<E>,
     r2: &Round2<E>,
     ch: &Chal<E>,
-) -> Result<(), &'static str> {
+) -> Result<(), Error> {
     let nn = 1usize << m.n;
     let (mr, mc) = m.multiplicities();
     let fe = |w: usize| E::from(Fp::new(w as u64));
@@ -162,31 +163,31 @@ pub fn check<E: ExtField>(
     let s1 = (0..nn).fold(E::ZERO, |s, w| s + ch.gamma.pow(w as u64) * a[w]);
     let s2 = (0..nn).fold(E::ZERO, |s, k| s + r1.p[k] * m.val[k]);
     if s1 != s2 {
-        return Err("weighted sum");
+        return Err(Error::Check("weighted sum"));
     }
     // Had(e, u, p)
     if (0..nn).any(|k| r1.e[k] * r1.u[k] != r1.p[k]) {
-        return Err("hadamard p");
+        return Err(Error::Check("hadamard p"));
     }
     // row lookup
     if (0..nn).any(|k| r2.hr[k] * (ch.xr - fe(m.row[k]) - ch.yr * r1.e[k]) != E::ONE)
         || (0..nn)
             .any(|w| r2.gr[w] * (ch.xr - fe(w) - ch.yr * ch.gamma.pow(w as u64)) != E::from(mr[w]))
     {
-        return Err("row hadamard");
+        return Err(Error::Check("row hadamard"));
     }
     let sum = |v: &[E]| v.iter().fold(E::ZERO, |s, &x| s + x);
     if sum(&r2.hr) != sum(&r2.gr) {
-        return Err("row lookup");
+        return Err(Error::Check("row lookup"));
     }
     // column lookup
     if (0..nn).any(|k| r2.hc[k] * (ch.xc - fe(m.col[k]) - ch.yc * r1.u[k]) != E::ONE)
         || (0..nn).any(|w| r2.gc[w] * (ch.xc - fe(w) - ch.yc * E::from(z[w])) != E::from(mc[w]))
     {
-        return Err("column hadamard");
+        return Err(Error::Check("column hadamard"));
     }
     if sum(&r2.hc) != sum(&r2.gc) {
-        return Err("column lookup");
+        return Err(Error::Check("column lookup"));
     }
     Ok(())
 }
@@ -266,7 +267,10 @@ mod tests {
             } else {
                 a_bad
             };
-            assert_eq!(check(&m, &z, &a_bad, &r1, &r2, &ch), Err("weighted sum"));
+            assert_eq!(
+                check(&m, &z, &a_bad, &r1, &r2, &ch),
+                Err(Error::Check("weighted sum"))
+            );
             let diff = (0..1usize << n).fold(E::ZERO, |s, w| {
                 s + ch.gamma.pow(w as u64) * (E::from(a_bad[w]) - E::from(a[w]))
             });
@@ -279,7 +283,7 @@ mod tests {
             let f2 = round2(&m, &z, &f1, &ch);
             assert_eq!(
                 check(&m, &z, &a_bad, &f1, &f2, &ch),
-                Err("column lookup"),
+                Err(Error::Check("column lookup")),
                 "n={n}"
             );
             // forge e_{k0} instead: the row lookup fails
@@ -289,7 +293,7 @@ mod tests {
             let g2 = round2(&m, &z, &g1, &ch);
             assert_eq!(
                 check(&m, &z, &a_bad, &g1, &g2, &ch),
-                Err("row lookup"),
+                Err(Error::Check("row lookup")),
                 "n={n}"
             );
         }

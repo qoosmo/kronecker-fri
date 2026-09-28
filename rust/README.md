@@ -29,7 +29,7 @@ let z: Vec<Fp2> = (0..16u64).map(|i| Fp2(Fp::new(3 + i), Fp::new(7 * i))).collec
 // The seeds derive the Merkle salts: use fresh, secret randomness for every call.
 let (root, pd) = commit_table(&p, &table, &[0x11; 32]);
 let (v, proof) = open(&p, &pd, &z, &[0x22; 32]); // v = f(z)
-assert!(verify(&p, &root, &z, v, &proof));
+assert!(verify(&p, &root, &z, v, &proof).is_ok());
 ```
 
 ## Modules
@@ -40,8 +40,9 @@ Stable API (the paper):
 |---|---|
 | `field` | Goldilocks F_q, q = 2^64 - 2^32 + 1, and its extensions F_{q^2}, F_{q^4} |
 | `poly` | Moebius transform, NTT, kernel polynomial, opening polynomials, kernel folds |
+| `error` | `Error`, returned by every verifier and by `Params::validate` |
 | `merkle` | salted BLAKE3 Merkle trees with fibre leaves and caps, Fiat-Shamir transcript |
-| `pcs` | `Params`, `commit_table`, `commit_coeffs`, `open`, `verify`, `verify_detail` |
+| `pcs` | `Params`, `commit_table`, `commit_coeffs`, `open`, `verify` |
 
 Research prototypes (the research note; their API may change between versions):
 

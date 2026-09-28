@@ -1,7 +1,7 @@
 //! End-to-end tests of Pi_KF (Section 9.5): completeness over all parameter shapes, and rejection
 //! of tampered proofs.
 use kronecker_fri::field::{ExtField, Field, Fp, Fp2, Fp4};
-use kronecker_fri::pcs::{Params, commit_coeffs, commit_table, open, verify, verify_detail};
+use kronecker_fri::pcs::{Params, commit_coeffs, commit_table, open, verify};
 
 struct Rng(u64);
 impl Rng {
@@ -53,7 +53,7 @@ fn completeness<E: ExtField>(max_n: usize) {
                     let (v, proof) = open(&p, &pd, &z, &[8u8; 32]);
                     assert_eq!(v, eval_table(&table, &z), "value n={n} R={r} l={ell}");
                     assert_eq!(
-                        verify_detail(&p, &root, &z, v, &proof),
+                        verify(&p, &root, &z, v, &proof),
                         Ok(()),
                         "n={n} R={r} l={ell} salt={salt_len} k={fold_log} c={cap_log}"
                     );
@@ -98,21 +98,21 @@ fn tampering_is_rejected() {
         let z: Vec<Fp2> = (0..n).map(|_| rng.e()).collect();
         let (root, pd) = commit_coeffs(&p, &alpha, &[1u8; 32]);
         let (v, proof) = open(&p, &pd, &z, &[2u8; 32]);
-        assert!(verify(&p, &root, &z, v, &proof));
+        assert!(verify(&p, &root, &z, v, &proof).is_ok());
 
         // wrong value, wrong point
-        assert!(!verify(&p, &root, &z, v + Fp2::ONE, &proof));
+        assert!(verify(&p, &root, &z, v + Fp2::ONE, &proof).is_err());
         let mut z2 = z.clone();
         z2[0] = z2[0] + Fp2::ONE;
-        assert!(!verify(&p, &root, &z2, v, &proof));
+        assert!(verify(&p, &root, &z2, v, &proof).is_err());
         // other commitment
         let alpha2: Vec<Fp> = (0..1 << n).map(|_| rng.fp()).collect();
         let (root2, _) = commit_coeffs(&p, &alpha2, &[1u8; 32]);
-        assert!(!verify(&p, &root2, &z, v, &proof));
+        assert!(verify(&p, &root2, &z, v, &proof).is_err());
         // a proof for another polynomial, checked against the original commitment
         let (_, pd2) = commit_coeffs(&p, &alpha2, &[1u8; 32]);
         let (v2, proof2) = open(&p, &pd2, &z, &[2u8; 32]);
-        assert!(!verify(&p, &root, &z, v2, &proof2));
+        assert!(verify(&p, &root, &z, v2, &proof2).is_err());
 
         let mutations: Vec<Mutation> = vec![
             Box::new(|pr| pr.level0[0].y[0][0] = pr.level0[0].y[0][0] + Fp::ONE),
@@ -148,17 +148,17 @@ fn tampering_is_rejected() {
             let mut pr = proof.clone();
             mt(&mut pr);
             assert!(
-                !verify(&p, &root, &z, v, &pr),
+                verify(&p, &root, &z, v, &pr).is_err(),
                 "mutation {i} accepted (n={n}, l={ell}, k={fold_log})"
             );
         }
         if !proof.caps.is_empty() {
             let mut pr = proof.clone();
             pr.levels[0][0].vals[0][1] = pr.levels[0][0].vals[0][1] + Fp2::ONE;
-            assert!(!verify(&p, &root, &z, v, &pr));
+            assert!(verify(&p, &root, &z, v, &pr).is_err());
             let mut pr = proof.clone();
             pr.caps[0][0][5] ^= 1;
-            assert!(!verify(&p, &root, &z, v, &pr));
+            assert!(verify(&p, &root, &z, v, &pr).is_err());
         }
     }
 }
@@ -185,7 +185,7 @@ fn arity_and_caps_agree() {
             };
             let (root, pd) = commit_coeffs(&p, &alpha, &[1u8; 32]);
             let (v, proof) = open(&p, &pd, &z, &[2u8; 32]);
-            assert!(verify(&p, &root, &z, v, &proof));
+            assert!(verify(&p, &root, &z, v, &proof).is_ok());
             sizes.push(((fold_log, cap_log), proof.size_bytes(), v));
         }
     }

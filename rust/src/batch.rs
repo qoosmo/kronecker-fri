@@ -13,6 +13,7 @@
 //! the reversed committed words, the w_Q, the w_A, the virtual words h, and the quotient words.
 //! gamma and theta are shared by all Hadamard checks.
 
+use crate::error::Error;
 use crate::field::{ExtField, Field, Fp, batch_inv};
 use crate::ft::{FtProof, ft_check_query, ft_prove, ft_replay, round_salt};
 use crate::had::{div_linear, poly_mul_e};
@@ -314,7 +315,7 @@ pub(crate) fn multi_check<T: Field>(
     ops: &[MultiOpening<T>],
     positions: &[usize],
     nwords: usize,
-) -> Result<(), &'static str> {
+) -> Result<(), Error> {
     let m = p.m();
     let g0 = p.groups()[0].1;
     let depth0 = (m / 2).trailing_zeros() as usize;
@@ -329,7 +330,7 @@ pub(crate) fn multi_check<T: Field>(
                 || o.open.salts.iter().any(|s| s.len() != p.salt_len)
         })
     {
-        return Err("shape");
+        return Err(Error::Shape);
     }
     for o in ops {
         let d: Vec<Vec<u8>> = o
@@ -338,7 +339,7 @@ pub(crate) fn multi_check<T: Field>(
             .map(|v| v.iter().flat_map(|[x, y]| pair_bytes(x, y)).collect())
             .collect();
         if !verify_group_capped(cap, o.pos << (g0 - 1), g0 - 1, &d, &o.open) {
-            return Err("merkle");
+            return Err(Error::Merkle);
         }
     }
     Ok(())
@@ -635,23 +636,14 @@ pub fn prove_batch_with<E: ExtField>(
     }
 }
 
+/// Verifier with the reason for rejection: "shape", "merkle" or "fold".
 pub fn verify_batch<E: ExtField>(
     p: &Params,
     roots: &[Digest],
     stmts: &[Stmt<E>],
     proof: &BatchProof<E>,
-) -> bool {
-    verify_batch_detail(p, roots, stmts, proof).is_ok()
-}
-
-/// Verifier with the reason for rejection: "shape", "merkle" or "fold".
-pub fn verify_batch_detail<E: ExtField>(
-    p: &Params,
-    roots: &[Digest],
-    stmts: &[Stmt<E>],
-    proof: &BatchProof<E>,
-) -> Result<(), &'static str> {
-    p.check();
+) -> Result<(), Error> {
+    p.validate()?;
     let (nn, m) = (p.big_n(), p.m());
     let omega = p.omega();
     let g0 = p.groups()[0].1;
@@ -662,7 +654,7 @@ pub fn verify_batch_detail<E: ExtField>(
             Stmt::Had { a, b, c } => [a, b, c].iter().any(|&&x| x >= roots.len()),
         })
     {
-        return Err("shape");
+        return Err(Error::Shape);
     }
     let lay = layout(stmts);
     let nw = lay.words(stmts.len());
@@ -674,20 +666,20 @@ pub fn verify_batch_detail<E: ExtField>(
         || proof.reversed.len() != lay.reversed.len()
         || (lay.nhad == 0 && (!proof.cap_q.is_empty() || !proof.oq.is_empty()))
     {
-        return Err("shape");
+        return Err(Error::Shape);
     }
     if proof
         .caps
         .iter()
         .zip(roots)
-        .any(|(c, r)| root_from_cap(c) != *r)
+        .any(|(c, r)| root_from_cap(c) != Ok(*r))
     {
-        return Err("merkle");
+        return Err(Error::Merkle);
     }
     let mut tr = init_transcript(p, roots, stmts);
     let gamma: E = draw_outside(&mut tr, None);
     if lay.nhad > 0 {
-        tr.absorb(b"root", &root_from_cap(&proof.cap_q));
+        tr.absorb(b"root", &root_from_cap(&proof.cap_q)?);
     }
     tr.absorb(b"salt", &proof.salts[0]);
     let theta: E = draw_outside(&mut tr, Some(gamma));
@@ -695,7 +687,7 @@ pub fn verify_batch_detail<E: ExtField>(
         tr.absorb(b"y1", &e_bytes(y1));
         tr.absorb(b"y3", &e_bytes(y3));
     }
-    tr.absorb(b"root", &root_from_cap(&proof.cap_w));
+    tr.absorb(b"root", &root_from_cap(&proof.cap_w)?);
     tr.absorb(b"salt", &proof.salts[1]);
     let beta: E = tr.challenge();
     let bp = powers(beta, nw);
@@ -891,19 +883,11 @@ mod tests {
                 },
             ];
             let pr = prove_batch(&p, &pds, &stmts, &[9u8; 32]);
-            assert_eq!(
-                verify_batch_detail(&p, &roots, &stmts, &pr),
-                Ok(()),
-                "n={n}"
-            );
+            assert_eq!(verify_batch(&p, &roots, &stmts, &pr), Ok(()), "n={n}");
             // sub-batches of one kind
             for sub in [&stmts[..1], &stmts[2..3], &stmts[3..4], &stmts[2..]] {
                 let pr = prove_batch(&p, &pds, sub, &[10u8; 32]);
-                assert_eq!(
-                    verify_batch_detail(&p, &roots, sub, &pr),
-                    Ok(()),
-                    "n={n} sub"
-                );
+                assert_eq!(verify_batch(&p, &roots, sub, &pr), Ok(()), "n={n} sub");
             }
             // one false statement among true ones is rejected
             let mut bad_eval = stmts.clone();
@@ -919,24 +903,19 @@ mod tests {
             for (name, st) in [("eval", &bad_eval), ("ip", &bad_ip), ("had", &bad_had)] {
                 let pr = prove_batch(&p, &pds, st, &[11u8; 32]);
                 assert_eq!(
-                    verify_batch_detail(&p, &roots, st, &pr),
-                    Err("fold"),
+                    verify_batch(&p, &roots, st, &pr),
+                    Err(Error::Fold),
                     "n={n} {name}"
                 );
             }
             let pr = prove_batch_with(&p, &pds, &bad_had, &[13u8; 32], BatchCheat::HadUseIp);
             assert_eq!(
-                verify_batch_detail(&p, &roots, &bad_had, &pr),
-                Err("fold"),
+                verify_batch(&p, &roots, &bad_had, &pr),
+                Err(Error::Fold),
                 "n={n} had/ip"
             );
             // a valid proof does not verify for other statements
-            assert!(!verify_batch(
-                &p,
-                &roots,
-                &bad_eval,
-                &pr_ok(&p, &pds, &stmts)
-            ));
+            assert!(verify_batch(&p, &roots, &bad_eval, &pr_ok(&p, &pds, &stmts)).is_err());
         }
     }
 

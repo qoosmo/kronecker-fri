@@ -30,6 +30,7 @@ use crate::affine::{
     AStmt, AffineProof, Form, GData, GroupData, OId, Pub, Shape, commit_group, prove_affine,
     verify_affine,
 };
+use crate::error::Error;
 use crate::field::{ExtField, Field, Fp, batch_inv};
 use crate::ft::round_salt;
 use crate::lincheck::Sparse;
@@ -431,13 +432,14 @@ pub fn verify_r1cs<E: ExtField>(
     idx_root: &Digest,
     x: &[Fp],
     proof: &R1csProof<E>,
-) -> Result<(), &'static str> {
+) -> Result<(), Error> {
+    p.validate()?;
     if x.len() != r.inputs.len()
         || proof.salts.len() != 3
         || proof.salts.iter().any(|s| s.len() != p.salt_len)
         || p.n != r.n
     {
-        return Err("shape");
+        return Err(Error::Shape);
     }
     let mut tr = init_transcript::<E>(p, idx_root, r, x);
     tr.absorb(b"root", &proof.root_wit);
@@ -585,7 +587,7 @@ mod tests {
             let pr2 = prove_r1cs::<E>(&p, &r, &idx, &x, &w2, &[3u8; 32]);
             assert_eq!(
                 verify_r1cs(&p, &r, &idx.root, &x, &pr2),
-                Err("fold"),
+                Err(Error::Fold),
                 "n={n}"
             );
             // a false lincheck, alone or repaired by a forged lookup value
@@ -597,7 +599,7 @@ mod tests {
                 let pr = prove_r1cs_with::<E>(&p, &r, &idx, &x, &wit, &[5u8; 32], cheat);
                 assert_eq!(
                     verify_r1cs(&p, &r, &idx.root, &x, &pr),
-                    Err("fold"),
+                    Err(Error::Fold),
                     "n={n} {cheat:?}"
                 );
             }

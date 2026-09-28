@@ -13,6 +13,7 @@
 //!
 //! L lies in F_p, so gamma, theta, gamma theta outside F_p are outside L: no quotient has a pole on L.
 
+use crate::error::Error;
 use crate::field::{ExtField, Field, Fp, batch_inv};
 use crate::ft::{
     CosetOpening, FtProof, check_level0, coset_of, ft_check_query, ft_prove, ft_replay,
@@ -342,38 +343,34 @@ pub fn prove_had_with<E: ExtField>(
     }
 }
 
-pub fn verify_had<E: ExtField>(p: &Params, roots: [&Digest; 3], proof: &HadProof<E>) -> bool {
-    verify_had_detail(p, roots, proof).is_ok()
-}
-
 /// Verifier with the reason for rejection: "shape", "merkle" or "fold".
-pub fn verify_had_detail<E: ExtField>(
+pub fn verify_had<E: ExtField>(
     p: &Params,
     roots: [&Digest; 3],
     proof: &HadProof<E>,
-) -> Result<(), &'static str> {
-    p.check();
+) -> Result<(), Error> {
+    p.validate()?;
     let (nn, m) = (p.big_n(), p.m());
     let omega = p.omega();
     let g0 = p.groups()[0].1;
     if proof.salts.len() != 2 || proof.salts.iter().any(|s| s.len() != p.salt_len) {
-        return Err("shape");
+        return Err(Error::Shape);
     }
-    if root_from_cap(&proof.cap_a) != *roots[0]
-        || root_from_cap(&proof.cap_b) != *roots[1]
-        || root_from_cap(&proof.cap_c) != *roots[2]
+    if root_from_cap(&proof.cap_a)? != *roots[0]
+        || root_from_cap(&proof.cap_b)? != *roots[1]
+        || root_from_cap(&proof.cap_c)? != *roots[2]
     {
-        return Err("merkle");
+        return Err(Error::Merkle);
     }
     let mut tr = init_transcript(p, roots, E::DEGREE);
     let gamma: E = draw_gamma(&mut tr);
-    tr.absorb(b"root", &root_from_cap(&proof.cap_q));
+    tr.absorb(b"root", &root_from_cap(&proof.cap_q)?);
     tr.absorb(b"salt", &proof.salts[0]);
     let theta: E = draw_theta(&mut tr, gamma);
     let (y1, y3) = (proof.y1, proof.y3);
     tr.absorb(b"y1", &e_bytes(&y1));
     tr.absorb(b"y3", &e_bytes(&y3));
-    tr.absorb(b"root", &root_from_cap(&proof.cap_w));
+    tr.absorb(b"root", &root_from_cap(&proof.cap_w)?);
     tr.absorb(b"salt", &proof.salts[1]);
     let beta: E = tr.challenge();
     let bp: Vec<E> = (0..9)
@@ -495,15 +492,15 @@ mod tests {
                 let (rc, pdc) = commit_table_form(&p, &c, &[3u8; 32]);
                 let proof = prove_had::<E>(&p, &pda, &pdb, &pdc, &[4u8; 32]);
                 assert_eq!(
-                    verify_had_detail(&p, [&ra, &rb, &rc], &proof),
+                    verify_had(&p, [&ra, &rb, &rc], &proof),
                     Ok(()),
                     "n={n} l={ell} R={r}"
                 );
                 for cheat in [HadCheat::WrongY1, HadCheat::WrongQ] {
                     let pr = prove_had_with::<E>(&p, &pda, &pdb, &pdc, &[5u8; 32], cheat);
                     assert_eq!(
-                        verify_had_detail(&p, [&ra, &rb, &rc], &pr),
-                        Err("fold"),
+                        verify_had(&p, [&ra, &rb, &rc], &pr),
+                        Err(Error::Fold),
                         "n={n} l={ell} {cheat:?}"
                     );
                 }
@@ -515,8 +512,8 @@ mod tests {
                 for cheat in [HadCheat::None, HadCheat::UseVc, HadCheat::UseIp] {
                     let pr = prove_had_with::<E>(&p, &pda, &pdb, &pdc2, &[7u8; 32], cheat);
                     assert_eq!(
-                        verify_had_detail(&p, [&ra, &rb, &rc2], &pr),
-                        Err("fold"),
+                        verify_had(&p, [&ra, &rb, &rc2], &pr),
+                        Err(Error::Fold),
                         "false instance n={n} l={ell} {cheat:?}"
                     );
                 }

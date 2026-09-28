@@ -18,6 +18,7 @@
 //! Tables are indexed by w in [0, N), bit k of w being variable k (the convention of `pcs`), and
 //! the sumchecks bind variable 0 first.
 
+use crate::error::Error;
 use crate::field::{ExtField, Field, Fp};
 use crate::merkle::{Digest, Transcript};
 use crate::pcs::{self, Params, e_bytes};
@@ -260,10 +261,11 @@ pub fn verify_spartan<E: ExtField>(
     r: &R1cs,
     x: &[Fp],
     pf: &SpartanProof<E>,
-) -> Result<(), &'static str> {
+) -> Result<(), Error> {
+    p.validate()?;
     let n = r.n;
     if pf.outer.len() != n || pf.inner.len() != n {
-        return Err("shape");
+        return Err(Error::Shape);
     }
     let mut tr = init_transcript(p, r, &pf.root, x);
     let tau: Vec<E> = (0..n).map(|_| tr.challenge()).collect();
@@ -271,7 +273,7 @@ pub fn verify_spartan<E: ExtField>(
     let mut rx = Vec::with_capacity(n);
     for s in &pf.outer {
         if s[0] + s[1] != claim {
-            return Err("outer sumcheck");
+            return Err(Error::Check("outer sumcheck"));
         }
         absorb_es(&mut tr, b"outer", s);
         let ri: E = tr.challenge();
@@ -280,7 +282,7 @@ pub fn verify_spartan<E: ExtField>(
     }
     let [va, vb, vc] = pf.claims;
     if claim != eq_point(&tau, &rx) * (va * vb - vc) {
-        return Err("outer final");
+        return Err(Error::Check("outer final"));
     }
     absorb_es(&mut tr, b"claims", &pf.claims);
     let (ra, rb, rc): (E, E, E) = (tr.challenge(), tr.challenge(), tr.challenge());
@@ -288,7 +290,7 @@ pub fn verify_spartan<E: ExtField>(
     let mut ry = Vec::with_capacity(n);
     for s in &pf.inner {
         if s[0] + s[1] != claim {
-            return Err("inner sumcheck");
+            return Err(Error::Check("inner sumcheck"));
         }
         absorb_es(&mut tr, b"inner", s);
         let ri: E = tr.challenge();
@@ -314,11 +316,9 @@ pub fn verify_spartan<E: ExtField>(
         mv = mv + rm * acc;
     }
     if claim != mv * (xv + pf.w_eval) {
-        return Err("inner final");
+        return Err(Error::Check("inner final"));
     }
-    if !pcs::verify(p, &pf.root, &ry, pf.w_eval, &pf.pcs) {
-        return Err("pcs");
-    }
+    pcs::verify(p, &pf.root, &ry, pf.w_eval, &pf.pcs)?;
     Ok(())
 }
 
@@ -366,11 +366,17 @@ mod tests {
             // a wrong claim Cz~(rx)
             let (mut pf4, _) = prove_spartan::<E>(&p, &r, &x, &wit, &[8u8; 32]);
             pf4.claims[2] = pf4.claims[2] + E::ONE;
-            assert_eq!(verify_spartan(&p, &r, &x, &pf4), Err("outer final"));
+            assert_eq!(
+                verify_spartan(&p, &r, &x, &pf4),
+                Err(Error::Check("outer final"))
+            );
             // a wrong opening value
             let (mut pf5, _) = prove_spartan::<E>(&p, &r, &x, &wit, &[9u8; 32]);
             pf5.w_eval = pf5.w_eval + E::ONE;
-            assert_eq!(verify_spartan(&p, &r, &x, &pf5), Err("inner final"));
+            assert_eq!(
+                verify_spartan(&p, &r, &x, &pf5),
+                Err(Error::Check("inner final"))
+            );
             // a tampered round polynomial
             let (mut pf3, _) = prove_spartan::<E>(&p, &r, &x, &wit, &[7u8; 32]);
             pf3.inner[1][2] = pf3.inner[1][2] + E::ONE;

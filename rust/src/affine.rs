@@ -17,6 +17,7 @@ use crate::batch::{
     MultiOpening, draw_outside, evalker_coeffs, evalker_eval, evalker_on_domain, inv_pos,
     multi_check, multi_coset, multi_open, multi_tree, powers, split,
 };
+use crate::error::Error;
 use crate::field::{ExtField, Field, Fp, batch_inv};
 use crate::ft::{FtProof, ft_check_query, ft_prove, ft_replay, round_salt};
 use crate::had::{div_linear, poly_mul_e};
@@ -700,7 +701,8 @@ pub fn verify_affine<E: ExtField>(
     shapes: &[Shape],
     stmts: &[AStmt<E>],
     proof: &AffineProof<E>,
-) -> Result<(), &'static str> {
+) -> Result<(), Error> {
+    p.validate()?;
     let (n, nn, m) = (p.n, p.big_n(), p.m());
     let omega = p.omega();
     let g0 = p.groups()[0].1;
@@ -711,7 +713,7 @@ pub fn verify_affine<E: ExtField>(
         || proof.salts.len() != 2
         || proof.salts.iter().any(|s| s.len() != p.salt_len)
     {
-        return Err("shape");
+        return Err(Error::Shape);
     }
     let pl = plan(stmts);
     let oid_ok = |o: &OId| o.group < shapes.len() && o.word < shapes[o.group].words;
@@ -722,20 +724,20 @@ pub fn verify_affine<E: ExtField>(
             .iter()
             .any(|s| matches!(s, AStmt::Eval(_, z, _) if z.len() != n))
     {
-        return Err("shape");
+        return Err(Error::Shape);
     }
     if proof
         .gcaps
         .iter()
         .zip(roots)
-        .any(|(c, r)| root_from_cap(c) != *r)
+        .any(|(c, r)| root_from_cap(c) != Ok(*r))
     {
-        return Err("merkle");
+        return Err(Error::Merkle);
     }
     absorb_stmts(tr, stmts);
     let gamma: E = draw_outside(tr, None);
     if !pl.had.is_empty() {
-        tr.absorb(b"root", &root_from_cap(&proof.cap_q));
+        tr.absorb(b"root", &root_from_cap(&proof.cap_q)?);
     }
     tr.absorb(b"salt", &proof.salts[0]);
     let theta: E = draw_outside(tr, Some(gamma));
@@ -743,7 +745,7 @@ pub fn verify_affine<E: ExtField>(
         tr.absorb(b"y1", &e_bytes(y1));
         tr.absorb(b"y3", &e_bytes(y3));
     }
-    tr.absorb(b"root", &root_from_cap(&proof.cap_w));
+    tr.absorb(b"root", &root_from_cap(&proof.cap_w)?);
     tr.absorb(b"salt", &proof.salts[1]);
     let beta: E = tr.challenge();
     let bp = powers(beta, pl.nwords);
@@ -753,10 +755,10 @@ pub fn verify_affine<E: ExtField>(
         if let AStmt::Had(a, _, c) = &stmts[j] {
             let (y1, y3) = proof.ys[k];
             if !pl.qa[k] && y1 != a.eval_pub(n, gt) {
-                return Err("value");
+                return Err(Error::Check("value"));
             }
             if !pl.qc[k] && y3 != c.eval_pub(n, gamma) {
-                return Err("value");
+                return Err(Error::Check("value"));
             }
         }
     }
@@ -775,27 +777,27 @@ pub fn verify_affine<E: ExtField>(
                 if need_d {
                     multi_check(p, cap, direct, &pos0, sh.words)?;
                 } else if !direct.is_empty() {
-                    return Err("shape");
+                    return Err(Error::Shape);
                 }
                 if need_r {
                     multi_check(p, cap, rev, &posb, sh.words)?;
                 } else if !rev.is_empty() {
-                    return Err("shape");
+                    return Err(Error::Shape);
                 }
             }
             (GOpen::Ext { direct, rev }, false) => {
                 if need_d {
                     multi_check(p, cap, direct, &pos0, sh.words)?;
                 } else if !direct.is_empty() {
-                    return Err("shape");
+                    return Err(Error::Shape);
                 }
                 if need_r {
                     multi_check(p, cap, rev, &posb, sh.words)?;
                 } else if !rev.is_empty() {
-                    return Err("shape");
+                    return Err(Error::Shape);
                 }
             }
-            _ => return Err("shape"),
+            _ => return Err(Error::Shape),
         }
     }
     if !pl.had.is_empty() {

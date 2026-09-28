@@ -15,7 +15,7 @@
 //! // The seeds derive the Merkle salts: use fresh, secret randomness for every call.
 //! let (root, pd) = commit_table(&p, &table, &[0x11; 32]);
 //! let (v, proof) = open(&p, &pd, &z, &[0x22; 32]); // v = f(z)
-//! assert!(verify(&p, &root, &z, v, &proof));
+//! assert!(verify(&p, &root, &z, v, &proof).is_ok());
 //! ```
 //!
 //! The modules `field`, `poly`, `merkle` and `pcs` implement the paper and form the stable API.
@@ -46,10 +46,12 @@
 //! - `ft`: the folding test on a batched word and level-0 coset openings, shared by `had` and
 //!   `batch`.
 
+#![forbid(unsafe_code)]
 #![allow(clippy::needless_range_loop)] // index loops mirror the formulas of the paper
 
 pub mod affine;
 pub mod batch;
+pub mod error;
 pub mod field;
 pub mod ft;
 pub mod had;

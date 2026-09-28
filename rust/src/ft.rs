@@ -3,6 +3,7 @@
 //! The code is that of `pcs`, factored so that a protocol only supplies w_0, its polynomial U_0,
 //! and the level-0 oracles it reads.
 
+use crate::error::Error;
 use crate::field::{ExtField, Field, Fp};
 use crate::merkle::{
     Digest, GroupOpening, MerkleTree, Transcript, root_from_cap, verify_group_capped,
@@ -159,7 +160,7 @@ pub(crate) fn check_level0<T: Field>(
     cap: &[Digest],
     ops: &[CosetOpening<T>],
     positions: &[usize],
-) -> Result<(), &'static str> {
+) -> Result<(), Error> {
     let m = p.m();
     let g0 = p.groups()[0].1;
     let depth0 = (m / 2).trailing_zeros() as usize;
@@ -173,12 +174,12 @@ pub(crate) fn check_level0<T: Field>(
                 || o.open.salts.iter().any(|s| s.len() != p.salt_len)
         })
     {
-        return Err("shape");
+        return Err(Error::Shape);
     }
     for o in ops {
         let d: Vec<Vec<u8>> = o.vals.iter().map(|[x, y]| pair_bytes(x, y)).collect();
         if !verify_group_capped(cap, o.pos << (g0 - 1), g0 - 1, &d, &o.open) {
-            return Err("merkle");
+            return Err(Error::Merkle);
         }
     }
     Ok(())
@@ -196,7 +197,7 @@ pub(crate) fn ft_replay<E: ExtField>(
     p: &Params,
     tr: &mut Transcript,
     ft: &FtProof<E>,
-) -> Result<(Vec<E>, Vec<usize>), &'static str> {
+) -> Result<(Vec<E>, Vec<usize>), Error> {
     let (nn, m, ell) = (p.big_n(), p.m(), p.ell);
     let groups = p.groups();
     let ncommit = groups.len() - 1;
@@ -206,13 +207,13 @@ pub(crate) fn ft_replay<E: ExtField>(
         || ft.round_salts.iter().any(|s| s.len() != p.salt_len)
         || ft.p.len() != nn >> ell
     {
-        return Err("shape");
+        return Err(Error::Shape);
     }
     let mut rs: Vec<E> = Vec::with_capacity(ell);
     let mut ci = 0;
     for j in 1..=ell {
         if j >= 2 && groups.iter().any(|&(st, _)| st == j - 1) {
-            tr.absorb(b"root", &root_from_cap(&ft.caps[ci]));
+            tr.absorb(b"root", &root_from_cap(&ft.caps[ci])?);
             ci += 1;
         }
         tr.absorb(b"salt", &ft.round_salts[j - 1]);
@@ -236,12 +237,12 @@ pub(crate) fn ft_replay<E: ExtField>(
                     || o.open.salts.iter().any(|s| s.len() != p.salt_len)
             })
         {
-            return Err("shape");
+            return Err(Error::Shape);
         }
         for o in lv {
             let d: Vec<Vec<u8>> = o.vals.iter().map(|[x, y]| pair_bytes(x, y)).collect();
             if !verify_group_capped(&ft.caps[gi - 1], o.pos << (g - 1), g - 1, &d, &o.open) {
-                return Err("merkle");
+                return Err(Error::Merkle);
             }
         }
     }
@@ -256,7 +257,7 @@ pub(crate) fn ft_check_query<E: ExtField>(
     rs: &[E],
     i0: usize,
     w0: Vec<E>,
-) -> Result<(), &'static str> {
+) -> Result<(), Error> {
     let (m, ell) = (p.m(), p.ell);
     let groups = p.groups();
     let omega = p.omega();
@@ -268,14 +269,14 @@ pub(crate) fn ft_check_query<E: ExtField>(
         let vals = coset_of(&ft.levels[gi - 1], aj);
         let pos = i0 % (m >> jc);
         if vals[(pos - aj) / mg] != value {
-            return Err("fold");
+            return Err(Error::Fold);
         }
         value = fold_coset(vals, aj, jc, mg, rs, m, omega);
     }
     let pos = i0 % (m >> ell);
     let eta = omega.pow((pos as u64) << ell);
     if value != horner(&ft.p, E::from(eta)) {
-        return Err("fold");
+        return Err(Error::Fold);
     }
     Ok(())
 }

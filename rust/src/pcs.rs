@@ -19,6 +19,7 @@
 //! a 2^{g-1} + t. A query at position a of L_{jc+g} opens the aligned group of 2^{g-1} leaves,
 //! that is, u on the 2^g points above a, with one authentication path.
 
+use crate::error::Error;
 use crate::field::{ExtField, Field, Fp};
 use crate::merkle::{
     Digest, GroupOpening, MerkleTree, Transcript, root_from_cap, verify_group_capped,
@@ -80,10 +81,35 @@ impl Params {
     pub fn omega(&self) -> Fp {
         Fp::two_adic_root((self.n + self.log_inv_rate) as u32)
     }
-    pub fn check(&self) {
-        assert!(self.n >= 1 && self.log_inv_rate >= 2 && self.n + self.log_inv_rate <= 32);
-        assert!(self.ell >= 1 && self.ell <= self.n);
-        assert!(self.queries >= 1 && self.fold_log >= 1);
+    /// Checks the parameters; the verifiers call it and return [`Error::Params`] on failure.
+    pub fn validate(&self) -> Result<(), Error> {
+        if self.n < 1 || self.log_inv_rate < 2 || self.n + self.log_inv_rate > 32 {
+            return Err(Error::Params(
+                "need n >= 1, log_inv_rate >= 2, n + log_inv_rate <= 32",
+            ));
+        }
+        if self.ell < 1 || self.ell > self.n {
+            return Err(Error::Params("need 1 <= ell <= n"));
+        }
+        if self.queries < 1 || self.queries > 1 << 16 {
+            return Err(Error::Params("need 1 <= queries <= 2^16"));
+        }
+        if self.fold_log < 1 || self.fold_log > self.ell.max(1) + 31 {
+            return Err(Error::Params("need fold_log >= 1"));
+        }
+        if self.cap_log > 31 {
+            return Err(Error::Params("need cap_log <= 31"));
+        }
+        if self.salt_len > 64 {
+            return Err(Error::Params("need salt_len <= 64"));
+        }
+        Ok(())
+    }
+    /// Panics on invalid parameters (prover side; the prover API returns errors from 0.5 on).
+    pub(crate) fn check(&self) {
+        if let Err(e) = self.validate() {
+            panic!("{e}");
+        }
     }
     /// Groups (jc, g): start level and number of local folds.
     pub fn groups(&self) -> Vec<(usize, usize)> {
@@ -499,20 +525,15 @@ pub fn open_with<E: ExtField>(
     )
 }
 
-/// Verifier.
-pub fn verify<E: ExtField>(p: &Params, root: &Digest, z: &[E], v: E, proof: &Proof<E>) -> bool {
-    verify_detail(p, root, z, v, proof).is_ok()
-}
-
 /// Verifier with the reason for rejection: "shape", "merkle" or "fold".
-pub fn verify_detail<E: ExtField>(
+pub fn verify<E: ExtField>(
     p: &Params,
     root: &Digest,
     z: &[E],
     v: E,
     proof: &Proof<E>,
-) -> Result<(), &'static str> {
-    p.check();
+) -> Result<(), Error> {
+    p.validate()?;
     let (nn, m, ell) = (p.big_n(), p.m(), p.ell);
     let groups = p.groups();
     let g0 = groups[0].1;
@@ -527,14 +548,14 @@ pub fn verify_detail<E: ExtField>(
             .iter()
             .any(|o| o.y.len() != 1 << (g0 - 1) || o.a.len() != 1 << (g0 - 1))
     {
-        return Err("shape");
+        return Err(Error::Shape);
     }
     for (i, &(_, g)) in groups.iter().enumerate().skip(1) {
         if proof.levels[i - 1]
             .iter()
             .any(|o| o.vals.len() != 1 << (g - 1))
         {
-            return Err("shape");
+            return Err(Error::Shape);
         }
     }
     // canonical form: caps, paths and salts have exactly the prescribed lengths
@@ -552,7 +573,7 @@ pub fn verify_detail<E: ExtField>(
             .iter()
             .any(|o| !op_ok(&o.y_open, depth0, g0 - 1, c0) || !op_ok(&o.a_open, depth0, g0 - 1, c0))
     {
-        return Err("shape");
+        return Err(Error::Shape);
     }
     for (i, &(jc, g)) in groups.iter().enumerate().skip(1) {
         let leaves = (m >> jc) / 2;
@@ -562,15 +583,15 @@ pub fn verify_detail<E: ExtField>(
                 .iter()
                 .any(|o| !op_ok(&o.open, depth, g - 1, c))
         {
-            return Err("shape");
+            return Err(Error::Shape);
         }
     }
-    if root_from_cap(&proof.cap_y) != *root {
-        return Err("merkle");
+    if root_from_cap(&proof.cap_y)? != *root {
+        return Err(Error::Merkle);
     }
     let omega = p.omega();
     let mut tr = init_transcript(p, root, z, v);
-    tr.absorb(b"root", &root_from_cap(&proof.cap_a));
+    tr.absorb(b"root", &root_from_cap(&proof.cap_a)?);
     tr.absorb(b"salt", &proof.round_salts[0]);
     let beta: E = tr.challenge();
     let beta2 = beta * beta;
@@ -578,7 +599,7 @@ pub fn verify_detail<E: ExtField>(
     let mut ci = 0;
     for j in 1..=ell {
         if j >= 2 && groups.iter().any(|&(s, _)| s == j - 1) {
-            tr.absorb(b"root", &root_from_cap(&proof.caps[ci]));
+            tr.absorb(b"root", &root_from_cap(&proof.caps[ci])?);
             ci += 1;
         }
         tr.absorb(b"salt", &proof.round_salts[j]);
@@ -594,13 +615,13 @@ pub fn verify_detail<E: ExtField>(
     let pos0 = distinct_positions(&idx, mg0);
     if proof.level0.len() != pos0.len() || proof.level0.iter().zip(&pos0).any(|(o, &a)| o.pos != a)
     {
-        return Err("shape");
+        return Err(Error::Shape);
     }
     for (gi, &(jc, g)) in groups.iter().enumerate().skip(1) {
         let pj = distinct_positions(&idx, m >> (jc + g));
         let lv = &proof.levels[gi - 1];
         if lv.len() != pj.len() || lv.iter().zip(&pj).any(|(o, &a)| o.pos != a) {
-            return Err("shape");
+            return Err(Error::Shape);
         }
     }
     // authenticate every opening once
@@ -610,14 +631,14 @@ pub fn verify_detail<E: ExtField>(
         if !verify_group_capped(&proof.cap_y, o.pos << (g0 - 1), g0 - 1, &yd, &o.y_open)
             || !verify_group_capped(&proof.cap_a, o.pos << (g0 - 1), g0 - 1, &ad, &o.a_open)
         {
-            return Err("merkle");
+            return Err(Error::Merkle);
         }
     }
     for (gi, &(_, g)) in groups.iter().enumerate().skip(1) {
         for o in &proof.levels[gi - 1] {
             let d: Vec<Vec<u8>> = o.vals.iter().map(|[x, y]| pair_bytes(x, y)).collect();
             if !verify_group_capped(&proof.caps[gi - 1], o.pos << (g - 1), g - 1, &d, &o.open) {
-                return Err("merkle");
+                return Err(Error::Merkle);
             }
         }
     }
@@ -654,14 +675,14 @@ pub fn verify_detail<E: ExtField>(
             // the previous group's result is the value at position (i0 mod M_jc) of L_jc
             let pos = i0 % (m >> jc);
             if vals[(pos - aj) / mg] != value {
-                return Err("fold");
+                return Err(Error::Fold);
             }
             value = fold_coset(vals, aj, jc, mg, &rs, m, omega);
         }
         let pos = i0 % (m >> ell);
         let eta = omega.pow((pos as u64) << ell);
         if value != horner(&proof.p, E::from(eta)) {
-            return Err("fold");
+            return Err(Error::Fold);
         }
     }
     Ok(())
@@ -743,18 +764,18 @@ mod tests {
                     &z
                 )
             );
-            assert!(verify(&p, &root, &z, v, &proof));
+            assert!(verify(&p, &root, &z, v, &proof).is_ok());
             let (v1, pr1) = open_with(&p, &pd, &z, &[3u8; 32], Cheat::WrongValue);
             assert_eq!(
-                verify_detail(&p, &root, &z, v1, &pr1),
-                Err("fold"),
+                verify(&p, &root, &z, v1, &pr1),
+                Err(Error::Fold),
                 "n={n} l={ell}"
             );
             let (v2, pr2) = open_with(&p, &pd, &z, &[4u8; 32], Cheat::AbsorbInA);
             assert_eq!(v2, v + E::ONE);
             assert_eq!(
-                verify_detail(&p, &root, &z, v2, &pr2),
-                Err("fold"),
+                verify(&p, &root, &z, v2, &pr2),
+                Err(Error::Fold),
                 "n={n} l={ell}"
             );
         }

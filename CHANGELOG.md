@@ -1,5 +1,17 @@
 # Changelog
 
+## Unreleased — 0.5.0 (breaking)
+
+Preparation of the crate for the Kronobol proof system: errors, randomness, transcript, zero-knowledge hooks. This entry grows with each patch.
+
+### Errors instead of panics
+- New module `error`: every verifier returns `Result<(), Error>` (`Params`, `Shape`, `Merkle`, `Fold`, `Check(name)`), with `Display` and `std::error::Error`.
+- `pcs::verify`, `ip::verify_ip`, `had::verify_had`, `batch::verify_batch` return `Result<(), Error>`. The former `*_detail` functions are removed, since the plain functions now give the reason. Migration: `assert!(verify(..))` becomes `assert!(verify(..).is_ok())`, and `verify_detail(..)` becomes `verify(..)`.
+- `Params::validate() -> Result<(), Error>` checks the parameters; every verifier calls it and returns `Error::Params` instead of panicking. The panicking `Params::check` is internal.
+- `merkle::root_from_cap` returns `Result<Digest, Error>`: an empty cap, or a cap whose length is not a power of two, made the verifiers panic on a malformed proof. Found by the new robustness tests.
+- `#![forbid(unsafe_code)]`.
+- `tests/robustness.rs`: structural mutations of valid `pcs` and R1CS proofs (the R1CS verifier exercises `affine` and `ft`): emptied, shortened and lengthened vectors at every level; corrupted salts, paths, caps, positions and values. Every mutation must be rejected with an error, without panicking.
+
 ## v0.4.0 — 2026-09-27
 
 First release on crates.io. The paper's scheme (`field`, `poly`, `merkle`, `pcs`) is the stable API; the research prototypes of the note on sumcheck-free inner products are public modules whose API may change.

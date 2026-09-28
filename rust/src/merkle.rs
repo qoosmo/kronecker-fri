@@ -5,6 +5,7 @@
 //! mode under two fixed keys K0 = 0^32, K1 = 1^32 (domain separation).  With
 //! `salt_len = 0` the trees are unsalted (used only to measure the cost of salting).
 
+use crate::error::Error;
 use crate::field::{ExtField, Fp, P};
 
 pub type Digest = [u8; 32];
@@ -183,7 +184,12 @@ pub fn verify_group(
 }
 
 /// Root of the tree whose cap (the 2^c nodes at height c below the root) is `cap`.
-pub fn root_from_cap(cap: &[Digest]) -> Digest {
+///
+/// Returns [`Error::Shape`] if the cap is empty or its length is not a power of two.
+pub fn root_from_cap(cap: &[Digest]) -> Result<Digest, Error> {
+    if !cap.len().is_power_of_two() {
+        return Err(Error::Shape);
+    }
     let mut level = cap.to_vec();
     while level.len() > 1 {
         level = level
@@ -193,7 +199,7 @@ pub fn root_from_cap(cap: &[Digest]) -> Digest {
             .map(|[l, r]| hash_node(l, r))
             .collect();
     }
-    level[0]
+    Ok(level[0])
 }
 
 /// Check a capped group opening (see `MerkleTree::open_group_capped`) against a cap.
@@ -344,7 +350,7 @@ mod tests {
         for c in 0..=6 {
             let cap = t.cap(c);
             assert_eq!(cap.len(), 1 << c);
-            assert_eq!(root_from_cap(&cap), t.root());
+            assert_eq!(root_from_cap(&cap), Ok(t.root()));
             for g in 0..3usize.min(7 - c) {
                 for i in (0..64).step_by(5) {
                     let op = t.open_group_capped(i, g, c);

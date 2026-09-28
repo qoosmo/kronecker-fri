@@ -98,7 +98,7 @@ fn main() {
             let pr = prove_batch(&p, &pds, &stmts, &[9u8; 32]);
             bp.push(ms(t));
             let t = Instant::now();
-            assert!(verify_batch(&p, &roots, &stmts, &pr));
+            assert!(verify_batch(&p, &roots, &stmts, &pr).is_ok());
             bv.push(ms(t));
             bsize = pr.size_bytes();
             let (mut tp, mut tv, mut sz) = (0.0, 0.0, 0);
@@ -108,7 +108,7 @@ fn main() {
                 let pr = prove_batch(&p, &pds, one, &[9u8; 32]);
                 tp += ms(t);
                 let t = Instant::now();
-                assert!(verify_batch(&p, &roots, one, &pr));
+                assert!(verify_batch(&p, &roots, one, &pr).is_ok());
                 tv += ms(t);
                 sz += pr.size_bytes();
             }

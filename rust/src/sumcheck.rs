@@ -14,6 +14,7 @@
 use crate::affine::{
     AStmt, AffineProof, Form, GData, GroupData, OId, Shape, prove_affine, verify_affine,
 };
+use crate::error::Error;
 use crate::field::{ExtField, Field, Fp};
 use crate::merkle::{Digest, Transcript};
 use crate::pcs::Params;
@@ -88,14 +89,14 @@ fn replay<E: ExtField>(
     rounds: &[Vec<E>],
     d: usize,
     mut claim: E,
-) -> Result<(Vec<E>, E), &'static str> {
+) -> Result<(Vec<E>, E), Error> {
     let mut r = Vec::with_capacity(rounds.len());
     for v in rounds {
         if v.len() != d + 1 {
-            return Err("round shape");
+            return Err(Error::Shape);
         }
         if v[0] + v[1] != claim {
-            return Err("sumcheck round");
+            return Err(Error::Check("sumcheck round"));
         }
         absorb_es(tr, b"round", v);
         let ri: E = tr.challenge();
@@ -163,15 +164,16 @@ pub fn verify_ip_sc<E: ExtField>(
     roots: [Digest; 2],
     s: E,
     pf: &RouteProof<E>,
-) -> Result<(), &'static str> {
+) -> Result<(), Error> {
+    p.validate()?;
     if pf.rounds.len() != p.n || pf.evals.len() != 2 {
-        return Err("shape");
+        return Err(Error::Shape);
     }
     let mut tr = init(b"ip-sumcheck-v2", &roots);
     absorb_es(&mut tr, b"s", &[s]);
     let (r, claim) = replay(&mut tr, &pf.rounds, 2, s)?;
     if claim != pf.evals[0] * pf.evals[1] {
-        return Err("final");
+        return Err(Error::Fold);
     }
     let st = eval_stmt(&mut tr, &r, &pf.evals);
     verify_affine(p, &mut tr, &roots, &shapes(2), &[st], &pf.engine)
@@ -239,15 +241,16 @@ pub fn verify_had_sc<E: ExtField>(
     p: &Params,
     roots: [Digest; 3],
     pf: &RouteProof<E>,
-) -> Result<(), &'static str> {
+) -> Result<(), Error> {
+    p.validate()?;
     if pf.rounds.len() != p.n || pf.evals.len() != 3 {
-        return Err("shape");
+        return Err(Error::Shape);
     }
     let mut tr = init(b"had-zerocheck-v2", &roots);
     let tau: Vec<E> = (0..p.n).map(|_| tr.challenge()).collect();
     let (r, claim) = replay(&mut tr, &pf.rounds, 3, E::ZERO)?;
     if claim != eq_point(&tau, &r) * (pf.evals[0] * pf.evals[1] - pf.evals[2]) {
-        return Err("final");
+        return Err(Error::Fold);
     }
     let st = eval_stmt(&mut tr, &r, &pf.evals);
     verify_affine(p, &mut tr, &roots, &shapes(3), &[st], &pf.engine)
@@ -292,7 +295,8 @@ pub fn verify_ip_sf<E: ExtField>(
     roots: [Digest; 2],
     s: E,
     pf: &RouteProof<E>,
-) -> Result<(), &'static str> {
+) -> Result<(), Error> {
+    p.validate()?;
     let mut tr = init(b"ip-free-v2", &roots);
     absorb_es(&mut tr, b"s", &[s]);
     let st = AStmt::Ip(Form::word(word(0)), Form::word(word(1)), s);
@@ -325,7 +329,8 @@ pub fn verify_had_sf<E: ExtField>(
     p: &Params,
     roots: [Digest; 3],
     pf: &RouteProof<E>,
-) -> Result<(), &'static str> {
+) -> Result<(), Error> {
+    p.validate()?;
     let mut tr = init(b"had-free-v2", &roots);
     let st = AStmt::Had(
         Form::word(word(0)),
@@ -387,7 +392,7 @@ mod tests {
             assert!(verify_had_sc(&p, [ra, rb, rc2], &pf).is_err());
             let mut pf = prove_had_sc::<E>(&p, [&ga, &gb, &gc], &[10u8; 32]);
             pf.evals[2] = pf.evals[2] + E::ONE;
-            assert_eq!(verify_had_sc(&p, [ra, rb, rc], &pf), Err("final"));
+            assert_eq!(verify_had_sc(&p, [ra, rb, rc], &pf), Err(Error::Fold));
             let pf = prove_had_sf::<E>(&p, [&ga, &gb, &gc], &[11u8; 32]);
             assert_eq!(verify_had_sf(&p, [ra, rb, rc], &pf), Ok(()));
             let pf = prove_had_sf::<E>(&p, [&ga, &gb, &gc2], &[12u8; 32]);
