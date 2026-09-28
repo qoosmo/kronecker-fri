@@ -93,6 +93,7 @@ fn breakdown(n: usize) {
         salt_len: 0,
         fold_log: 1,
         cap_log: 0,
+        mask: 0,
     };
     let (nn, m) = (p.big_n(), p.m());
     let mut rng = Rng(5 + n as u64);
@@ -204,6 +205,7 @@ fn main() {
                             salt_len,
                             fold_log,
                             cap_log,
+                            mask: 0,
                         };
                         let r = run::<Fp2>(&p, reps_for(n), 1 + n as u64);
                         println!(
@@ -242,6 +244,7 @@ fn main() {
                     salt_len: 0,
                     fold_log: 3,
                     cap_log: 7,
+                    mask: 0,
                 };
                 let r = run::<Fp2>(&p, 3, 77);
                 println!(
@@ -272,6 +275,7 @@ fn main() {
                     salt_len: salt,
                     fold_log: 1,
                     cap_log: 0,
+                    mask: 0,
                 };
                 let r = if e == 2 {
                     run::<Fp2>(&p, 5, 9)
@@ -302,6 +306,7 @@ fn main() {
                     salt_len: 32,
                     fold_log: 3,
                     cap_log: 7,
+                    mask: 0,
                 };
                 let row = if e == 2 {
                     run::<Fp2>(&p, 3, 11)
@@ -328,6 +333,7 @@ fn main() {
                             salt_len: 0,
                             fold_log,
                             cap_log,
+                            mask: 0,
                         };
                         let r = run::<Fp2>(&p, 3, 21);
                         println!(

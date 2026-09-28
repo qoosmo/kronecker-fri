@@ -150,7 +150,7 @@ pub fn prove_spartan<E: ExtField>(
     x: &[Fp],
     wit: &[Fp],
 ) -> Result<(SpartanProof<E>, SpartanTimes), Error> {
-    p.validate()?;
+    p.validate_unmasked()?;
     Ok(prove_spartan_seeded(
         p,
         r,
@@ -280,7 +280,7 @@ pub fn verify_spartan<E: ExtField>(
     x: &[Fp],
     pf: &SpartanProof<E>,
 ) -> Result<(), Error> {
-    p.validate()?;
+    p.validate_unmasked()?;
     let n = r.n;
     if pf.outer.len() != n || pf.inner.len() != n {
         return Err(Error::Shape);

@@ -171,7 +171,7 @@ pub fn prove_had<E: ExtField>(
     pdb: &ProverData,
     pdc: &ProverData,
 ) -> Result<HadProof<E>, Error> {
-    p.validate()?;
+    p.validate_unmasked()?;
     Ok(prove_had_seeded(
         p,
         pda,
@@ -367,7 +367,7 @@ pub fn verify_had<E: ExtField>(
     roots: [&Digest; 3],
     proof: &HadProof<E>,
 ) -> Result<(), Error> {
-    p.validate()?;
+    p.validate_unmasked()?;
     let (nn, m) = (p.big_n(), p.m());
     let omega = p.omega();
     let g0 = p.groups()[0].1;
@@ -501,6 +501,7 @@ mod tests {
                     salt_len: 32,
                     fold_log,
                     cap_log,
+                    mask: 0,
                 };
                 let a: Vec<Fp> = (0..1 << n).map(|_| rng.fp()).collect();
                 let b: Vec<Fp> = (0..1 << n).map(|_| rng.fp()).collect();

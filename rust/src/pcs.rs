@@ -44,6 +44,10 @@ pub struct Params {
     pub fold_log: usize,
     /// Merkle cap height c: the 2^c nodes below each root are sent once (c = 0: roots only)
     pub cap_log: usize,
+    /// Zero-knowledge mask q (0: no masking): the committed polynomials of masked groups have
+    /// degree < N + q, and the folding test tests the degree bound N + q. Supported by the engine
+    /// `affine` only (`docs/zk` of Kronobol, part 1); `pcs` requires `mask = 0`.
+    pub mask: usize,
 }
 
 impl Params {
@@ -57,6 +61,7 @@ impl Params {
             salt_len,
             fold_log: 1,
             cap_log: 0,
+            mask: 0,
         }
     }
     /// The recommended configuration KF-8 of the paper (Section 10): rate 1/4, arity 8, caps of
@@ -70,10 +75,31 @@ impl Params {
             salt_len,
             fold_log: 3,
             cap_log: 7,
+            mask: 0,
         }
     }
     pub fn big_n(&self) -> usize {
         1 << self.n
+    }
+    /// The degree bound of the folding test: `N + mask`.
+    pub fn degree(&self) -> usize {
+        self.big_n() + self.mask
+    }
+    /// [`Params::validate`], and `mask = 0`: for the protocols that do not support masking
+    /// (everything except the engine `affine`).
+    pub fn validate_unmasked(&self) -> Result<(), Error> {
+        self.validate()?;
+        if self.mask != 0 {
+            return Err(Error::Params(
+                "this protocol does not support masking (mask must be 0)",
+            ));
+        }
+        Ok(())
+    }
+    /// The same parameters with the zero-knowledge mask `q` (see [`Params::mask`]).
+    pub fn with_mask(mut self, q: usize) -> Self {
+        self.mask = q;
+        self
     }
     pub fn m(&self) -> usize {
         1 << (self.n + self.log_inv_rate)
@@ -102,6 +128,11 @@ impl Params {
         }
         if self.salt_len > 64 {
             return Err(Error::Params("need salt_len <= 64"));
+        }
+        if !self.mask.is_multiple_of(1 << self.ell) || 2 * self.mask >= self.big_n() {
+            return Err(Error::Params(
+                "need mask a multiple of 2^ell and mask < N/2",
+            ));
         }
         Ok(())
     }
@@ -292,7 +323,7 @@ pub(crate) fn distinct_positions(idx: &[usize], modulus: usize) -> Vec<usize> {
 /// Commit to f given in coefficient form (Definition 6.2): one NTT of size M.
 /// The Merkle layout depends on the first group of `p` (its length min(k, l)).
 pub fn commit_coeffs(p: &Params, alpha: &[Fp]) -> Result<(Digest, ProverData), Error> {
-    p.validate()?;
+    p.validate_unmasked()?;
     if alpha.len() != p.big_n() {
         return Err(Error::Input("the coefficient vector must have length 2^n"));
     }
@@ -325,7 +356,7 @@ pub(crate) fn commit_coeffs_seeded(
 
 /// Commit to f given in table form: Moebius transform ((n/2) N subtractions), then commit.
 pub fn commit_table(p: &Params, table: &[Fp]) -> Result<(Digest, ProverData), Error> {
-    p.validate()?;
+    p.validate_unmasked()?;
     if table.len() != p.big_n() {
         return Err(Error::Input("the table must have length 2^n"));
     }
@@ -397,7 +428,7 @@ pub enum Cheat {
 
 /// Prover: returns v = f(z) and the proof.  `seed` must be fresh and secret (salts).
 pub fn open<E: ExtField>(p: &Params, pd: &ProverData, z: &[E]) -> Result<(E, Proof<E>), Error> {
-    p.validate()?;
+    p.validate_unmasked()?;
     if z.len() != p.n {
         return Err(Error::Input("the point must have n coordinates"));
     }
@@ -421,7 +452,7 @@ pub fn open_in<E: ExtField>(
     pd: &ProverData,
     z: &[E],
 ) -> Result<(E, Proof<E>), Error> {
-    p.validate()?;
+    p.validate_unmasked()?;
     if z.len() != p.n {
         return Err(Error::Input("the point must have n coordinates"));
     }
@@ -637,7 +668,7 @@ pub fn verify_in<E: ExtField>(
     v: E,
     proof: &Proof<E>,
 ) -> Result<(), Error> {
-    p.validate()?;
+    p.validate_unmasked()?;
     let (nn, m, ell) = (p.big_n(), p.m(), p.ell);
     let groups = p.groups();
     let g0 = groups[0].1;
@@ -856,6 +887,7 @@ mod tests {
                 salt_len: 32,
                 fold_log,
                 cap_log,
+                mask: 0,
             };
             let alpha: Vec<Fp> = (0..1 << n).map(|_| rng.fp()).collect();
             let z: Vec<E> = (0..n).map(|_| rng.e()).collect();

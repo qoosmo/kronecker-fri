@@ -56,7 +56,7 @@ fn lift<E: ExtField>(t: &[Fp]) -> Vec<E> {
 
 /// Commit to a table in table form, as a group of one word.
 pub fn commit_one(p: &Params, table: &[Fp]) -> Result<GroupData<Fp>, Error> {
-    p.validate()?;
+    p.validate_unmasked()?;
     Ok(commit_one_seeded(p, table, &crate::rand::fresh_seed()?))
 }
 
@@ -118,7 +118,7 @@ pub fn prove_ip_sc<E: ExtField>(
     p: &Params,
     g: [&GroupData<Fp>; 2],
 ) -> Result<(E, RouteProof<E>), Error> {
-    p.validate()?;
+    p.validate_unmasked()?;
     Ok(prove_ip_sc_seeded(p, g, &crate::rand::fresh_seed()?))
 }
 
@@ -182,7 +182,7 @@ pub fn verify_ip_sc<E: ExtField>(
     s: E,
     pf: &RouteProof<E>,
 ) -> Result<(), Error> {
-    p.validate()?;
+    p.validate_unmasked()?;
     if pf.rounds.len() != p.n || pf.evals.len() != 2 {
         return Err(Error::Shape);
     }
@@ -201,7 +201,7 @@ pub fn prove_had_sc<E: ExtField>(
     p: &Params,
     g: [&GroupData<Fp>; 3],
 ) -> Result<RouteProof<E>, Error> {
-    p.validate()?;
+    p.validate_unmasked()?;
     Ok(prove_had_sc_seeded(p, g, &crate::rand::fresh_seed()?))
 }
 
@@ -269,7 +269,7 @@ pub fn verify_had_sc<E: ExtField>(
     roots: [Digest; 3],
     pf: &RouteProof<E>,
 ) -> Result<(), Error> {
-    p.validate()?;
+    p.validate_unmasked()?;
     if pf.rounds.len() != p.n || pf.evals.len() != 3 {
         return Err(Error::Shape);
     }
@@ -288,7 +288,7 @@ pub fn prove_ip_sf<E: ExtField>(
     p: &Params,
     g: [&GroupData<Fp>; 2],
 ) -> Result<(E, RouteProof<E>), Error> {
-    p.validate()?;
+    p.validate_unmasked()?;
     Ok(prove_ip_sf_seeded(p, g, &crate::rand::fresh_seed()?))
 }
 
@@ -333,7 +333,7 @@ pub fn verify_ip_sf<E: ExtField>(
     s: E,
     pf: &RouteProof<E>,
 ) -> Result<(), Error> {
-    p.validate()?;
+    p.validate_unmasked()?;
     let mut tr = init(b"kronecker-fri/v0.5/ip-free-v2", &roots);
     absorb_es(&mut tr, b"s", &[s]);
     let st = AStmt::Ip(Form::word(word(0)), Form::word(word(1)), s);
@@ -345,7 +345,7 @@ pub fn prove_had_sf<E: ExtField>(
     p: &Params,
     g: [&GroupData<Fp>; 3],
 ) -> Result<RouteProof<E>, Error> {
-    p.validate()?;
+    p.validate_unmasked()?;
     Ok(prove_had_sf_seeded(p, g, &crate::rand::fresh_seed()?))
 }
 
@@ -377,7 +377,7 @@ pub fn verify_had_sf<E: ExtField>(
     roots: [Digest; 3],
     pf: &RouteProof<E>,
 ) -> Result<(), Error> {
-    p.validate()?;
+    p.validate_unmasked()?;
     let mut tr = init(b"kronecker-fri/v0.5/had-free-v2", &roots);
     let st = AStmt::Had(
         Form::word(word(0)),

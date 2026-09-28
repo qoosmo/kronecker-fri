@@ -46,6 +46,7 @@ fn completeness<E: ExtField>(max_n: usize) {
                         salt_len,
                         fold_log,
                         cap_log,
+                        mask: 0,
                     };
                     let table: Vec<Fp> = (0..1 << n).map(|_| rng.fp()).collect();
                     let z: Vec<E> = (0..n).map(|_| rng.e()).collect();
@@ -93,6 +94,7 @@ fn tampering_is_rejected() {
             salt_len: 32,
             fold_log,
             cap_log,
+            mask: 0,
         };
         let alpha: Vec<Fp> = (0..1 << n).map(|_| rng.fp()).collect();
         let z: Vec<Fp2> = (0..n).map(|_| rng.e()).collect();
@@ -182,6 +184,7 @@ fn arity_and_caps_agree() {
                 salt_len: 0,
                 fold_log,
                 cap_log,
+                mask: 0,
             };
             let (root, pd) = commit_coeffs(&p, &alpha).unwrap();
             let (v, proof) = open(&p, &pd, &z).unwrap();

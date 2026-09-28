@@ -198,14 +198,14 @@ pub(crate) fn ft_replay<E: ExtField>(
     tr: &mut Transcript,
     ft: &FtProof<E>,
 ) -> Result<(Vec<E>, Vec<usize>), Error> {
-    let (nn, m, ell) = (p.big_n(), p.m(), p.ell);
+    let (d, m, ell) = (p.degree(), p.m(), p.ell);
     let groups = p.groups();
     let ncommit = groups.len() - 1;
     if ft.caps.len() != ncommit
         || ft.levels.len() != ncommit
         || ft.round_salts.len() != ell + 1
         || ft.round_salts.iter().any(|s| s.len() != p.salt_len)
-        || ft.p.len() != nn >> ell
+        || ft.p.len() != d >> ell
     {
         return Err(Error::Shape);
     }

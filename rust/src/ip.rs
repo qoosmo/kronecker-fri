@@ -27,7 +27,7 @@ use crate::poly::{horner, ntt, pfold};
 
 /// Commit to a table in table form: the table is the coefficient vector of V_f.
 pub fn commit_table_form(p: &Params, table: &[Fp]) -> Result<(Digest, ProverData), Error> {
-    p.validate()?;
+    p.validate_unmasked()?;
     Ok(commit_table_form_seeded(
         p,
         table,
@@ -211,7 +211,7 @@ pub fn prove_ip<E: ExtField>(
     pda: &ProverData,
     pdb: &ProverData,
 ) -> Result<(Fp, IpProof<E>), Error> {
-    p.validate()?;
+    p.validate_unmasked()?;
     Ok(prove_ip_seeded(p, pda, pdb, &crate::rand::fresh_seed()?))
 }
 
@@ -403,7 +403,7 @@ pub fn verify_ip<E: ExtField>(
     s: Fp,
     proof: &IpProof<E>,
 ) -> Result<(), Error> {
-    p.validate()?;
+    p.validate_unmasked()?;
     let (nn, m, ell) = (p.big_n(), p.m(), p.ell);
     let groups = p.groups();
     let g0 = groups[0].1;
@@ -670,6 +670,7 @@ mod tests {
                     salt_len: 32,
                     fold_log,
                     cap_log,
+                    mask: 0,
                 };
                 let a: Vec<Fp> = (0..1 << n).map(|_| rng.fp()).collect();
                 let b: Vec<Fp> = (0..1 << n).map(|_| rng.fp()).collect();

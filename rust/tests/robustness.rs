@@ -166,6 +166,7 @@ fn pcs_malformed_proofs() {
             salt_len: salt,
             fold_log,
             cap_log,
+            mask: 0,
         };
         let table: Vec<Fp> = (0..1u64 << n).map(|i| Fp::new(i * i + 1)).collect();
         let z: Vec<Fp2> = (0..n as u64)
@@ -242,6 +243,7 @@ fn r1cs_malformed_proofs() {
         salt_len: 16,
         fold_log: 2,
         cap_log: 1,
+        mask: 0,
     };
     let (r, x, wit) = sample_instance(n, 2, 2, 11);
     let idx = index(&p, &r).unwrap();

@@ -36,6 +36,10 @@ pub enum Pub<E> {
     Geo(E),
     /// explicit entries (w, value), zero elsewhere
     Sparse(Vec<(usize, E)>),
+    /// the equality table `w -> eq(w, r) = prod_k ((1 - r_k)(1 - w_k) + r_k w_k)` of a point
+    /// `r ∈ F^n` (bit k of w paired with r_k); its table-form polynomial is
+    /// `prod_k ((1 - r_k) + r_k X^{2^k})`, evaluated in O(n)
+    Eq(Vec<E>),
 }
 
 impl<E: ExtField> Pub<E> {
@@ -58,6 +62,17 @@ impl<E: ExtField> Pub<E> {
                 }
                 v
             }
+            Pub::Eq(r) => {
+                let mut v = vec![E::ONE];
+                for &rk in r {
+                    // bit k is the next most significant bit of the index built so far
+                    let lo: Vec<E> = v.iter().map(|&x| x * (E::ONE - rk)).collect();
+                    let hi: Vec<E> = v.iter().map(|&x| x * rk).collect();
+                    v = lo.into_iter().chain(hi).collect();
+                }
+                v.resize(nn, E::ZERO);
+                v
+            }
         }
     }
     /// V_P(x).
@@ -70,6 +85,15 @@ impl<E: ExtField> Pub<E> {
             Pub::Sparse(es) => es
                 .iter()
                 .fold(E::ZERO, |acc, &(w, c)| acc + c * x.pow(w as u64)),
+            Pub::Eq(r) => {
+                let mut acc = E::ONE;
+                let mut xp = x;
+                for &rk in r {
+                    acc = acc * ((E::ONE - rk) + rk * xp);
+                    xp = xp * xp;
+                }
+                acc
+            }
         }
     }
 }
@@ -172,6 +196,48 @@ pub(crate) fn commit_group_seeded<T: Field + core::ops::Mul<Fp, Output = T>>(
         evals,
         tree,
     }
+}
+
+/// Commit to a group of base-field words with the zero-knowledge mask of `p.mask = q`: each word
+/// `U` (length N) is committed as `U + X^N·R` with `R` uniform of degree `< q`, drawn from the
+/// operating system (Kronobol `docs/zk/01-commitment.md`, part A). The mask changes neither the
+/// value nor the opening polynomial `A` of any statement on the word (Lemma A.1). Requires
+/// `p.mask > 0`.
+pub fn commit_group_masked(
+    p: &Params,
+    coeffs: Vec<Vec<Fp>>,
+    label: &[u8],
+) -> Result<GroupData<Fp>, Error> {
+    p.validate()?;
+    if p.mask == 0 {
+        return Err(Error::Params("commit_group_masked needs mask > 0"));
+    }
+    if coeffs.iter().any(|c| c.len() != p.big_n()) {
+        return Err(Error::Input("every word must have 2^n coefficients"));
+    }
+    Ok(commit_group_masked_seeded(
+        p,
+        coeffs,
+        &crate::rand::fresh_seed()?,
+        label,
+    ))
+}
+
+/// As [`commit_group_masked`], with the seed given by the caller (tests only).
+pub(crate) fn commit_group_masked_seeded(
+    p: &Params,
+    mut coeffs: Vec<Vec<Fp>>,
+    seed: &Digest,
+    label: &[u8],
+) -> GroupData<Fp> {
+    let mut st = crate::rand::FieldStream::new(seed, &[b"mask/".as_slice(), label].concat());
+    for c in coeffs.iter_mut() {
+        c.resize(p.big_n(), Fp::ZERO);
+        for _ in 0..p.mask {
+            c.push(st.next_fp());
+        }
+    }
+    commit_group_seeded(p, coeffs, seed, label)
 }
 
 /// A group seen by the engine's prover.
@@ -320,9 +386,39 @@ fn plan<E: ExtField>(stmts: &[AStmt<E>]) -> Plan {
     }
 }
 
-/// Number of words t + 1 of the curve for these statements.
+/// In zero-knowledge mode (`p.mask > 0`) the engine accepts evaluation and inner-product
+/// statements whose second argument is public (no Hadamard checks, no reversed committed words):
+/// the masking analysis of Kronobol `docs/zk` covers exactly these.
+fn zk_supported<E: ExtField>(stmts: &[AStmt<E>]) -> bool {
+    stmts.iter().all(|s| match s {
+        AStmt::Eval(..) => true,
+        AStmt::Ip(_, g, _) => !g.has_committed(),
+        AStmt::Had(..) => false,
+    })
+}
+
+fn stmt_pubs<E>(s: &AStmt<E>) -> impl Iterator<Item = &Pub<E>> {
+    let forms: Vec<&Form<E>> = match s {
+        AStmt::Eval(f, _, _) => vec![f],
+        AStmt::Ip(f, g, _) => vec![f, g],
+        AStmt::Had(a, b, c) => vec![a, b, c],
+    };
+    forms
+        .into_iter()
+        .flat_map(|f| f.pubs.iter().map(|(pb, _)| pb))
+}
+
+/// Number of words t + 1 of the curve for these statements (without masking).
 pub fn affine_words<E: ExtField>(stmts: &[AStmt<E>]) -> usize {
     plan(stmts).nwords
+}
+
+/// Number of words t + 1 of the curve for these statements with the parameters `p`: in
+/// zero-knowledge mode (`p.mask > 0`) the curve also holds one degree-adjustment word per
+/// statement and the masking codeword. The batching term of the soundness error is
+/// `(t + 1 - 1)·M/|F|`.
+pub fn curve_words<E: ExtField>(p: &Params, stmts: &[AStmt<E>]) -> usize {
+    plan(stmts).nwords + if p.mask > 0 { stmts.len() + 1 } else { 0 }
 }
 
 fn absorb_stmts<E: ExtField>(tr: &mut Transcript, stmts: &[AStmt<E>]) {
@@ -348,6 +444,13 @@ fn absorb_stmts<E: ExtField>(tr: &mut Transcript, stmts: &[AStmt<E>]) {
                     b.extend((es.len() as u64).to_le_bytes());
                     for (w, c) in es {
                         b.extend((*w as u64).to_le_bytes());
+                        b.extend(e_bytes(c));
+                    }
+                }
+                Pub::Eq(r) => {
+                    b.push(5);
+                    b.extend((r.len() as u64).to_le_bytes());
+                    for c in r {
                         b.extend(e_bytes(c));
                     }
                 }
@@ -393,6 +496,11 @@ pub fn prove_affine<E: ExtField>(
     stmts: &[AStmt<E>],
 ) -> Result<AffineProof<E>, Error> {
     p.validate()?;
+    if p.mask > 0 && !zk_supported(stmts) {
+        return Err(Error::Input(
+            "with mask > 0, only Eval and Ip statements with a public second argument",
+        ));
+    }
     Ok(prove_affine_seeded(
         p,
         tr,
@@ -413,10 +521,28 @@ pub(crate) fn prove_affine_seeded<E: ExtField>(
     groups: &[GData<E>],
     stmts: &[AStmt<E>],
 ) -> AffineProof<E> {
+    prove_affine_inner(p, tr, seed, first_round, groups, stmts, false)
+}
+
+/// The prover; `absorb_in_a` is a cheating prover for the tests: for a first statement that
+/// claims the true value plus one, it absorbs the error into the opening polynomial, `A - X^N`,
+/// which has degree `N`.
+/// The degree adjustment of the zero-knowledge mode must catch it.
+pub(crate) fn prove_affine_inner<E: ExtField>(
+    p: &Params,
+    tr: &mut Transcript,
+    seed: &Digest,
+    first_round: usize,
+    groups: &[GData<E>],
+    stmts: &[AStmt<E>],
+    absorb_in_a: bool,
+) -> AffineProof<E> {
     let (nn, m) = (p.big_n(), p.m());
+    let (d, q, zk) = (p.degree(), p.mask, p.mask > 0);
     let omega = p.omega();
     let g0 = p.groups()[0].1;
     let pl = plan(stmts);
+    let nwords = pl.nwords + if zk { stmts.len() + 1 } else { 0 };
     absorb_stmts(tr, stmts);
     let mut salts = Vec::new();
 
@@ -427,7 +553,7 @@ pub(crate) fn prove_affine_seeded<E: ExtField>(
         v
     };
     let form_coeffs = |f: &Form<E>| -> Vec<E> {
-        let mut out = vec![E::ZERO; nn];
+        let mut out = vec![E::ZERO; d];
         for (o, c) in &f.com {
             for (x, y) in out.iter_mut().zip(groups[o.group].coeffs(o.word)) {
                 *x = *x + *c * y;
@@ -512,7 +638,10 @@ pub(crate) fn prove_affine_seeded<E: ExtField>(
         let (u, k, v) = match s {
             AStmt::Eval(f, z, v) => (form_coeffs(f), evalker_coeffs(z), *v),
             AStmt::Ip(f, g, v) => {
+                // the reversal is taken at length N (public forms, and all words when mask = 0,
+                // have degree < N)
                 let mut gr = form_coeffs(g);
+                gr.truncate(nn);
                 gr.reverse();
                 (form_coeffs(f), gr, *v)
             }
@@ -523,12 +652,17 @@ pub(crate) fn prove_affine_seeded<E: ExtField>(
                 ys.push((y1, y3));
                 hi += 1;
                 let mut br = form_coeffs(b);
+                br.truncate(nn);
                 br.reverse();
                 (q, br, y3)
             }
         };
         let prod = poly_mul_e(&u, &k);
-        let (a, _, h) = split(&prod, nn);
+        let (mut a, _, h) = split(&prod, nn);
+        if absorb_in_a && acoef.is_empty() {
+            // the statement claims v = (true value) + 1; A - X^N restores the identity
+            a.push(-E::ONE);
+        }
         acoef.push(a);
         hcoef.push(h);
         vals.push(v);
@@ -539,16 +673,27 @@ pub(crate) fn prove_affine_seeded<E: ExtField>(
         tr.absorb(b"y1", &e_bytes(y1));
         tr.absorb(b"y3", &e_bytes(y3));
     }
-    let tree_w = commit_group_seeded(p, acoef.clone(), seed, b"affine-A");
+    // in zero-knowledge mode, the masking codeword m (a uniform polynomial of degree < N + q,
+    // Kronobol docs/zk/01-commitment.md part D) is one more word of the group of the w_A
+    let mut wcoef = acoef.clone();
+    if zk {
+        let mut st = crate::rand::FieldStream::new(seed, b"masking-codeword");
+        wcoef.push((0..d).map(|_| st.next_ext::<E>()).collect());
+    }
+    let tree_w = commit_group_seeded(p, wcoef, seed, b"affine-A");
     tr.absorb(b"root", &tree_w.tree.root());
     salts.push(round_salt(seed, first_round + 1, p.salt_len));
     tr.absorb(b"salt", salts.last().unwrap());
-    let beta: E = tr.challenge();
-    let bp = powers(beta, pl.nwords);
+    let beta: E = if zk {
+        tr.challenge_nonzero()
+    } else {
+        tr.challenge()
+    };
+    let bp = powers(beta, nwords);
 
     // the batched word, one word at a time
     let mut w0 = vec![E::ZERO; m];
-    let mut u0 = vec![E::ZERO; nn];
+    let mut u0 = vec![E::ZERO; d];
     let mut s = 0usize;
     let mut add = |ev: &[E], co: &[E], s: &mut usize| {
         let b = bp[*s];
@@ -643,7 +788,29 @@ pub(crate) fn prove_affine_seeded<E: ExtField>(
             }
         }
     }
-    debug_assert_eq!(s, pl.nwords);
+    // zero knowledge: the degree adjustments xi^q w_A of every statement (part B), then m (part D)
+    if zk {
+        let step_q = omega.pow(q as u64);
+        let xq: Vec<Fp> = (0..m)
+            .scan(Fp::ONE, |x, _| {
+                let c = *x;
+                *x = *x * step_q;
+                Some(c)
+            })
+            .collect();
+        for j in 0..stmts.len() {
+            let ev: Vec<E> = (0..m).map(|i| tree_w.evals[j][i] * xq[i]).collect();
+            let mut co = vec![E::ZERO; q];
+            co.extend_from_slice(&tree_w.coeffs[j]);
+            add(&ev, &co, &mut s);
+        }
+        add(
+            &tree_w.evals[stmts.len()],
+            &tree_w.coeffs[stmts.len()],
+            &mut s,
+        );
+    }
+    debug_assert_eq!(s, nwords);
 
     // the folding test and the openings
     let (ft, idx) = ft_prove(p, tr, seed, first_round + 2, w0, u0);
@@ -739,6 +906,10 @@ pub fn verify_affine<E: ExtField>(
     proof: &AffineProof<E>,
 ) -> Result<(), Error> {
     p.validate()?;
+    let (zk, q) = (p.mask > 0, p.mask);
+    if zk && !zk_supported(stmts) {
+        return Err(Error::Shape);
+    }
     let (n, nn, m) = (p.n, p.big_n(), p.m());
     let omega = p.omega();
     let g0 = p.groups()[0].1;
@@ -759,6 +930,9 @@ pub fn verify_affine<E: ExtField>(
         || stmts
             .iter()
             .any(|s| matches!(s, AStmt::Eval(_, z, _) if z.len() != n))
+        || stmts
+            .iter()
+            .any(|s| stmt_pubs(s).any(|pb| matches!(pb, Pub::Eq(r) if r.len() > n)))
     {
         return Err(Error::Shape);
     }
@@ -783,8 +957,13 @@ pub fn verify_affine<E: ExtField>(
     }
     tr.absorb(b"root", &root_from_cap(&proof.cap_w)?);
     tr.absorb(b"salt", &proof.salts[1]);
-    let beta: E = tr.challenge();
-    let bp = powers(beta, pl.nwords);
+    let beta: E = if zk {
+        tr.challenge_nonzero()
+    } else {
+        tr.challenge()
+    };
+    let nwords = pl.nwords + if zk { stmts.len() + 1 } else { 0 };
+    let bp = powers(beta, nwords);
     let gt = gamma * theta;
     // direct checks for purely public forms of the Hadamard checks
     for (k, &j) in pl.had.iter().enumerate() {
@@ -839,7 +1018,8 @@ pub fn verify_affine<E: ExtField>(
     if !pl.had.is_empty() {
         multi_check(p, &proof.cap_q, &proof.oq, &pos0, pl.had.len())?;
     }
-    multi_check(p, &proof.cap_w, &proof.ow, &pos0, stmts.len())?;
+    let nw = stmts.len() + usize::from(zk);
+    multi_check(p, &proof.cap_w, &proof.ow, &pos0, nw)?;
 
     for &i0 in &idx {
         let a0 = i0 % mg0;
@@ -863,9 +1043,7 @@ pub fn verify_affine<E: ExtField>(
         let qv: Vec<Vec<E>> = (0..pl.had.len())
             .map(|k| multi_coset(&proof.oq, a0, k))
             .collect();
-        let wv: Vec<Vec<E>> = (0..stmts.len())
-            .map(|k| multi_coset(&proof.ow, a0, k))
-            .collect();
+        let wv: Vec<Vec<E>> = (0..nw).map(|k| multi_coset(&proof.ow, a0, k)).collect();
         let w0: Vec<E> = (0..2usize << (g0 - 1))
             .map(|t| {
                 let pos = a0 + t * mg0;
@@ -911,7 +1089,7 @@ pub fn verify_affine<E: ExtField>(
                 for q in &qv {
                     push(q[t], &mut acc);
                 }
-                for w in &wv {
+                for w in &wv[..stmts.len()] {
                     push(w[t], &mut acc);
                 }
                 let mut hi = 0;
@@ -939,10 +1117,86 @@ pub fn verify_affine<E: ExtField>(
                         }
                     }
                 }
+                if zk {
+                    let xq = E::from(omega.pow(((pos * q) % m) as u64));
+                    for w in &wv[..stmts.len()] {
+                        push(w[t] * xq, &mut acc);
+                    }
+                    push(wv[stmts.len()][t], &mut acc);
+                }
+                debug_assert_eq!(s, nwords);
                 acc
             })
             .collect();
         ft_check_query(p, &proof.ft, &rs, i0, w0)?;
     }
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::field::Fp2;
+
+    /// Kronobol docs/zk/01-commitment.md, part B: with a mask, the folding test bounds the degree
+    /// by N + q, so an opening polynomial A - X^N (degree N) would hide an error in the value;
+    /// the degree-adjustment word xi^q w_A catches it.
+    #[test]
+    fn degree_adjustment_catches_absorbed_error() {
+        for mask in [0usize, 8, 16] {
+            let p = Params {
+                n: 7,
+                log_inv_rate: 2,
+                ell: 3,
+                queries: 30,
+                salt_len: 16,
+                fold_log: 1,
+                cap_log: 1,
+                mask,
+            };
+            let table: Vec<Fp> = (0..128u64).map(|i| Fp::new(3 * i + 1)).collect();
+            let g = if mask > 0 {
+                commit_group_masked_seeded(&p, vec![table.clone()], &[1u8; 32], b"W")
+            } else {
+                commit_group_seeded(&p, vec![table.clone()], &[1u8; 32], b"W")
+            };
+            let t: Vec<(usize, Fp2)> = (0..128)
+                .map(|j| (j, Fp2::from(Fp::new(j as u64 + 5))))
+                .collect();
+            let c = t
+                .iter()
+                .fold(Fp2::ZERO, |acc, &(j, x)| acc + x * Fp2::from(table[j]));
+            // the claim c + 1 is what the cheating prover proves
+            let st = vec![AStmt::Ip(
+                Form::word(OId { group: 0, word: 0 }),
+                Form::public(Pub::Sparse(t)),
+                c + Fp2::ONE,
+            )];
+            let groups = [GData::Base(&g)];
+            let pr = prove_affine_inner(
+                &p,
+                &mut Transcript::new(b"t"),
+                &[2u8; 32],
+                0,
+                &groups,
+                &st,
+                true,
+            );
+            let res = verify_affine(
+                &p,
+                &mut Transcript::new(b"t"),
+                &[g.tree.root()],
+                &[Shape {
+                    base: true,
+                    words: 1,
+                }],
+                &st,
+                &pr,
+            );
+            assert!(
+                res.is_err(),
+                "mask {mask}: the absorbed error must be rejected"
+            );
+        }
+    }
 }

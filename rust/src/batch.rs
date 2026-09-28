@@ -379,7 +379,7 @@ pub fn prove_batch<E: ExtField>(
     pds: &[&ProverData],
     stmts: &[Stmt<E>],
 ) -> Result<BatchProof<E>, Error> {
-    p.validate()?;
+    p.validate_unmasked()?;
     Ok(prove_batch_seeded(
         p,
         pds,
@@ -659,7 +659,7 @@ pub fn verify_batch<E: ExtField>(
     stmts: &[Stmt<E>],
     proof: &BatchProof<E>,
 ) -> Result<(), Error> {
-    p.validate()?;
+    p.validate_unmasked()?;
     let (nn, m) = (p.big_n(), p.m());
     let omega = p.omega();
     let g0 = p.groups()[0].1;
@@ -859,6 +859,7 @@ mod tests {
                 salt_len: 32,
                 fold_log,
                 cap_log,
+                mask: 0,
             };
             let nn = 1usize << n;
             let a: Vec<Fp> = (0..nn).map(|_| rng.fp()).collect();

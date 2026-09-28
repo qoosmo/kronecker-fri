@@ -55,7 +55,7 @@ pub struct Index {
 const IDX_WORDS: usize = 11;
 
 pub fn index(p: &Params, r: &R1cs) -> Result<Index, Error> {
-    p.validate()?;
+    p.validate_unmasked()?;
     Ok(index_seeded(p, r, &crate::rand::fresh_seed()?))
 }
 
@@ -287,7 +287,7 @@ pub fn prove_r1cs<E: ExtField>(
     x: &[Fp],
     wit: &[Fp],
 ) -> Result<R1csProof<E>, Error> {
-    p.validate()?;
+    p.validate_unmasked()?;
     Ok(prove_r1cs_seeded(
         p,
         r,
@@ -460,7 +460,7 @@ pub fn verify_r1cs<E: ExtField>(
     x: &[Fp],
     proof: &R1csProof<E>,
 ) -> Result<(), Error> {
-    p.validate()?;
+    p.validate_unmasked()?;
     if x.len() != r.inputs.len()
         || proof.salts.len() != 3
         || proof.salts.iter().any(|s| s.len() != p.salt_len)
@@ -598,6 +598,7 @@ mod tests {
                 salt_len: 16,
                 fold_log,
                 cap_log,
+                mask: 0,
             };
             let (r, x, wit) = sample_instance(n, 2, 2, 7 + n as u64);
             let idx = index_seeded(&p, &r, &[1u8; 32]);

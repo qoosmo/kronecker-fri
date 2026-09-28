@@ -4,6 +4,28 @@
 
 Preparation of the crate for the Kronobol proof system: errors, randomness, transcript, zero-knowledge hooks. This entry grows with each patch.
 
+### Zero-knowledge mode of the engine `affine`
+Implements the opening part of the zero-knowledge design of Kronobol (`docs/zk/01-commitment.md`).
+- `Params::mask` (`q`, default 0) and `Params::with_mask`. The degree bound of the folding test becomes `Params::degree() = N + q`. `validate` requires `q` to be a multiple of `2^ell` and `q < N/2`. The final polynomial has `(N + q)/2^ell` coefficients. Adding the field is a breaking change for struct-literal construction of `Params`: add `mask: 0`.
+- `affine::commit_group_masked`: commits each base-field word `U` as `U + X^N·R`, with `R` uniform of degree `< q` (exact rejection sampling from a seed drawn from the operating system).
+- With `mask > 0`, `prove_affine` / `verify_affine`:
+  - add the degree-adjustment word `ξ^q·w_A` of every statement (part B);
+  - commit a uniform masking codeword of degree `< N + q` in the group of the `w_A` (part D);
+  - draw `β` nonzero.
+
+  The mode accepts `Eval` statements and `Ip` statements whose second argument is public (the cases covered by the analysis); anything else returns `Error::Input` (prover) or `Error::Shape` (verifier).
+- `affine::curve_words(p, stmts)`: number of words of the curve, masking words included, for the batching term of the soundness error.
+- `Pub::Eq(r)`: the equality table of a point, with table-form polynomial `∏_k ((1 − r_k) + r_k X^{2^k})`, evaluated by the verifier in `O(n)`. It gives succinct verification of the final linear claims of a sumcheck.
+- `Params::validate_unmasked`: `pcs`, `ip`, `had`, `batch`, `r1cs`, `spartan` and `sumcheck` require `mask = 0` and return `Error::Params` otherwise.
+- Fix: the reversal of the second argument of an `Ip` statement is taken at length `N`.
+- Tests (`tests/zk.rs` and `affine::tests`):
+  - masked commitments (fresh masks, table part unchanged);
+  - completeness of masked `Ip` and `Eval` statements (`n` = 6, 8, 10; `q` = 8, 16) and rejection of wrong claims and of another transcript;
+  - the restrictions of the mode;
+  - `Pub::Eq` against its table;
+  - a cheating prover that absorbs a wrong value into `A − X^N`. It is rejected. **Without the degree-adjustment word it is accepted**: checked by removing the word, which confirms that part B is necessary.
+- Unmasked proofs are unchanged (same digests as patch 3 for the same seeds).
+
 ### Transcript
 - Versioned domain labels `kronecker-fri/v0.5/<protocol>` for every protocol (`pcs`, `ip`, `had`, `batch`, `r1cs`, `spartan-core`, and the four routes of `sumcheck`). Proofs therefore differ from 0.4.
 - `pcs::open_in` and `pcs::verify_in` continue the caller's transcript: a protocol using `Π_KF` as a subprotocol first absorbs its own domain separator and statement, and every challenge of the opening depends on them. The opening still absorbs its own statement (parameters, extension degree, commitment, point, value). `pcs::LABEL` is the label of the stand-alone transcript.
