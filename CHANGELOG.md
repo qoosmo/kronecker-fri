@@ -1,8 +1,8 @@
 # Changelog
 
-## Unreleased — 0.5.0 (breaking)
+## v0.5.0 — 2026-09-29 (breaking)
 
-Preparation of the crate for the Kronobol proof system: errors, randomness, transcript, zero-knowledge hooks. This entry grows with each patch.
+Preparation of the crate for the Kronobol proof system: errors, randomness, transcript, zero-knowledge hooks. Migration notes are in each section.
 
 ### Zero-knowledge mode of the engine `affine`
 Implements the opening part of the zero-knowledge design of Kronobol (`docs/zk/01-commitment.md`).
